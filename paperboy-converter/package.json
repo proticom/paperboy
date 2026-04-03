@@ -1,0 +1,39 @@
+{
+  "name": "@proticom/paperboy-converter",
+  "version": "0.1.0",
+  "description": "Shared Paperboy file-to-markdown converter",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./turndown": "./dist/turndown.js",
+    "./helpers": "./dist/helpers.js",
+    "./types": "./dist/types.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "npm run build && vitest run",
+    "sync:all": "node scripts/sync-all.mjs"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "linkedom": "^0.18.12",
+    "mammoth": "^1.10.0",
+    "tesseract.js": "^6.0.1",
+    "turndown": "^7.2.2",
+    "turndown-plugin-gfm": "^1.0.2",
+    "unpdf": "^0.12.2",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.1",
+    "@types/turndown": "^5.0.6",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
