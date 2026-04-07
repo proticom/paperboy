@@ -488,12 +488,12 @@ function lockScroll(source, action) {
 // --------------- Window drag ---------------
 
 function setupWindowDrag() {
-  if (!currentWindow?.startDragging) return;
-
   const startDrag = async (event) => {
     if (event.button !== 0) return;
     if (event.target.closest(".header-controls")) return;
+    if (event.target.closest(".tab, .tab-close")) return;
     if (event.target.closest("button, a, input, textarea, select, option")) return;
+    if (!currentWindow?.startDragging) return;
     event.preventDefault();
     try {
       await currentWindow.startDragging();

@@ -13,8 +13,8 @@
   <body>
     <div class="app-shell">
       <header class="header-bar">
-        <div class="header-drag-surface" data-window-drag></div>
-        <div class="titlebar-drag">
+        <div class="header-drag-surface" data-window-drag data-tauri-drag-region></div>
+        <div class="titlebar-drag" data-window-drag data-tauri-drag-region>
           <div class="filename" data-filename hidden></div>
         </div>
         <div class="header-controls">
@@ -45,7 +45,7 @@
         </div>
       </header>
 
-      <nav class="tab-bar" data-tab-bar></nav>
+      <nav class="tab-bar" data-tab-bar data-window-drag></nav>
 
       <div class="toolbar" data-toolbar>
         <div class="toolbar-group">
