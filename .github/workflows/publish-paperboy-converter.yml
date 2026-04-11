@@ -1,19 +1,16 @@
-# Publishes @proticom/paperboy-converter to the npm registry.
+# Publishes @proticom/paperboy-converter — same pattern as Gnosys (proticom/gnosys):
+# push a version tag v*, OIDC trusted publishing (no NPM_TOKEN, no registry-url).
+# https://docs.npmjs.com/trusted-publishers
 #
-# Before running:
-# 1. Bump "version" in paperboy-converter/package.json (and commit to main).
-# 2. Add an npm automation token with publish access to the @proticom scope as
-#    repository secret NPM_TOKEN (Settings → Secrets and variables → Actions).
-#
-# Optional: configure an npm "Trusted Publisher" for this repo and OIDC instead
-# of a long-lived token (https://docs.npmjs.com/trusted-publishers).
+# One-time on npmjs.com: add this GitHub repo as a Trusted Publisher for
+# @proticom/paperboy-converter (same org/scope as gnosys).
 
-name: Publish @proticom/paperboy-converter
+name: Publish to npm
 
 on:
-  workflow_dispatch:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
 
 jobs:
   publish:
@@ -22,24 +19,30 @@ jobs:
       run:
         working-directory: paperboy-converter
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    permissions:
+      contents: read
+      id-token: write
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v5
         with:
-          node-version: "20"
-          registry-url: https://registry.npmjs.org
+          node-version: 24
           cache: npm
           cache-dependency-path: paperboy-converter/package-lock.json
+          # DO NOT set registry-url — it writes .npmrc with empty token
+          # which overrides OIDC auth and causes 404
 
-      - name: Install and test
-        run: |
-          npm ci
-          npm test
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+      - name: Publish to npm (OIDC trusted publishing, no token needed)
         run: npm publish --access public

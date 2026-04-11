@@ -115,15 +115,29 @@ npm run build
 
 ## Publishing to npm (maintainers)
 
-The scope **`@proticom`** must exist on npm and your account needs **publish** rights for it.
+This package uses the **same Proticom / npm setup as [Gnosys](https://github.com/proticom/gnosys)** ([gnosys on npm](https://www.npmjs.com/package/gnosys), [gnosys.ai](https://gnosys.ai)): the **`@proticom`** scope and **OIDC trusted publishing** from GitHub Actions. You do **not** store an **`NPM_TOKEN`** secret for releases (see Gnosys workflow [publish.yml](https://github.com/proticom/gnosys/blob/master/.github/workflows/publish.yml)).
+
+### One-time: Trusted Publisher on npm
+
+In the npm package settings for **`@proticom/paperboy-converter`**, add **this repository** (`proticom/paperboy`) as a [Trusted Publisher](https://docs.npmjs.com/trusted-publishers) (same idea as for Gnosys). Until that is configured, automated publish from Actions will fail.
+
+### Each release
 
 1. Bump **`version`** in `paperboy-converter/package.json` (semver) and commit to `main`.
-2. In the GitHub repo, add secret **`NPM_TOKEN`** (an npm automation token with publish access to `@proticom`).
-3. Run the workflow **Publish @proticom/paperboy-converter** (Actions → workflow → Run workflow), or trigger it from a **GitHub Release** publish event.
+2. Create and push a **git tag** whose name matches the usual Proticom pattern: **`v` + that version** (example: version `0.2.0` → tag `v0.2.0`).
 
-The workflow runs tests, then **`npm publish --access public`** from `paperboy-converter/`.
+   ```bash
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
 
-**After the first successful publish**, point **`paperboy-cli`** at the registry instead of the monorepo path: in `paperboy-cli/package.json` set `"@proticom/paperboy-converter": "^0.1.0"` (match the version you published), run `npm install` in `paperboy-cli/`, and commit the updated lockfile before publishing the CLI.
+3. GitHub Actions runs **Publish to npm**: `npm ci`, `npm run build`, `npm test`, then **`npm publish --access public`** from `paperboy-converter/` (OIDC, no long-lived token).
+
+Keep the tag name and `package.json` version in sync so releases are easy to trace.
+
+### After the first successful publish
+
+Point **`paperboy-cli`** at the registry instead of the monorepo path: in `paperboy-cli/package.json` set `"@proticom/paperboy-converter": "^0.1.0"` (use the range you need), run `npm install` in `paperboy-cli/`, commit the updated lockfile, then publish the CLI the same way when you add a matching workflow or tag strategy.
 
 ## License
 
