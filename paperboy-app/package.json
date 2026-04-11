@@ -10,7 +10,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@proticom/paperboy-converter": "file:../paperboy-converter/proticom-paperboy-converter-0.1.0.tgz",
+    "@proticom/paperboy-converter": "file:../paperboy-converter",
     "@chenglou/pretext": "^0.0.2",
     "@tauri-apps/api": "^2.8.0",
     "@tauri-apps/plugin-dialog": "^2.4.0",

@@ -113,6 +113,18 @@ npm test
 npm run build
 ```
 
+## Publishing to npm (maintainers)
+
+The scope **`@proticom`** must exist on npm and your account needs **publish** rights for it.
+
+1. Bump **`version`** in `paperboy-converter/package.json` (semver) and commit to `main`.
+2. In the GitHub repo, add secret **`NPM_TOKEN`** (an npm automation token with publish access to `@proticom`).
+3. Run the workflow **Publish @proticom/paperboy-converter** (Actions → workflow → Run workflow), or trigger it from a **GitHub Release** publish event.
+
+The workflow runs tests, then **`npm publish --access public`** from `paperboy-converter/`.
+
+**After the first successful publish**, point **`paperboy-cli`** at the registry instead of the monorepo path: in `paperboy-cli/package.json` set `"@proticom/paperboy-converter": "^0.1.0"` (match the version you published), run `npm install` in `paperboy-cli/`, and commit the updated lockfile before publishing the CLI.
+
 ## License
 
 MIT
