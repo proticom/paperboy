@@ -21,6 +21,14 @@ next-env.d.ts
 
 # OS / editor
 .DS_Store
+# SMB filesystem leftover markers (Synology NAS share)
+**/.smbdelete*
+# Synology / macOS finder duplicates
+**/* [0-9].js
+**/* [0-9].ts
+
+# Paperboy CLI doctor probe leftovers (cleaned up on success; failures may litter cwd)
+**/.paperboy-doctor-*.tmp
 
 # Env & secrets
 **/.env
