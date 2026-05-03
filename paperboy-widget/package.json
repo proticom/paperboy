@@ -33,7 +33,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@proticom/paperboy-converter": "file:../paperboy-converter/proticom-paperboy-converter-0.1.0.tgz"
+    "@proticom/paperboy-converter": "file:../paperboy-converter/proticom-paperboy-converter-0.1.2.tgz"
   },
   "devDependencies": {
     "esbuild": "^0.27.4",
