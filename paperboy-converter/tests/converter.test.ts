@@ -1,20 +1,8 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-
-const recognizeMock = vi.hoisted(() => vi.fn());
-
-vi.mock("tesseract.js", () => ({
-  default: {
-    recognize: recognizeMock,
-  },
-}));
+import { describe, expect, it } from "vitest";
 
 import { convertToMarkdown } from "../src/index.js";
 
 describe("shared converter", () => {
-  beforeEach(() => {
-    recognizeMock.mockReset();
-  });
-
   it("converts plain text files", async () => {
     const result = await convertToMarkdown("note.txt", "Hello\r\nWorld");
 
@@ -65,36 +53,21 @@ describe("shared converter", () => {
   });
 
   it("converts image files with OCR text and layout", async () => {
-    recognizeMock.mockResolvedValue({
-      data: {
-        text: "Detected text",
-        blocks: [
-          {
-            paragraphs: [
-              {
-                lines: [
-                  {
-                    words: [
-                      {
-                        text: "Detected",
-                        confidence: 96.3,
-                        bbox: { x0: 10, y0: 20, x1: 80, y1: 40 },
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-    });
-
     const result = await convertToMarkdown(
       "scan.png",
       new Uint8Array([137, 80, 78, 71]),
       {
         image: {
+          ocr: async () => ({
+            text: "Detected text",
+            words: [
+              {
+                text: "Detected",
+                confidence: 96.3,
+                bbox: { x0: 10, y0: 20, x1: 80, y1: 40 },
+              },
+            ],
+          }),
           describeImage: async () => "A scanned receipt.",
         },
       },
@@ -109,16 +82,14 @@ describe("shared converter", () => {
   });
 
   it("warns when OCR finds no text", async () => {
-    recognizeMock.mockResolvedValue({
-      data: {
-        text: "",
-        blocks: [],
-      },
-    });
-
     const result = await convertToMarkdown(
       "empty.png",
       new Uint8Array([137, 80, 78, 71]),
+      {
+        image: {
+          ocr: async () => ({ text: "", words: [] }),
+        },
+      },
     );
 
     expect(result.markdown).toBe("");

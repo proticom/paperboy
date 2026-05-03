@@ -14,6 +14,9 @@ import type {
   ConvertResult,
   ConverterHandler,
   ImageDescriptionParams,
+  OcrFunction,
+  OcrResult,
+  OcrWord,
   OcrWordPosition,
 } from "./types.js";
 
@@ -85,6 +88,9 @@ export type {
   ConvertOptions,
   ConvertResult,
   ImageDescriptionParams,
+  OcrFunction,
+  OcrResult,
+  OcrWord,
   OcrWordPosition,
 };
 

@@ -1,10 +1,11 @@
-import Tesseract from "tesseract.js";
-
 import { getExtension, stripFileExtension, toBytes } from "../helpers.js";
 import type {
   ConvertInputData,
   ConvertOptions,
   ConvertResult,
+  OcrFunction,
+  OcrResult,
+  OcrWord,
   OcrWordPosition,
 } from "../types.js";
 
@@ -14,15 +15,9 @@ function escapeMarkdownCell(value: string): string {
   return value.replace(/\|/g, "\\|").replace(/\r\n/g, " ").replace(/\n/g, " ");
 }
 
-function toOcrWords(rawWords: unknown[]): OcrWordPosition[] {
-  return rawWords
-    .map((rawWord) => {
-      if (!rawWord || typeof rawWord !== "object") return null;
-      const word = rawWord as {
-        text?: string;
-        confidence?: number;
-        bbox?: { x0?: number; y0?: number; x1?: number; y1?: number };
-      };
+function toOcrWordPositions(words: OcrWord[]): OcrWordPosition[] {
+  return words
+    .map((word) => {
       const text = (word.text ?? "").trim();
       if (!text) return null;
       const x0 = word.bbox?.x0 ?? 0;
@@ -41,9 +36,9 @@ function toOcrWords(rawWords: unknown[]): OcrWordPosition[] {
     .filter((word): word is OcrWordPosition => Boolean(word));
 }
 
-function collectWordsFromBlocks(rawBlocks: unknown): unknown[] {
+function collectWordsFromTesseractBlocks(rawBlocks: unknown): OcrWord[] {
   if (!Array.isArray(rawBlocks)) return [];
-  const words: unknown[] = [];
+  const words: OcrWord[] = [];
 
   for (const rawBlock of rawBlocks) {
     if (!rawBlock || typeof rawBlock !== "object") continue;
@@ -58,12 +53,52 @@ function collectWordsFromBlocks(rawBlocks: unknown): unknown[] {
       for (const rawLine of lines) {
         if (!rawLine || typeof rawLine !== "object") continue;
         const lineWords = (rawLine as { words?: unknown[] }).words;
-        if (Array.isArray(lineWords)) words.push(...lineWords);
+        if (!Array.isArray(lineWords)) continue;
+
+        for (const rawWord of lineWords) {
+          if (!rawWord || typeof rawWord !== "object") continue;
+          const word = rawWord as Partial<OcrWord> & {
+            bbox?: { x0?: number; y0?: number; x1?: number; y1?: number };
+          };
+          const bbox: {
+            x0?: number;
+            y0?: number;
+            x1?: number;
+            y1?: number;
+          } = word.bbox ?? {};
+          words.push({
+            text: typeof word.text === "string" ? word.text : "",
+            confidence:
+              typeof word.confidence === "number" ? word.confidence : 0,
+            bbox: {
+              x0: bbox.x0 ?? 0,
+              y0: bbox.y0 ?? 0,
+              x1: bbox.x1 ?? bbox.x0 ?? 0,
+              y1: bbox.y1 ?? bbox.y0 ?? 0,
+            },
+          });
+        }
       }
     }
   }
 
   return words;
+}
+
+// Lazy import keeps tesseract.js out of the test path when callers inject ocr.
+async function defaultOcr(
+  bytes: Uint8Array,
+  language: string,
+): Promise<OcrResult> {
+  const { default: Tesseract } = await import("tesseract.js");
+  const recognizeArg = bytes as unknown as Parameters<
+    typeof Tesseract.recognize
+  >[0];
+  const result = await Tesseract.recognize(recognizeArg, language);
+  return {
+    text: result.data?.text ?? "",
+    words: collectWordsFromTesseractBlocks(result.data?.blocks),
+  };
 }
 
 function buildLayoutTable(words: OcrWordPosition[]): string {
@@ -109,12 +144,11 @@ export async function convertImage(
   const warnings = [
     "OCR runs locally and may take longer on large images. First run can download language data.",
   ];
-  const imageSource = fileBytes as unknown as Parameters<
-    typeof Tesseract.recognize
-  >[0];
-  const ocrResult = await Tesseract.recognize(imageSource, "eng");
-  const ocrText = (ocrResult.data?.text ?? "").trim();
-  const words = toOcrWords(collectWordsFromBlocks(ocrResult.data?.blocks));
+
+  const ocr: OcrFunction = options?.image?.ocr ?? defaultOcr;
+  const ocrResult = await ocr(fileBytes, "eng");
+  const ocrText = (ocrResult.text ?? "").trim();
+  const words = toOcrWordPositions(ocrResult.words ?? []);
   const includeLayout = options?.image?.includeLayoutTable ?? true;
   const sections: string[] = [];
 
