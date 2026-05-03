@@ -21,6 +21,9 @@ next-env.d.ts
 
 # OS / editor
 .DS_Store
+
+# Claude Code local permission cache (per-machine, not shared)
+.claude/settings.local.json
 # SMB filesystem leftover markers (Synology NAS share)
 **/.smbdelete*
 # Synology / macOS finder duplicates

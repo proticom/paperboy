@@ -1,0 +1,42 @@
+name: Publish @proticom/paperboy
+
+on:
+  push:
+    tags:
+      - 'cli-v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: paperboy-cli/package-lock.json
+          # DO NOT set registry-url — it writes .npmrc with empty token
+          # which overrides OIDC auth and causes 404
+
+      - name: Install dependencies
+        working-directory: ./paperboy-cli
+        run: npm ci
+
+      - name: Build
+        working-directory: ./paperboy-cli
+        run: npm run build
+
+      - name: Run tests
+        working-directory: ./paperboy-cli
+        run: npm test
+
+      - name: Publish to npm (OIDC trusted publishing, no token needed)
+        working-directory: ./paperboy-cli
+        run: npm publish --access public
