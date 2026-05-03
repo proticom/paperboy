@@ -6,10 +6,11 @@ import {
   type ConvertOptions as SharedConvertOptions,
   type ConvertResult,
   type ImageDescriptionParams as SharedImageDescriptionParams,
+  type OcrFunction,
   type OcrWordPosition,
 } from "@proticom/paperboy-converter";
 
-export type { ConvertResult, OcrWordPosition };
+export type { ConvertResult, OcrFunction, OcrWordPosition };
 export { SUPPORTED_EXTENSIONS };
 
 export interface ImageDescriptionParams {
@@ -24,6 +25,7 @@ export interface ConvertOptions {
   image?: {
     includeLayoutTable?: boolean;
     describeImage?: (params: ImageDescriptionParams) => Promise<string | null>;
+    ocr?: OcrFunction;
   };
 }
 
@@ -50,6 +52,10 @@ function toSharedOptions(
         ocrText: params.ocrText,
         words: params.words,
       }) ?? null;
+  }
+
+  if (options.image.ocr) {
+    sharedImageOptions.ocr = options.image.ocr;
   }
 
   return { image: sharedImageOptions };

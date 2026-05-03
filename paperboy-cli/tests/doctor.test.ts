@@ -65,4 +65,39 @@ describe("doctor", () => {
     expect(keyCheck?.status).toBe("fail");
     expect(report.summary.fail).toBeGreaterThan(0);
   });
+
+  it("includes crawl readiness checks when running offline", async () => {
+    const configModule = await importConfigModule();
+    await configModule.saveConfig({
+      ...configModule.DEFAULT_CONFIG,
+      ai: {
+        ...configModule.DEFAULT_CONFIG.ai,
+        mode: "disabled",
+      },
+    });
+
+    const doctorModule = await importDoctorModule();
+    const report = await doctorModule.runDoctor({ offline: true });
+
+    const internet = report.checks.find(
+      (check) => check.name === "Internet reachability",
+    );
+    expect(internet?.status).toBe("ok");
+    expect(internet?.details).toMatch(/Skipped/);
+
+    const smoke = report.checks.find(
+      (check) => check.name === "Converter smoke test",
+    );
+    expect(smoke?.status).toBe("ok");
+
+    const proxy = report.checks.find(
+      (check) => check.name === "Proxy environment",
+    );
+    expect(proxy).toBeDefined();
+
+    const writable = report.checks.find(
+      (check) => check.name === "Output directory writable",
+    );
+    expect(writable?.status).toBe("ok");
+  });
 });
