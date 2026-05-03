@@ -1,4 +1,8 @@
 import { createTurndownService } from "@proticom/paperboy-converter/turndown";
+import markdownit from "markdown-it";
+
+/* global PAPERBOY_CONVERTER_VERSION */ // banner in sidepanel.bundle.js from build.js
+const CONVERTER_VERSION = PAPERBOY_CONVERTER_VERSION;
 
 const MESSAGE_TYPES = {
   REQUEST_PAGE_DATA: "paperboy:request-page-data",
@@ -10,7 +14,10 @@ const dom = {
   copyButton: document.getElementById("copy-btn"),
   copyButtonLabel: document.getElementById("copy-btn-label"),
   output: document.getElementById("markdown-output"),
+  preview: document.getElementById("preview-output"),
   metaText: document.getElementById("meta-text"),
+  converterVersionLine: document.getElementById("converter-version-line"),
+  viewToggle: document.getElementById("view-toggle"),
 };
 
 const copyIconMarkup = `
@@ -29,9 +36,11 @@ const checkIconMarkup = `
 const state = {
   markdown: "",
   isLoading: false,
+  view: "source",
 };
 
 const turndownService = createTurndownService();
+const md = markdownit({ html: false, linkify: true, typographer: true });
 
 function setStatus(text, status = "idle") {
   dom.metaText.textContent = text;
@@ -126,6 +135,7 @@ function convertHtmlToMarkdown(payload) {
 function renderMarkdown(markdownResult, capturedAt) {
   state.markdown = markdownResult.markdown;
   dom.output.textContent = markdownResult.markdown;
+  dom.preview.innerHTML = md.render(markdownResult.markdown);
   dom.copyButton.disabled = false;
 
   const capturedTime = new Date(capturedAt).toLocaleTimeString();
@@ -138,8 +148,27 @@ function renderMarkdown(markdownResult, capturedAt) {
 function renderError(error) {
   state.markdown = "";
   dom.output.textContent = `Error: ${error.message}`;
+  dom.preview.innerHTML = "";
   dom.copyButton.disabled = true;
   setStatus("Could not convert this page.", "error");
+}
+
+function setViewMode(view) {
+  if (view !== "source" && view !== "preview") return;
+  state.view = view;
+
+  const buttons = dom.viewToggle.querySelectorAll("button[data-view]");
+  let activeIndex = 0;
+  buttons.forEach((button, index) => {
+    const isActive = button.dataset.view === view;
+    button.classList.toggle("active", isActive);
+    if (isActive) activeIndex = index;
+  });
+  dom.viewToggle.style.setProperty("--active-index", String(activeIndex));
+
+  const showSource = view === "source";
+  dom.output.hidden = !showSource;
+  dom.preview.hidden = showSource;
 }
 
 async function extractCurrentPage() {
@@ -188,5 +217,15 @@ dom.refreshButton.addEventListener("click", () => {
 dom.copyButton.addEventListener("click", () => {
   copyMarkdown();
 });
+
+dom.viewToggle.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-view]");
+  if (!button) return;
+  setViewMode(button.dataset.view);
+});
+
+if (dom.converterVersionLine) {
+  dom.converterVersionLine.textContent = `Converter ${CONVERTER_VERSION}`;
+}
 
 extractCurrentPage();

@@ -1,15 +1,20 @@
 {
   "name": "@proticom/paperboy-ext",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "private": true,
   "description": "Paperboy browser extension side panel",
   "scripts": {
-    "build": "node build.js"
+    "build": "node build.js",
+    "icons": "node scripts/generate-icons.js",
+    "package:store": "node build.js && node package-for-store.js"
   },
   "dependencies": {
-    "@proticom/paperboy-converter": "file:../paperboy-converter/proticom-paperboy-converter-0.1.0.tgz"
+    "@proticom/paperboy-converter": "file:../paperboy-converter/proticom-paperboy-converter-0.1.2.tgz",
+    "markdown-it": "^14.1.1"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "^0.1.97",
+    "adm-zip": "^0.5.16",
     "esbuild": "^0.27.4"
   }
 }
