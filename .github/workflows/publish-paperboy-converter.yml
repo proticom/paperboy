@@ -1,0 +1,48 @@
+# Publishes @proticom/paperboy-converter — same pattern as Gnosys (proticom/gnosys):
+# push a version tag v*, OIDC trusted publishing (no NPM_TOKEN, no registry-url).
+# https://docs.npmjs.com/trusted-publishers
+#
+# One-time on npmjs.com: add this GitHub repo as a Trusted Publisher for
+# @proticom/paperboy-converter (same org/scope as gnosys).
+
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: paperboy-converter
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: paperboy-converter/package-lock.json
+          # DO NOT set registry-url — it writes .npmrc with empty token
+          # which overrides OIDC auth and causes 404
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+      - name: Publish to npm (OIDC trusted publishing, no token needed)
+        run: npm publish --access public

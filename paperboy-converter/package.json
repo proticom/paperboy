@@ -1,8 +1,32 @@
 {
   "name": "@proticom/paperboy-converter",
   "version": "0.1.2",
-  "description": "Shared Paperboy file-to-markdown converter",
+  "description": "Convert documents and images to Markdown (PDF, DOCX, EPUB, HTML, OCR, and more)",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/proticom/paperboy.git",
+    "directory": "paperboy-converter"
+  },
+  "bugs": {
+    "url": "https://github.com/proticom/paperboy/issues"
+  },
+  "homepage": "https://github.com/proticom/paperboy/tree/main/paperboy-converter#readme",
+  "keywords": [
+    "markdown",
+    "converter",
+    "pdf",
+    "docx",
+    "epub",
+    "html",
+    "ocr",
+    "tesseract",
+    "xlsx",
+    "csv",
+    "rtf",
+    "paperboy"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -12,10 +36,16 @@
     "./types": "./dist/types.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "npm run build && vitest run",
     "sync:all": "node scripts/sync-all.mjs"

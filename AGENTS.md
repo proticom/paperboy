@@ -22,6 +22,10 @@ Clone both into the same parent if you want the historical layout: check out `pa
 | `paperboy-cli/` | CLI (`paperboy-cli`). See package `README.md`. |
 | `paperboy-converter/` | Shared `@proticom/paperboy-converter` library used by app, site, widget, ext, and CLI. |
 
+## npm publishing (`@proticom/paperboy-converter`)
+
+Publishing matches **Proticom’s Gnosys setup** ([gnosys](https://www.npmjs.com/package/gnosys), repo [proticom/gnosys](https://github.com/proticom/gnosys)): **OIDC trusted publishing** from GitHub Actions — **no `NPM_TOKEN` secret**. Push a **`v*`** tag (e.g. `v0.2.0`) after bumping `paperboy-converter/package.json` version; workflow **Publish to npm** runs tests and `npm publish`. One-time: register this repo as the package’s **Trusted Publisher** on npm (same scope `@proticom` as Gnosys). Details: `paperboy-converter/README.md` → *Publishing to npm*.
+
 ## Conventions
 
 - Prefer changing only the package that owns the feature; avoid drive-by edits across unrelated folders.

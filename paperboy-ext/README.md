@@ -99,7 +99,7 @@ These items are **not** finished or **not** polished yet. They are safe to pick 
 
 1. **Permissions cleanup** — `manifest.json` includes the `storage` permission, but the extension code does not use `chrome.storage`. Remove `storage` from the manifest after a quick grep confirms nothing needs it, so the permission prompt stays minimal.
 
-2. **Converter dependency** — Side panel code depends on `@proticom/paperboy-converter` via a **local tarball** (`file:../paperboy-converter/proticom-paperboy-converter-0.1.0.tgz`). New contributors need that file built first, or the install step fails. Longer term: publish the converter to a registry, or document a one-command bootstrap from the monorepo root.
+2. **Converter dependency** — Side panel code depends on `@proticom/paperboy-converter` via **`file:../paperboy-converter`** in this monorepo. Run `npm install` from `paperboy-ext/` after cloning; the converter package must be present alongside this folder. When the converter is published to npm, you can point the dependency at the registry version instead.
 
 3. **Chrome Web Store** — Today the flow is **Load unpacked** only. A store release needs listing copy, screenshots, a privacy policy URL (clipboard + broad host access should be explained), versioning discipline, and a repeatable zip/build of the extension folder (without `node_modules`).
 

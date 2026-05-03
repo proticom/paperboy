@@ -9,7 +9,7 @@
     "package:store": "node build.js && node package-for-store.js"
   },
   "dependencies": {
-    "@proticom/paperboy-converter": "file:../paperboy-converter/proticom-paperboy-converter-0.1.2.tgz",
+    "@proticom/paperboy-converter": "file:../paperboy-converter",
     "markdown-it": "^14.1.1"
   },
   "devDependencies": {
