@@ -90,18 +90,40 @@ function parseHtmlToDocument(html, url) {
   return documentClone;
 }
 
+// Chat / multi-turn pages where Readability collapses to a single message and
+// drops the rest. Skip Readability and let turndown walk the whole body.
+const CHAT_HOST_PATTERN =
+  /^https?:\/\/(?:[^/]+\.)?(?:claude\.ai|chatgpt\.com|chat\.openai\.com|perplexity\.ai|gemini\.google\.com|grok\.com|t3\.chat)(?:\/|$)/i;
+
+function shouldSkipReadability(url) {
+  return Boolean(url) && CHAT_HOST_PATTERN.test(url);
+}
+
+function pickMainContainer(documentClone) {
+  return (
+    documentClone.querySelector("main") ||
+    documentClone.querySelector("[role=main]") ||
+    documentClone.body
+  );
+}
+
 function convertHtmlToMarkdown(payload) {
   const documentClone = parseHtmlToDocument(payload.html, payload.url);
-  const reader = new Readability(documentClone, {
-    charThreshold: 40,
-    keepClasses: false,
-    nbTopCandidates: 5,
-  });
-  const article = reader.parse();
+  const skipReadability = shouldSkipReadability(payload.url);
+
+  let article = null;
+  if (!skipReadability) {
+    const reader = new Readability(documentClone, {
+      charThreshold: 40,
+      keepClasses: false,
+      nbTopCandidates: 5,
+    });
+    article = reader.parse();
+  }
 
   let contentHtml = article?.content ?? "";
   if (!contentHtml.trim()) {
-    contentHtml = documentClone.body?.innerHTML ?? "";
+    contentHtml = pickMainContainer(documentClone)?.innerHTML ?? "";
   }
 
   if (!contentHtml.trim()) {

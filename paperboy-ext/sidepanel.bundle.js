@@ -7,12 +7,12 @@ var PAPERBOY_CONVERTER_VERSION = "0.1.2";
       __defProp(target, name, { get: all[name], enumerable: true });
   };
 
-  // node_modules/turndown/lib/turndown.browser.es.js
+  // ../paperboy-converter/node_modules/turndown/lib/turndown.browser.es.js
   function extend(destination) {
     for (var i = 1; i < arguments.length; i++) {
       var source = arguments[i];
       for (var key in source) {
-        if (Object.prototype.hasOwnProperty.call(source, key)) destination[key] = source[key];
+        if (source.hasOwnProperty(key)) destination[key] = source[key];
       }
     }
     return destination;
@@ -31,18 +31,97 @@ var PAPERBOY_CONVERTER_VERSION = "0.1.2";
   function trimNewlines(string) {
     return trimTrailingNewlines(trimLeadingNewlines(string));
   }
-  var blockElements = ["ADDRESS", "ARTICLE", "ASIDE", "AUDIO", "BLOCKQUOTE", "BODY", "CANVAS", "CENTER", "DD", "DIR", "DIV", "DL", "DT", "FIELDSET", "FIGCAPTION", "FIGURE", "FOOTER", "FORM", "FRAMESET", "H1", "H2", "H3", "H4", "H5", "H6", "HEADER", "HGROUP", "HR", "HTML", "ISINDEX", "LI", "MAIN", "MENU", "NAV", "NOFRAMES", "NOSCRIPT", "OL", "OUTPUT", "P", "PRE", "SECTION", "TABLE", "TBODY", "TD", "TFOOT", "TH", "THEAD", "TR", "UL"];
+  var blockElements = [
+    "ADDRESS",
+    "ARTICLE",
+    "ASIDE",
+    "AUDIO",
+    "BLOCKQUOTE",
+    "BODY",
+    "CANVAS",
+    "CENTER",
+    "DD",
+    "DIR",
+    "DIV",
+    "DL",
+    "DT",
+    "FIELDSET",
+    "FIGCAPTION",
+    "FIGURE",
+    "FOOTER",
+    "FORM",
+    "FRAMESET",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6",
+    "HEADER",
+    "HGROUP",
+    "HR",
+    "HTML",
+    "ISINDEX",
+    "LI",
+    "MAIN",
+    "MENU",
+    "NAV",
+    "NOFRAMES",
+    "NOSCRIPT",
+    "OL",
+    "OUTPUT",
+    "P",
+    "PRE",
+    "SECTION",
+    "TABLE",
+    "TBODY",
+    "TD",
+    "TFOOT",
+    "TH",
+    "THEAD",
+    "TR",
+    "UL"
+  ];
   function isBlock(node) {
     return is(node, blockElements);
   }
-  var voidElements = ["AREA", "BASE", "BR", "COL", "COMMAND", "EMBED", "HR", "IMG", "INPUT", "KEYGEN", "LINK", "META", "PARAM", "SOURCE", "TRACK", "WBR"];
+  var voidElements = [
+    "AREA",
+    "BASE",
+    "BR",
+    "COL",
+    "COMMAND",
+    "EMBED",
+    "HR",
+    "IMG",
+    "INPUT",
+    "KEYGEN",
+    "LINK",
+    "META",
+    "PARAM",
+    "SOURCE",
+    "TRACK",
+    "WBR"
+  ];
   function isVoid(node) {
     return is(node, voidElements);
   }
   function hasVoid(node) {
     return has(node, voidElements);
   }
-  var meaningfulWhenBlankElements = ["A", "TABLE", "THEAD", "TBODY", "TFOOT", "TH", "TD", "IFRAME", "SCRIPT", "AUDIO", "VIDEO"];
+  var meaningfulWhenBlankElements = [
+    "A",
+    "TABLE",
+    "THEAD",
+    "TBODY",
+    "TFOOT",
+    "TH",
+    "TD",
+    "IFRAME",
+    "SCRIPT",
+    "AUDIO",
+    "VIDEO"
+  ];
   function isMeaningfulWhenBlank(node) {
     return is(node, meaningfulWhenBlankElements);
   }
@@ -56,12 +135,6 @@ var PAPERBOY_CONVERTER_VERSION = "0.1.2";
     return node.getElementsByTagName && tagNames.some(function(tagName) {
       return node.getElementsByTagName(tagName).length;
     });
-  }
-  var markdownEscapes = [[/\\/g, "\\\\"], [/\*/g, "\\*"], [/^-/g, "\\-"], [/^\+ /g, "\\+ "], [/^(=+)/g, "\\$1"], [/^(#{1,6}) /g, "\\$1 "], [/`/g, "\\`"], [/^~~~/g, "\\~~~"], [/\[/g, "\\["], [/\]/g, "\\]"], [/^>/g, "\\>"], [/_/g, "\\_"], [/^(\d+)\. /g, "$1\\. "]];
-  function escapeMarkdown(string) {
-    return markdownEscapes.reduce(function(accumulator, escape3) {
-      return accumulator.replace(escape3[0], escape3[1]);
-    }, string);
   }
   var rules = {};
   rules.paragraph = {
@@ -162,10 +235,11 @@ var PAPERBOY_CONVERTER_VERSION = "0.1.2";
       return options.linkStyle === "inlined" && node.nodeName === "A" && node.getAttribute("href");
     },
     replacement: function(content, node) {
-      var href = escapeLinkDestination(node.getAttribute("href"));
-      var title = escapeLinkTitle(cleanAttribute(node.getAttribute("title")));
-      var titlePart = title ? ' "' + title + '"' : "";
-      return "[" + content + "](" + href + titlePart + ")";
+      var href = node.getAttribute("href");
+      if (href) href = href.replace(/([()])/g, "\\$1");
+      var title = cleanAttribute(node.getAttribute("title"));
+      if (title) title = ' "' + title.replace(/"/g, '\\"') + '"';
+      return "[" + content + "](" + href + title + ")";
     }
   };
   rules.referenceLink = {
@@ -173,9 +247,9 @@ var PAPERBOY_CONVERTER_VERSION = "0.1.2";
       return options.linkStyle === "referenced" && node.nodeName === "A" && node.getAttribute("href");
     },
     replacement: function(content, node, options) {
-      var href = escapeLinkDestination(node.getAttribute("href"));
+      var href = node.getAttribute("href");
       var title = cleanAttribute(node.getAttribute("title"));
-      if (title) title = ' "' + escapeLinkTitle(title) + '"';
+      if (title) title = ' "' + title + '"';
       var replacement;
       var reference2;
       switch (options.linkReferenceStyle) {
@@ -238,22 +312,15 @@ var PAPERBOY_CONVERTER_VERSION = "0.1.2";
   rules.image = {
     filter: "img",
     replacement: function(content, node) {
-      var alt = escapeMarkdown(cleanAttribute(node.getAttribute("alt")));
-      var src = escapeLinkDestination(node.getAttribute("src") || "");
+      var alt = cleanAttribute(node.getAttribute("alt"));
+      var src = node.getAttribute("src") || "";
       var title = cleanAttribute(node.getAttribute("title"));
-      var titlePart = title ? ' "' + escapeLinkTitle(title) + '"' : "";
+      var titlePart = title ? ' "' + title + '"' : "";
       return src ? "![" + alt + "](" + src + titlePart + ")" : "";
     }
   };
   function cleanAttribute(attribute2) {
     return attribute2 ? attribute2.replace(/(\n+\s*)+/g, "\n") : "";
-  }
-  function escapeLinkDestination(destination) {
-    var escaped = destination.replace(/([<>()])/g, "\\$1");
-    return escaped.indexOf(" ") >= 0 ? "<" + escaped + ">" : escaped;
-  }
-  function escapeLinkTitle(title) {
-    return title.replace(/"/g, '\\"');
   }
   function Rules(options) {
     this.options = options;
@@ -470,10 +537,7 @@ var PAPERBOY_CONVERTER_VERSION = "0.1.2";
   }
   function flankingWhitespace(node, options) {
     if (node.isBlock || options.preformattedCode && node.isCode) {
-      return {
-        leading: "",
-        trailing: ""
-      };
+      return { leading: "", trailing: "" };
     }
     var edges = edgeWhitespace(node.textContent);
     if (edges.leadingAscii && isFlankedByWhitespace("left", node, options)) {
@@ -482,10 +546,7 @@ var PAPERBOY_CONVERTER_VERSION = "0.1.2";
     if (edges.trailingAscii && isFlankedByWhitespace("right", node, options)) {
       edges.trailing = edges.trailingNonAscii;
     }
-    return {
-      leading: edges.leading,
-      trailing: edges.trailing
-    };
+    return { leading: edges.leading, trailing: edges.trailing };
   }
   function edgeWhitespace(string) {
     var m = string.match(/^(([ \t\r\n]*)(\s*))(?:(?=\S)[\s\S]*\S)?((\s*?)([ \t\r\n]*))$/);
@@ -523,6 +584,21 @@ var PAPERBOY_CONVERTER_VERSION = "0.1.2";
     return isFlanked;
   }
   var reduce = Array.prototype.reduce;
+  var escapes = [
+    [/\\/g, "\\\\"],
+    [/\*/g, "\\*"],
+    [/^-/g, "\\-"],
+    [/^\+ /g, "\\+ "],
+    [/^(=+)/g, "\\$1"],
+    [/^(#{1,6}) /g, "\\$1 "],
+    [/`/g, "\\`"],
+    [/^~~~/g, "\\~~~"],
+    [/\[/g, "\\["],
+    [/\]/g, "\\]"],
+    [/^>/g, "\\>"],
+    [/_/g, "\\_"],
+    [/^(\d+)\. /g, "$1\\. "]
+  ];
   function TurndownService(options) {
     if (!(this instanceof TurndownService)) return new TurndownService(options);
     var defaults = {
@@ -561,7 +637,9 @@ var PAPERBOY_CONVERTER_VERSION = "0.1.2";
      */
     turndown: function(input) {
       if (!canConvert(input)) {
-        throw new TypeError(input + " is not a string, or an element/document/fragment node.");
+        throw new TypeError(
+          input + " is not a string, or an element/document/fragment node."
+        );
       }
       if (input === "") return "";
       var output = process.call(this, new RootNode(input, this.options));
@@ -626,7 +704,9 @@ var PAPERBOY_CONVERTER_VERSION = "0.1.2";
      * @type String
      */
     escape: function(string) {
-      return escapeMarkdown(string);
+      return escapes.reduce(function(accumulator, escape3) {
+        return accumulator.replace(escape3[0], escape3[1]);
+      }, string);
     }
   };
   function process(parentNode) {
@@ -668,8 +748,9 @@ var PAPERBOY_CONVERTER_VERSION = "0.1.2";
   function canConvert(input) {
     return input != null && (typeof input === "string" || input.nodeType && (input.nodeType === 1 || input.nodeType === 9 || input.nodeType === 11));
   }
+  var turndown_browser_es_default = TurndownService;
 
-  // node_modules/turndown-plugin-gfm/lib/turndown-plugin-gfm.es.js
+  // ../paperboy-converter/node_modules/turndown-plugin-gfm/lib/turndown-plugin-gfm.es.js
   var highlightRegExp = /highlight-(?:text|source)-([a-z0-9]+)/;
   function highlightedCodeBlock(turndownService2) {
     turndownService2.addRule("highlightedCodeBlock", {
@@ -775,7 +856,7 @@ var PAPERBOY_CONVERTER_VERSION = "0.1.2";
     ]);
   }
 
-  // node_modules/@proticom/paperboy-converter/dist/turndown.js
+  // ../paperboy-converter/dist/turndown.js
   function cellToMarkdown(cell2, service) {
     const html = cell2.querySelector("table") ? cell2.textContent ?? "" : service.turndown(cell2.innerHTML);
     return html.replace(/\s+/g, " ").trim().replace(/\|/g, "\\|");
@@ -815,7 +896,7 @@ ${lines.join("\n")}
 `;
   }
   function createTurndownService() {
-    const service = new TurndownService({
+    const service = new turndown_browser_es_default({
       headingStyle: "atx",
       codeBlockStyle: "fenced",
       bulletListMarker: "-",
@@ -6351,17 +6432,28 @@ ${content}
     }
     return documentClone;
   }
+  var CHAT_HOST_PATTERN = /^https?:\/\/(?:[^/]+\.)?(?:claude\.ai|chatgpt\.com|chat\.openai\.com|perplexity\.ai|gemini\.google\.com|grok\.com|t3\.chat)(?:\/|$)/i;
+  function shouldSkipReadability(url) {
+    return Boolean(url) && CHAT_HOST_PATTERN.test(url);
+  }
+  function pickMainContainer(documentClone) {
+    return documentClone.querySelector("main") || documentClone.querySelector("[role=main]") || documentClone.body;
+  }
   function convertHtmlToMarkdown(payload) {
     const documentClone = parseHtmlToDocument(payload.html, payload.url);
-    const reader = new Readability(documentClone, {
-      charThreshold: 40,
-      keepClasses: false,
-      nbTopCandidates: 5
-    });
-    const article = reader.parse();
+    const skipReadability = shouldSkipReadability(payload.url);
+    let article = null;
+    if (!skipReadability) {
+      const reader = new Readability(documentClone, {
+        charThreshold: 40,
+        keepClasses: false,
+        nbTopCandidates: 5
+      });
+      article = reader.parse();
+    }
     let contentHtml = article?.content ?? "";
     if (!contentHtml.trim()) {
-      contentHtml = documentClone.body?.innerHTML ?? "";
+      contentHtml = pickMainContainer(documentClone)?.innerHTML ?? "";
     }
     if (!contentHtml.trim()) {
       throw new Error(
