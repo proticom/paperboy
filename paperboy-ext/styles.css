@@ -161,6 +161,12 @@ body {
   background: var(--pb-accent-soft);
 }
 
+.action-btn.active {
+  border-color: var(--pb-accent);
+  background: var(--pb-accent-soft);
+  color: var(--pb-accent);
+}
+
 .action-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;

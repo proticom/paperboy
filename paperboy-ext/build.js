@@ -13,10 +13,33 @@ const RUNTIME_FILES = [
   "sidepanel.bundle.js",
   "styles.css",
   "lib/readability.js",
+  "lib/tesseract/tesseract.min.js",
+  "lib/tesseract/worker.min.js",
   "icons/icon-16.png",
   "icons/icon-48.png",
   "icons/icon-128.png",
 ];
+
+function prepareTesseractAssets() {
+  const tesseractDistDir = path.join(
+    rootDir,
+    "node_modules",
+    "tesseract.js",
+    "dist",
+  );
+  const destDir = path.join(rootDir, "lib", "tesseract");
+  fs.mkdirSync(destDir, { recursive: true });
+
+  for (const asset of ["tesseract.min.js", "worker.min.js"]) {
+    const src = path.join(tesseractDistDir, asset);
+    if (!fs.existsSync(src)) {
+      throw new Error(
+        `Missing tesseract asset: ${src}. Run npm install in paperboy-ext.`,
+      );
+    }
+    fs.copyFileSync(src, path.join(destDir, asset));
+  }
+}
 
 function readConverterVersion() {
   const pkgPath = path.join(
@@ -96,6 +119,8 @@ async function runBuild() {
   console.log(
     `Extension ${converterVersion} (converter @proticom/paperboy-converter@${converterVersion})`,
   );
+
+  prepareTesseractAssets();
 
   if (watchMode) {
     const context = await esbuild.context(buildOptions);

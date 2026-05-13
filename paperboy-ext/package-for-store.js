@@ -20,6 +20,8 @@ const STORE_FILES = [
   "sidepanel.bundle.js",
   "styles.css",
   "lib/readability.js",
+  "lib/tesseract/tesseract.min.js",
+  "lib/tesseract/worker.min.js",
   "icons/icon-16.png",
   "icons/icon-48.png",
   "icons/icon-128.png",

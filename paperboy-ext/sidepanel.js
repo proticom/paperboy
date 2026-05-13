@@ -6,6 +6,9 @@ const CONVERTER_VERSION = PAPERBOY_CONVERTER_VERSION;
 
 const MESSAGE_TYPES = {
   REQUEST_PAGE_DATA: "paperboy:request-page-data",
+  START_PICKER: "paperboy:start-picker",
+  REGION_PICKED: "paperboy:region-picked",
+  PICKER_CANCELLED: "paperboy:picker-cancelled",
 };
 
 const dom = {
@@ -13,6 +16,10 @@ const dom = {
   refreshButtonLabel: document.getElementById("refresh-btn-label"),
   copyButton: document.getElementById("copy-btn"),
   copyButtonLabel: document.getElementById("copy-btn-label"),
+  pickButton: document.getElementById("pick-btn"),
+  pickButtonLabel: document.getElementById("pick-btn-label"),
+  ocrButton: document.getElementById("ocr-btn"),
+  ocrButtonLabel: document.getElementById("ocr-btn-label"),
   output: document.getElementById("markdown-output"),
   preview: document.getElementById("preview-output"),
   metaText: document.getElementById("meta-text"),
@@ -37,7 +44,53 @@ const state = {
   markdown: "",
   isLoading: false,
   view: "source",
+  ocrEnabled: false,
+  lastPayload: null,
 };
+
+let tesseractWorkerPromise = null;
+
+async function getTesseractWorker() {
+  if (!tesseractWorkerPromise) {
+    if (typeof Tesseract === "undefined") {
+      throw new Error(
+        "Tesseract.js not loaded. lib/tesseract/tesseract.min.js missing?",
+      );
+    }
+    tesseractWorkerPromise = Tesseract.createWorker("eng", 1, {
+      workerPath: chrome.runtime.getURL("lib/tesseract/worker.min.js"),
+      corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",
+      langPath: "https://tessdata.projectnaptha.com/4.0.0_fast",
+      // Tesseract's default is to wrap workerPath in a blob URL which then
+      // does importScripts() back to the chrome-extension URL — MV3 CSP
+      // blocks that cross-origin importScripts. Same-origin extension URL
+      // works fine for the direct path, so skip the blob indirection.
+      workerBlobURL: false,
+    });
+  }
+  return tesseractWorkerPromise;
+}
+
+async function fetchImageBytes(src) {
+  if (!src) return null;
+  let url = src;
+  if (src.startsWith("//")) url = `https:${src}`;
+  if (url.startsWith("data:")) {
+    const response = await fetch(url);
+    return response.blob();
+  }
+  const response = await fetch(url, { credentials: "omit" });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.blob();
+}
+
+function escapeBlockquote(text) {
+  return text
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
+}
 
 const turndownService = createTurndownService();
 const md = markdownit({ html: false, linkify: true, typographer: true });
@@ -58,6 +111,8 @@ function setCopyButtonIcon(iconMarkup) {
 function setLoading(isLoading) {
   state.isLoading = isLoading;
   dom.refreshButton.disabled = isLoading;
+  dom.pickButton.disabled = isLoading;
+  dom.ocrButton.disabled = isLoading;
   dom.copyButton.disabled = isLoading || !state.markdown;
   dom.refreshButtonLabel.textContent = isLoading ? "Reading..." : "Re-extract";
 }
@@ -107,9 +162,63 @@ function pickMainContainer(documentClone) {
   );
 }
 
+// Lightweight chrome-stripping for cases where Readability is bypassed
+// (chat hosts, picker, etc.). Removes top-level navigation and decorative
+// landmarks that bleed into the markdown otherwise.
+function stripPageChrome(documentClone) {
+  const selectors = [
+    "nav",
+    "aside",
+    "[role=navigation]",
+    "[role=banner]",
+    "[role=complementary]",
+    "[role=contentinfo]",
+    "[aria-hidden=true]",
+  ];
+  for (const sel of selectors) {
+    documentClone.querySelectorAll(sel).forEach((el) => el.remove());
+  }
+  // <header>/<footer> only at the page level, not inside articles/sections.
+  documentClone.querySelectorAll("body > header, body > footer").forEach((el) =>
+    el.remove(),
+  );
+  documentClone
+    .querySelectorAll("body > div header:not(article header):not(section header)")
+    .forEach((el) => {
+      const closestArticleOrSection = el.closest("article, section, main");
+      if (!closestArticleOrSection) el.remove();
+    });
+  documentClone
+    .querySelectorAll("body > div footer:not(article footer):not(section footer)")
+    .forEach((el) => {
+      const closestArticleOrSection = el.closest("article, section, main");
+      if (!closestArticleOrSection) el.remove();
+    });
+}
+
 function convertHtmlToMarkdown(payload) {
+  // Picker output: user already targeted exactly what they want. Skip
+  // Readability + chrome stripping + main-container guessing entirely;
+  // turndown the captured HTML directly.
+  if (payload.fromPicker) {
+    const markdownBody = turndownService.turndown(payload.html ?? "").trim();
+    const title = payload.title || "Selected region";
+    const markdownLines = [`# ${title}`];
+    if (payload.url) markdownLines.push("", `Source: ${payload.url}`);
+    markdownLines.push("", markdownBody || "_No markdown generated._");
+    return {
+      markdown: `${markdownLines.join("\n").trim()}\n`,
+      title,
+      length: markdownBody.length,
+    };
+  }
+
   const documentClone = parseHtmlToDocument(payload.html, payload.url);
   const skipReadability = shouldSkipReadability(payload.url);
+
+  if (skipReadability) {
+    stripPageChrome(documentClone);
+  }
 
   let article = null;
   if (!skipReadability) {
@@ -167,6 +276,67 @@ function renderMarkdown(markdownResult, capturedAt) {
   );
 }
 
+// Collect every <img> in the source HTML, OCR it via tesseract, then splice a
+// blockquote of the OCR text under the image's markdown line. Sequential to
+// reuse one worker; updates the meta line per image.
+async function annotateMarkdownWithOcr(markdown, payload) {
+  const documentClone = parseHtmlToDocument(payload.html, payload.url);
+  const images = [...documentClone.querySelectorAll("img")];
+  if (!images.length) {
+    return { markdown, count: 0 };
+  }
+
+  const worker = await getTesseractWorker();
+  let annotated = markdown;
+  let count = 0;
+
+  for (let i = 0; i < images.length; i++) {
+    const img = images[i];
+    const src = img.getAttribute("src") || img.currentSrc;
+    if (!src) continue;
+    const alt = (img.getAttribute("alt") || "").replace(/\n/g, " ").trim();
+
+    setStatus(`OCR ${i + 1}/${images.length}: ${src.slice(0, 60)}…`, "loading");
+    try {
+      const blob = await fetchImageBytes(src);
+      if (!blob) continue;
+      const { data } = await worker.recognize(blob);
+      const text = (data?.text || "").trim();
+      if (!text) continue;
+
+      // Find the image's markdown line in the output. turndown emits ![alt](src)
+      // or sometimes just the src as a fallback. Prefer alt+src match.
+      const block = `\n\n${escapeBlockquote(`OCR: ${text}`)}\n`;
+      const escAlt = alt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const escSrcTail = src.split("/").pop()?.split("?")[0] || "";
+      const escTail = escSrcTail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const candidates = [
+        new RegExp(`!\\[${escAlt}\\]\\([^)]*${escTail}[^)]*\\)`, "i"),
+        new RegExp(`!\\[[^\\]]*\\]\\([^)]*${escTail}[^)]*\\)`, "i"),
+      ];
+      let matched = false;
+      for (const re of candidates) {
+        if (re.test(annotated)) {
+          annotated = annotated.replace(re, (m) => `${m}${block}`);
+          matched = true;
+          count += 1;
+          break;
+        }
+      }
+      // If turndown dropped the image, append OCR at the end of the document
+      // so the text isn't lost.
+      if (!matched) {
+        annotated += block;
+        count += 1;
+      }
+    } catch (err) {
+      console.warn("OCR failed for", src, err);
+    }
+  }
+
+  return { markdown: annotated, count };
+}
+
 function renderError(error) {
   state.markdown = "";
   dom.output.textContent = `Error: ${error.message}`;
@@ -203,13 +373,54 @@ async function extractCurrentPage() {
       throw new Error(response?.error || "No page content returned.");
     }
 
+    state.lastPayload = response.data;
     const markdownResult = convertHtmlToMarkdown(response.data);
     renderMarkdown(markdownResult, response.data.capturedAt);
+
+    if (state.ocrEnabled) {
+      const { markdown: annotated, count } = await annotateMarkdownWithOcr(
+        markdownResult.markdown,
+        response.data,
+      );
+      if (count > 0) {
+        renderMarkdown(
+          { ...markdownResult, markdown: annotated, length: annotated.length },
+          response.data.capturedAt,
+        );
+        setStatus(`Extracted with OCR for ${count} image(s).`, "success");
+      }
+    }
   } catch (error) {
     renderError(error instanceof Error ? error : new Error(String(error)));
   } finally {
     setLoading(false);
   }
+}
+
+function setOcrEnabled(enabled) {
+  state.ocrEnabled = enabled;
+  dom.ocrButton.classList.toggle("active", enabled);
+  dom.ocrButton.setAttribute("aria-pressed", enabled ? "true" : "false");
+}
+
+function startRegionPicker() {
+  if (state.isLoading) return;
+  setStatus(
+    "Switch to the page tab. Hover a region, click to pick. Tab expands, Esc cancels.",
+    "loading",
+  );
+  chrome.runtime.sendMessage(
+    { type: MESSAGE_TYPES.START_PICKER },
+    (response) => {
+      if (chrome.runtime.lastError || !response?.ok) {
+        const error =
+          chrome.runtime.lastError?.message ||
+          response?.error ||
+          "Could not start the region picker.";
+        setStatus(error, "error");
+      }
+    },
+  );
 }
 
 async function copyMarkdown() {
@@ -240,10 +451,87 @@ dom.copyButton.addEventListener("click", () => {
   copyMarkdown();
 });
 
+dom.pickButton.addEventListener("click", () => {
+  startRegionPicker();
+});
+
+dom.ocrButton.addEventListener("click", () => {
+  setOcrEnabled(!state.ocrEnabled);
+  if (state.ocrEnabled && state.lastPayload) {
+    // Run OCR against the most recent extraction without re-fetching the page.
+    (async () => {
+      setLoading(true);
+      try {
+        const markdownResult = convertHtmlToMarkdown(state.lastPayload);
+        const { markdown: annotated, count } = await annotateMarkdownWithOcr(
+          markdownResult.markdown,
+          state.lastPayload,
+        );
+        if (count > 0) {
+          renderMarkdown(
+            { ...markdownResult, markdown: annotated, length: annotated.length },
+            state.lastPayload.capturedAt,
+          );
+          setStatus(`Annotated ${count} image(s) with OCR.`, "success");
+        } else {
+          setStatus("No images found to OCR on this page.", "idle");
+        }
+      } catch (err) {
+        renderError(err instanceof Error ? err : new Error(String(err)));
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }
+});
+
 dom.viewToggle.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-view]");
   if (!button) return;
   setViewMode(button.dataset.view);
+});
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.type === MESSAGE_TYPES.REGION_PICKED && message.data?.html) {
+    const pickerPayload = { ...message.data, fromPicker: true };
+    state.lastPayload = pickerPayload;
+    setLoading(true);
+    setStatus("Converting selected region...", "loading");
+    (async () => {
+      try {
+        const markdownResult = convertHtmlToMarkdown(pickerPayload);
+        renderMarkdown(markdownResult, message.data.capturedAt);
+
+        if (state.ocrEnabled) {
+          const { markdown: annotated, count } = await annotateMarkdownWithOcr(
+            markdownResult.markdown,
+            pickerPayload,
+          );
+          if (count > 0) {
+            renderMarkdown(
+              { ...markdownResult, markdown: annotated, length: annotated.length },
+              message.data.capturedAt,
+            );
+            setStatus(
+              `Picked region with OCR for ${count} image(s).`,
+              "success",
+            );
+          }
+        }
+      } catch (error) {
+        renderError(
+          error instanceof Error ? error : new Error(String(error)),
+        );
+      } finally {
+        setLoading(false);
+      }
+    })();
+    return;
+  }
+  if (message?.type === MESSAGE_TYPES.PICKER_CANCELLED) {
+    setStatus("Region picker cancelled.", "idle");
+    return;
+  }
 });
 
 if (dom.converterVersionLine) {
