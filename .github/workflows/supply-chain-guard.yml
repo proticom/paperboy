@@ -1,0 +1,77 @@
+name: supply-chain guard
+
+# Fast grep-based check for known npm supply-chain compromise patterns
+# (Mini Shai-Hulud and similar). Fails the PR/push if any of the patterns land.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Block Claude/VSCode hook injection in .claude or .vscode
+        run: |
+          set -e
+          BAD=0
+          if [ -d .claude ]; then
+            if grep -RIlE \
+              'node\s+\.vscode/setup\.mjs|router_runtime|router_init|IfYouRevokeThisTokenItWillWipeTheComputerOfTheOwner' \
+              .claude; then
+              echo "::error::IOC found in .claude/"
+              BAD=1
+            fi
+          fi
+          if [ -d .vscode ]; then
+            # No legitimate reason for .vscode/setup.mjs in this repo
+            if [ -f .vscode/setup.mjs ] || [ -f .vscode/execution.js ]; then
+              echo "::error::Suspicious .vscode/setup.mjs or execution.js present"
+              BAD=1
+            fi
+            if grep -RIlE 'router_runtime|router_init' .vscode 2>/dev/null; then
+              echo "::error::IOC found in .vscode/"
+              BAD=1
+            fi
+          fi
+          if [ "$BAD" -ne 0 ]; then exit 1; fi
+
+      - name: Block known IOC filenames anywhere in repo (excluding node_modules)
+        run: |
+          set -e
+          FOUND=$(find . \
+            -type f \
+            \( -name 'router_runtime.js' \
+               -o -name 'router_init.js' \
+               -o -name 'setup.mjs' \
+               -o -name 'execution.js' \) \
+            -not -path './node_modules/*' \
+            -not -path './*/node_modules/*' \
+            -not -path './.git/*' \
+            -not -path './paperboy-*/scripts/*' \
+            -not -path './paperboy-*/dist/*' \
+            -not -path './paperboy-app/src-tauri/*' \
+            2>/dev/null | head -5)
+          if [ -n "$FOUND" ]; then
+            echo "::error::Suspicious filenames found:"
+            echo "$FOUND"
+            exit 1
+          fi
+
+      - name: Block known compromised npm package versions
+        run: |
+          set -e
+          # Add specific known-bad versions here as the IOC list grows.
+          # As of 2026-05-13, no @tanstack/* versions in this repo are on the
+          # known-bad list. Update this block when new advisories land.
+          BAD_PATTERNS='@tanstack/router@.*-malicious|@guardrails-ai/[^"]*"\s*:\s*"[0-9.]*-malicious'
+          if grep -RIE "$BAD_PATTERNS" \
+            $(find . -name 'package.json' -o -name 'package-lock.json' \
+              | grep -v '/node_modules/' \
+              | grep -v '/.git/') 2>/dev/null; then
+            echo "::error::Known-malicious package version detected"
+            exit 1
+          fi
