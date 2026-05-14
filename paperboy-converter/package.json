@@ -1,6 +1,6 @@
 {
   "name": "@proticom/paperboy-converter",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Convert documents and images to Markdown (PDF, DOCX, EPUB, HTML, OCR, and more)",
   "type": "module",
   "license": "MIT",

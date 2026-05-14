@@ -1,6 +1,6 @@
 {
   "name": "@proticom/paperboy-ext",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "private": true,
   "description": "Paperboy browser extension side panel",
   "scripts": {
@@ -9,7 +9,7 @@
     "package:store": "node build.js && node package-for-store.js"
   },
   "dependencies": {
-    "@proticom/paperboy-converter": "file:../paperboy-converter",
+    "@proticom/paperboy-converter": "file:../paperboy-converter/proticom-paperboy-converter-0.2.0.tgz",
     "markdown-it": "^14.1.1",
     "tesseract.js": "^6.0.1",
     "tesseract.js-core": "^5.1.1"
