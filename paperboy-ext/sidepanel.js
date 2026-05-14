@@ -59,12 +59,16 @@ async function getTesseractWorker() {
     }
     tesseractWorkerPromise = Tesseract.createWorker("eng", 1, {
       workerPath: chrome.runtime.getURL("lib/tesseract/worker.min.js"),
-      corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",
+      // Core (the WASM glue .js + .wasm binary) must be local: tesseract
+      // loads the glue via importScripts() inside the worker, and MV3 CSP
+      // pins script-src to 'self', so a CDN URL gets blocked.
+      corePath: chrome.runtime.getURL("lib/tesseract/"),
+      // Language data is a regular fetch — host_permissions covers cross-
+      // origin, so the CDN is fine and saves us bundling ~5MB of data.
       langPath: "https://tessdata.projectnaptha.com/4.0.0_fast",
-      // Tesseract's default is to wrap workerPath in a blob URL which then
-      // does importScripts() back to the chrome-extension URL — MV3 CSP
-      // blocks that cross-origin importScripts. Same-origin extension URL
-      // works fine for the direct path, so skip the blob indirection.
+      // See workerBlobURL comment in tesseract docs: default true wraps
+      // workerPath in a blob URL which can't importScripts back to our
+      // extension origin under MV3 CSP. False keeps the direct extension URL.
       workerBlobURL: false,
     });
   }

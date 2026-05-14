@@ -22,6 +22,8 @@ const STORE_FILES = [
   "lib/readability.js",
   "lib/tesseract/tesseract.min.js",
   "lib/tesseract/worker.min.js",
+  "lib/tesseract/tesseract-core-simd-lstm.wasm.js",
+  "lib/tesseract/tesseract-core-simd-lstm.wasm",
   "icons/icon-16.png",
   "icons/icon-48.png",
   "icons/icon-128.png",

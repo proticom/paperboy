@@ -15,26 +15,46 @@ const RUNTIME_FILES = [
   "lib/readability.js",
   "lib/tesseract/tesseract.min.js",
   "lib/tesseract/worker.min.js",
+  "lib/tesseract/tesseract-core-simd-lstm.wasm.js",
+  "lib/tesseract/tesseract-core-simd-lstm.wasm",
   "icons/icon-16.png",
   "icons/icon-48.png",
   "icons/icon-128.png",
 ];
 
 function prepareTesseractAssets() {
-  const tesseractDistDir = path.join(
+  const destDir = path.join(rootDir, "lib", "tesseract");
+  fs.mkdirSync(destDir, { recursive: true });
+
+  // From tesseract.js: the JS library + the worker script.
+  const tesseractJsDist = path.join(
     rootDir,
     "node_modules",
     "tesseract.js",
     "dist",
   );
-  const destDir = path.join(rootDir, "lib", "tesseract");
-  fs.mkdirSync(destDir, { recursive: true });
-
   for (const asset of ["tesseract.min.js", "worker.min.js"]) {
-    const src = path.join(tesseractDistDir, asset);
+    const src = path.join(tesseractJsDist, asset);
     if (!fs.existsSync(src)) {
       throw new Error(
-        `Missing tesseract asset: ${src}. Run npm install in paperboy-ext.`,
+        `Missing tesseract.js asset: ${src}. Run npm install in paperboy-ext.`,
+      );
+    }
+    fs.copyFileSync(src, path.join(destDir, asset));
+  }
+
+  // From tesseract.js-core: the WASM glue script (loaded via importScripts
+  // inside the worker — MV3 CSP blocks loading this from a CDN) and the WASM
+  // binary it expects to find alongside.
+  const tesseractCoreDir = path.join(rootDir, "node_modules", "tesseract.js-core");
+  for (const asset of [
+    "tesseract-core-simd-lstm.wasm.js",
+    "tesseract-core-simd-lstm.wasm",
+  ]) {
+    const src = path.join(tesseractCoreDir, asset);
+    if (!fs.existsSync(src)) {
+      throw new Error(
+        `Missing tesseract.js-core asset: ${src}. Run npm install in paperboy-ext.`,
       );
     }
     fs.copyFileSync(src, path.join(destDir, asset));

@@ -251,6 +251,80 @@ function startPickerInPage() {
   document.addEventListener("keydown", onKeyDown, true);
 }
 
+// Translate Chrome's terse scripting errors into something a user can act on.
+// Covers managed-policy blocks (Comet, Brave, Edge, Chrome Enterprise...),
+// chrome:// and Web Store pages, other extensions' pages, and file:// URLs.
+// Anything we don't recognize falls through with the raw error message so
+// genuinely useful info isn't hidden.
+function friendlyExtractionError(rawMessage) {
+  if (!rawMessage) return "Could not read this page.";
+  const msg = String(rawMessage).toLowerCase();
+
+  if (
+    msg.includes("extensionssettings policy") ||
+    msg.includes("extensionsettings policy") ||
+    msg.includes("blocked by extension policy") ||
+    msg.includes("blocked by enterprise policy")
+  ) {
+    return (
+      "This browser blocks Paperboy on this site by policy. " +
+      "Try the page in regular Chrome, or check chrome://policy " +
+      "(or your browser's equivalent) for the active rule."
+    );
+  }
+
+  if (
+    msg.includes("chrome web store") ||
+    msg.includes("extensions gallery") ||
+    msg.includes("cannot be scripted")
+  ) {
+    return (
+      "This browser doesn't allow extensions to read this page " +
+      "(Web Store or a built-in browser page). Open a regular web " +
+      "page and try again."
+    );
+  }
+
+  if (msg.includes("chrome-extension://")) {
+    return "Paperboy can't read other extensions' pages.";
+  }
+
+  if (
+    msg.includes("cannot access a chrome url") ||
+    msg.includes("the extension manifest must request permission to access " +
+      "this host") ||
+    msg.includes("chrome://")
+  ) {
+    return (
+      "This browser locks chrome:// (and similar internal) pages away " +
+      "from all extensions. Open a regular web page and try again."
+    );
+  }
+
+  if (
+    msg.includes("file urls") ||
+    msg.includes("file://") ||
+    msg.includes("local file")
+  ) {
+    return (
+      "Reading local files needs 'Allow access to file URLs' enabled. " +
+      "chrome://extensions → Paperboy → Details → toggle it on."
+    );
+  }
+
+  if (
+    msg.includes("cannot access contents of the page") ||
+    msg.includes("must request permission to access the respective host")
+  ) {
+    return (
+      "Click the Paperboy icon in the toolbar to grant access to this " +
+      "page, then try again."
+    );
+  }
+
+  return rawMessage;
+}
+
 async function captureActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) {
@@ -274,9 +348,7 @@ async function captureActiveTab() {
   } catch (error) {
     return {
       ok: false,
-      error:
-        error?.message ||
-        "Could not read this tab. Some Chrome pages block extensions.",
+      error: friendlyExtractionError(error?.message),
     };
   }
 }
@@ -298,7 +370,7 @@ async function startPickerOnActiveTab() {
   } catch (error) {
     return {
       ok: false,
-      error: error?.message || "Could not start the region picker on this tab.",
+      error: friendlyExtractionError(error?.message),
     };
   }
 }
