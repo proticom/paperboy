@@ -60,6 +60,8 @@ This project uses **Gnosys** for persistent memory via MCP. Gnosys uses a centra
 
 ### Project conventions
 
-- **Shared Turndown Configuration**: All packages using Turndown share identical config: headingStyle atx (# headings), codeBlockStyle fenced (triple backtick), bulletListMarker - (dash), emDelimiter * (asterisk). All apply GFM plugin. All add removeScriptLikeTags rule filtering SCRIPT/STYLE/NOSCRIPT. Both widget and extension generate: # title, Source: url, body. Extension also adds Byline when available from Readability.
-- **Clipboard and Icon Patterns**: All packages that copy markdown use navigator.clipboard.writeText() with a 2-second Copied feedback state that swaps the copy SVG icon for a check icon, then reverts. All icons across packages are inline SVGs (stroke-based, viewBox 0 0 24 24, stroke-width 2, round linecap/linejoin). No icon library is imported anywhere.
+- **Extension preview toggle: Source/Preview, no split**: Extension side panel has a 2-button pill toggle (Source / Preview) in the header, mirroring the app's view-toggle but only 2 positions instead of 3.
+- **macOS NAS mount stability (no AutoFS)**: Project source lives on Synology NAS at /Volumes/Dev/projects/paperboy/ (moved from iCloud Drive). The volume unmounts on display sleep, breaking dev.
+- **Browser extension preview toggle: 2-button source/preview, no plugins, no scroll sync**: Browser extension preview toggle: 2-button pill toggle (Source / Preview) in the side panel header, mirroring the app's view-toggle but only 2 positions instead of 3 (no split view, no scroll sync). Uses markdown-it core with no plugins (deliberately simpler than the app, which uses footnote/deflist/mark/sub/sup/task-lists). Defaults to source view because the dominant workflow is extract-then-copy-markdown.
+- **macOS NAS mount stability: no AutoFS, use Energy + Login Items + Keychain**: macOS NAS mount stability for Synology Dev share: rejected AutoFS due to plaintext password concern.
 <!-- GNOSYS:END -->

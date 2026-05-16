@@ -12,5 +12,19 @@
         ]
       }
     ]
+  },
+  "permissions": {
+    "allow": [
+      "mcp__gnosys__gnosys_discover",
+      "mcp__gnosys__gnosys_read",
+      "mcp__gnosys__gnosys_remote_status",
+      "mcp__gnosys__gnosys_list",
+      "mcp__gnosys__gnosys_hybrid_search",
+      "mcp__gnosys__gnosys_working_set",
+      "mcp__gnosys__gnosys_stores",
+      "mcp__gnosys__gnosys_lens",
+      "mcp__gnosys__gnosys_search",
+      "Bash(npm view *)"
+    ]
   }
 }
