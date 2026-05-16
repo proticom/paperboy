@@ -1,4 +1,4 @@
-var PAPERBOY_CONVERTER_VERSION = "0.2.0";
+var PAPERBOY_CONVERTER_VERSION = "0.2.1";
 
 (() => {
   var __defProp = Object.defineProperty;
@@ -6317,6 +6317,23 @@ ${content}
     ocrEnabled: false,
     lastPayload: null
   };
+  var PREFS_KEY = "paperboy:prefs";
+  async function loadPrefs() {
+    try {
+      const result = await chrome.storage.local.get(PREFS_KEY);
+      return result?.[PREFS_KEY] || {};
+    } catch {
+      return {};
+    }
+  }
+  function savePrefs(updates) {
+    chrome.storage.local.get(PREFS_KEY).then((result) => {
+      const current = result?.[PREFS_KEY] || {};
+      chrome.storage.local.set({ [PREFS_KEY]: { ...current, ...updates } }).catch(() => {
+      });
+    }, () => {
+    });
+  }
   var tesseractWorkerPromise = null;
   async function getTesseractWorker() {
     if (!tesseractWorkerPromise) {
@@ -6402,9 +6419,11 @@ ${content}
     }
     return documentClone;
   }
-  var CHAT_HOST_PATTERN = /^https?:\/\/(?:[^/]+\.)?(?:claude\.ai|chatgpt\.com|chat\.openai\.com|perplexity\.ai|gemini\.google\.com|grok\.com|t3\.chat)(?:\/|$)/i;
-  function shouldSkipReadability(url) {
-    return Boolean(url) && CHAT_HOST_PATTERN.test(url);
+  function readabilityOverCollapsed(article, body) {
+    const articleText = (article?.textContent ?? "").length;
+    const bodyText = (body?.textContent ?? "").length;
+    if (bodyText < 1e3) return false;
+    return articleText < bodyText * 0.3;
   }
   function pickMainContainer(documentClone) {
     return documentClone.querySelector("main") || documentClone.querySelector("[role=main]") || documentClone.body;
@@ -6449,22 +6468,19 @@ ${content}
       };
     }
     const documentClone = parseHtmlToDocument(payload.html, payload.url);
-    const skipReadability = shouldSkipReadability(payload.url);
-    if (skipReadability) {
-      stripPageChrome(documentClone);
-    }
-    let article = null;
-    if (!skipReadability) {
-      const reader = new Readability(documentClone, {
-        charThreshold: 40,
-        keepClasses: false,
-        nbTopCandidates: 5
-      });
-      article = reader.parse();
-    }
-    let contentHtml = article?.content ?? "";
-    if (!contentHtml.trim()) {
-      contentHtml = pickMainContainer(documentClone)?.innerHTML ?? "";
+    const fallbackClone = parseHtmlToDocument(payload.html, payload.url);
+    const reader = new Readability(documentClone, {
+      charThreshold: 40,
+      keepClasses: false,
+      nbTopCandidates: 5
+    });
+    const article = reader.parse();
+    let contentHtml;
+    if (article?.content && !readabilityOverCollapsed(article, fallbackClone.body)) {
+      contentHtml = article.content;
+    } else {
+      stripPageChrome(fallbackClone);
+      contentHtml = pickMainContainer(fallbackClone)?.innerHTML ?? "";
     }
     if (!contentHtml.trim()) {
       throw new Error(
@@ -6557,7 +6573,7 @@ ${escapeBlockquote(`OCR: ${text2}`)}
     dom.copyButton.disabled = true;
     setStatus("Could not convert this page.", "error");
   }
-  function setViewMode(view) {
+  function setViewMode(view, { persist = true } = {}) {
     if (view !== "source" && view !== "preview") return;
     state.view = view;
     const buttons = dom.viewToggle.querySelectorAll("button[data-view]");
@@ -6571,6 +6587,7 @@ ${escapeBlockquote(`OCR: ${text2}`)}
     const showSource = view === "source";
     dom.output.hidden = !showSource;
     dom.preview.hidden = showSource;
+    if (persist) savePrefs({ view });
   }
   async function extractCurrentPage() {
     setLoading(true);
@@ -6602,10 +6619,11 @@ ${escapeBlockquote(`OCR: ${text2}`)}
       setLoading(false);
     }
   }
-  function setOcrEnabled(enabled) {
+  function setOcrEnabled(enabled, { persist = true } = {}) {
     state.ocrEnabled = enabled;
     dom.ocrButton.classList.toggle("active", enabled);
     dom.ocrButton.setAttribute("aria-pressed", enabled ? "true" : "false");
+    if (persist) savePrefs({ ocrEnabled: enabled });
   }
   function startRegionPicker() {
     if (state.isLoading) return;
@@ -6726,5 +6744,9 @@ ${escapeBlockquote(`OCR: ${text2}`)}
   if (dom.converterVersionLine) {
     dom.converterVersionLine.textContent = `Converter ${CONVERTER_VERSION}`;
   }
-  extractCurrentPage();
+  loadPrefs().then((prefs) => {
+    if (prefs.view === "preview") setViewMode("preview", { persist: false });
+    if (prefs.ocrEnabled === true) setOcrEnabled(true, { persist: false });
+    extractCurrentPage();
+  });
 })();

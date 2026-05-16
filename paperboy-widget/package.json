@@ -1,6 +1,6 @@
 {
   "name": "@proticom/paperboy-widget",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Embeddable web/markdown toggle widget — converts any page to Markdown with one click.",
   "main": "dist/paperboy-widget.min.js",
   "type": "commonjs",
@@ -33,7 +33,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@proticom/paperboy-converter": "file:../paperboy-converter/proticom-paperboy-converter-0.2.0.tgz"
+    "@proticom/paperboy-converter": "file:../paperboy-converter/proticom-paperboy-converter-0.2.1.tgz"
   },
   "devDependencies": {
     "esbuild": "^0.27.4",

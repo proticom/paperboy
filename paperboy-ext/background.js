@@ -23,8 +23,88 @@ chrome.runtime.onStartup.addListener(() => {
   configureSidePanelBehavior();
 });
 
-// Runs in the page context, no closure access. Returns a plain object.
-function capturePageInPage() {
+// Runs in the page context, no closure access. Auto-scrolls the dominant
+// scroll container so lazy-loaded content (images, infinite-scroll lists,
+// chat backlog) is in the DOM before serialization. Caps at 20 iterations
+// or 30 seconds to handle pages with truly infinite scroll.
+async function capturePageInPage() {
+  await (async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const docEl = document.scrollingElement || document.documentElement;
+    if (!docEl) return;
+
+    function isScrollable(el) {
+      if (el === docEl) return el.scrollHeight > el.clientHeight + 10;
+      const cs = window.getComputedStyle(el);
+      const oy = cs.overflowY;
+      if (oy !== "auto" && oy !== "scroll") return false;
+      const rect = el.getBoundingClientRect();
+      if (rect.height < window.innerHeight * 0.3) return false;
+      return el.scrollHeight > el.clientHeight + 10;
+    }
+
+    const scrollables = [docEl];
+    for (const el of document.querySelectorAll("*")) {
+      if (isScrollable(el)) scrollables.push(el);
+    }
+
+    scrollables.sort((a, b) => {
+      const aArea =
+        a === docEl
+          ? window.innerWidth * window.innerHeight
+          : (() => {
+              const r = a.getBoundingClientRect();
+              return r.width * r.height;
+            })();
+      const bArea =
+        b === docEl
+          ? window.innerWidth * window.innerHeight
+          : (() => {
+              const r = b.getBoundingClientRect();
+              return r.width * r.height;
+            })();
+      return bArea - aArea;
+    });
+
+    const target = scrollables[0];
+    const originalScroll = target.scrollTop;
+    const startTime = Date.now();
+    const MAX_TIME_MS = 30000;
+    const MAX_ITERATIONS = 20;
+    const SETTLE_MS = 500;
+
+    target.scrollTop = 0;
+    await sleep(SETTLE_MS);
+
+    let stable = 0;
+    let prevHeight = target.scrollHeight;
+    let prevTop = target.scrollTop;
+    for (let i = 0; i < MAX_ITERATIONS; i++) {
+      if (Date.now() - startTime > MAX_TIME_MS) break;
+      target.scrollTop = Math.min(
+        target.scrollTop + target.clientHeight * 0.8,
+        target.scrollHeight,
+      );
+      await sleep(SETTLE_MS);
+      const newHeight = target.scrollHeight;
+      const newTop = target.scrollTop;
+      if (newHeight === prevHeight && newTop === prevTop) {
+        stable += 1;
+        if (stable >= 2) break;
+      } else {
+        stable = 0;
+        prevHeight = newHeight;
+        prevTop = newTop;
+      }
+      if (newTop + target.clientHeight >= newHeight - 10) break;
+    }
+
+    target.scrollTop = originalScroll;
+    await sleep(100);
+  })().catch(() => {
+    /* swallow scroll errors; capture whatever's in the DOM */
+  });
+
   return {
     html: document.documentElement?.outerHTML ?? "",
     title: document.title ?? "",
@@ -151,13 +231,73 @@ function startPickerInPage() {
     "box-shadow: 0 4px 16px rgba(0,0,0,0.25)",
   ].join(";");
   banner.textContent =
-    "Paperboy: hover a region · click to pick · Tab to expand · Esc to cancel";
+    "Paperboy: click to add region · click again to remove · Tab expand · Enter or Done to finish · Esc cancels";
+
+  const doneBadge = document.createElement("button");
+  doneBadge.type = "button";
+  doneBadge.style.cssText = [
+    "position: fixed",
+    "top: 16px",
+    "right: 16px",
+    "z-index: 2147483647",
+    "background: #2ea043",
+    "color: white",
+    "font: 13px/1.4 -apple-system, system-ui, sans-serif",
+    "padding: 8px 14px",
+    "border: 0",
+    "border-radius: 999px",
+    "cursor: pointer",
+    "box-shadow: 0 4px 16px rgba(0,0,0,0.25)",
+    "display: none",
+  ].join(";");
 
   document.documentElement.appendChild(overlay);
   document.documentElement.appendChild(label);
   document.documentElement.appendChild(banner);
+  document.documentElement.appendChild(doneBadge);
 
   let currentFrame = null;
+  const pickedElements = [];
+  const pickedOverlays = new Map();
+
+  function makePickedOverlay(el) {
+    const o = document.createElement("div");
+    const rect = el.getBoundingClientRect();
+    o.style.cssText = [
+      "position: fixed",
+      "pointer-events: none",
+      "z-index: 2147483645",
+      "outline: 2px solid #2ea043",
+      "outline-offset: -2px",
+      "background: rgba(46, 160, 67, 0.10)",
+      `left: ${rect.left}px`,
+      `top: ${rect.top}px`,
+      `width: ${rect.width}px`,
+      `height: ${rect.height}px`,
+    ].join(";");
+    document.documentElement.appendChild(o);
+    return o;
+  }
+
+  function refreshPickedOverlays() {
+    for (const [el, o] of pickedOverlays.entries()) {
+      const rect = el.getBoundingClientRect();
+      o.style.left = `${rect.left}px`;
+      o.style.top = `${rect.top}px`;
+      o.style.width = `${rect.width}px`;
+      o.style.height = `${rect.height}px`;
+    }
+  }
+
+  function updateDoneBadge() {
+    if (pickedElements.length === 0) {
+      doneBadge.style.display = "none";
+      return;
+    }
+    doneBadge.style.display = "block";
+    const n = pickedElements.length;
+    doneBadge.textContent = `Done · ${n} region${n === 1 ? "" : "s"} (Enter)`;
+  }
 
   function describe(el) {
     const tag = el.tagName.toLowerCase();
@@ -195,7 +335,13 @@ function startPickerInPage() {
 
   function onMouseMove(event) {
     const target = document.elementFromPoint(event.clientX, event.clientY);
-    if (!target || target === overlay || target === label || target === banner) {
+    if (
+      !target ||
+      target === overlay ||
+      target === label ||
+      target === banner ||
+      target === doneBadge
+    ) {
       return;
     }
     const frame = findFrame(target);
@@ -204,21 +350,37 @@ function startPickerInPage() {
     }
   }
 
+  function onScrollOrResize() {
+    if (currentFrame) highlight(currentFrame);
+    refreshPickedOverlays();
+  }
+
   function teardown() {
     document.removeEventListener("mousemove", onMouseMove, true);
     document.removeEventListener("click", onClick, true);
     document.removeEventListener("keydown", onKeyDown, true);
+    window.removeEventListener("scroll", onScrollOrResize, true);
+    window.removeEventListener("resize", onScrollOrResize, true);
+    doneBadge.removeEventListener("click", finalize);
     overlay.remove();
     label.remove();
     banner.remove();
+    doneBadge.remove();
+    for (const o of pickedOverlays.values()) o.remove();
+    pickedOverlays.clear();
     window.__paperboyPickerActive = false;
   }
 
-  function onClick(event) {
-    if (!currentFrame) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const html = currentFrame.outerHTML || "";
+  function finalize() {
+    if (pickedElements.length === 0) return;
+    // Sort by DOM order so combined output reads top-to-bottom.
+    const sorted = [...pickedElements].sort((a, b) => {
+      const pos = a.compareDocumentPosition(b);
+      if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+      if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+      return 0;
+    });
+    const html = sorted.map((el) => el.outerHTML || "").join("\n");
     teardown();
     chrome.runtime.sendMessage({
       type: PICKED,
@@ -228,8 +390,29 @@ function startPickerInPage() {
         url: window.location.href,
         lang: document.documentElement?.lang || "",
         capturedAt: new Date().toISOString(),
+        regionCount: sorted.length,
       },
     });
+  }
+
+  function onClick(event) {
+    if (!currentFrame) return;
+    if (event.target === doneBadge) return; // doneBadge has its own handler
+    event.preventDefault();
+    event.stopPropagation();
+    const idx = pickedElements.indexOf(currentFrame);
+    if (idx >= 0) {
+      pickedElements.splice(idx, 1);
+      const o = pickedOverlays.get(currentFrame);
+      if (o) {
+        o.remove();
+        pickedOverlays.delete(currentFrame);
+      }
+    } else {
+      pickedElements.push(currentFrame);
+      pickedOverlays.set(currentFrame, makePickedOverlay(currentFrame));
+    }
+    updateDoneBadge();
   }
 
   function onKeyDown(event) {
@@ -237,6 +420,11 @@ function startPickerInPage() {
       event.preventDefault();
       teardown();
       chrome.runtime.sendMessage({ type: CANCELLED });
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      finalize();
       return;
     }
     if (event.key === "Tab") {
@@ -249,6 +437,9 @@ function startPickerInPage() {
   document.addEventListener("mousemove", onMouseMove, true);
   document.addEventListener("click", onClick, true);
   document.addEventListener("keydown", onKeyDown, true);
+  window.addEventListener("scroll", onScrollOrResize, true);
+  window.addEventListener("resize", onScrollOrResize, true);
+  doneBadge.addEventListener("click", finalize);
 }
 
 // Translate Chrome's terse scripting errors into something a user can act on.

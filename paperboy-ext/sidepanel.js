@@ -48,6 +48,26 @@ const state = {
   lastPayload: null,
 };
 
+const PREFS_KEY = "paperboy:prefs";
+
+async function loadPrefs() {
+  try {
+    const result = await chrome.storage.local.get(PREFS_KEY);
+    return result?.[PREFS_KEY] || {};
+  } catch {
+    return {};
+  }
+}
+
+function savePrefs(updates) {
+  chrome.storage.local.get(PREFS_KEY).then((result) => {
+    const current = result?.[PREFS_KEY] || {};
+    chrome.storage.local
+      .set({ [PREFS_KEY]: { ...current, ...updates } })
+      .catch(() => {});
+  }, () => {});
+}
+
 let tesseractWorkerPromise = null;
 
 async function getTesseractWorker() {
@@ -149,13 +169,15 @@ function parseHtmlToDocument(html, url) {
   return documentClone;
 }
 
-// Chat / multi-turn pages where Readability collapses to a single message and
-// drops the rest. Skip Readability and let turndown walk the whole body.
-const CHAT_HOST_PATTERN =
-  /^https?:\/\/(?:[^/]+\.)?(?:claude\.ai|chatgpt\.com|chat\.openai\.com|perplexity\.ai|gemini\.google\.com|grok\.com|t3\.chat)(?:\/|$)/i;
-
-function shouldSkipReadability(url) {
-  return Boolean(url) && CHAT_HOST_PATTERN.test(url);
+// Heuristic for "Readability over-collapsed" — fires for chat pages, docs
+// sites with many sections, anything where the article Readability picks is
+// a tiny fraction of the page's actual text content. Replaces the old
+// hardcoded host allowlist so new chat platforms work without code changes.
+function readabilityOverCollapsed(article, body) {
+  const articleText = (article?.textContent ?? "").length;
+  const bodyText = (body?.textContent ?? "").length;
+  if (bodyText < 1000) return false;
+  return articleText < bodyText * 0.3;
 }
 
 function pickMainContainer(documentClone) {
@@ -217,26 +239,26 @@ function convertHtmlToMarkdown(payload) {
     };
   }
 
+  // Readability mutates the document during parse, so keep a pristine clone
+  // for the fallback branch in case we decide to bypass.
   const documentClone = parseHtmlToDocument(payload.html, payload.url);
-  const skipReadability = shouldSkipReadability(payload.url);
+  const fallbackClone = parseHtmlToDocument(payload.html, payload.url);
 
-  if (skipReadability) {
-    stripPageChrome(documentClone);
-  }
+  const reader = new Readability(documentClone, {
+    charThreshold: 40,
+    keepClasses: false,
+    nbTopCandidates: 5,
+  });
+  const article = reader.parse();
 
-  let article = null;
-  if (!skipReadability) {
-    const reader = new Readability(documentClone, {
-      charThreshold: 40,
-      keepClasses: false,
-      nbTopCandidates: 5,
-    });
-    article = reader.parse();
-  }
-
-  let contentHtml = article?.content ?? "";
-  if (!contentHtml.trim()) {
-    contentHtml = pickMainContainer(documentClone)?.innerHTML ?? "";
+  let contentHtml;
+  if (article?.content && !readabilityOverCollapsed(article, fallbackClone.body)) {
+    contentHtml = article.content;
+  } else {
+    // Readability either failed or collapsed the page to a tiny fragment.
+    // Fall back to the full body with page chrome stripped.
+    stripPageChrome(fallbackClone);
+    contentHtml = pickMainContainer(fallbackClone)?.innerHTML ?? "";
   }
 
   if (!contentHtml.trim()) {
@@ -349,7 +371,7 @@ function renderError(error) {
   setStatus("Could not convert this page.", "error");
 }
 
-function setViewMode(view) {
+function setViewMode(view, { persist = true } = {}) {
   if (view !== "source" && view !== "preview") return;
   state.view = view;
 
@@ -365,6 +387,8 @@ function setViewMode(view) {
   const showSource = view === "source";
   dom.output.hidden = !showSource;
   dom.preview.hidden = showSource;
+
+  if (persist) savePrefs({ view });
 }
 
 async function extractCurrentPage() {
@@ -401,10 +425,11 @@ async function extractCurrentPage() {
   }
 }
 
-function setOcrEnabled(enabled) {
+function setOcrEnabled(enabled, { persist = true } = {}) {
   state.ocrEnabled = enabled;
   dom.ocrButton.classList.toggle("active", enabled);
   dom.ocrButton.setAttribute("aria-pressed", enabled ? "true" : "false");
+  if (persist) savePrefs({ ocrEnabled: enabled });
 }
 
 function startRegionPicker() {
@@ -542,4 +567,10 @@ if (dom.converterVersionLine) {
   dom.converterVersionLine.textContent = `Converter ${CONVERTER_VERSION}`;
 }
 
-extractCurrentPage();
+// Apply persisted user prefs before the first extract so they don't see a
+// flash of defaults.
+loadPrefs().then((prefs) => {
+  if (prefs.view === "preview") setViewMode("preview", { persist: false });
+  if (prefs.ocrEnabled === true) setOcrEnabled(true, { persist: false });
+  extractCurrentPage();
+});
