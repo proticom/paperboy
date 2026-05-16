@@ -6289,6 +6289,8 @@ ${content}
     refreshButtonLabel: document.getElementById("refresh-btn-label"),
     copyButton: document.getElementById("copy-btn"),
     copyButtonLabel: document.getElementById("copy-btn-label"),
+    copyMenuToggle: document.getElementById("copy-btn-menu-toggle"),
+    copyMenu: document.getElementById("copy-btn-menu"),
     pickButton: document.getElementById("pick-btn"),
     pickButtonLabel: document.getElementById("pick-btn-label"),
     ocrButton: document.getElementById("ocr-btn"),
@@ -6312,6 +6314,7 @@ ${content}
 `;
   var state = {
     markdown: "",
+    title: "",
     isLoading: false,
     view: "source",
     ocrEnabled: false,
@@ -6392,7 +6395,9 @@ ${content}
     dom.refreshButton.disabled = isLoading;
     dom.pickButton.disabled = isLoading;
     dom.ocrButton.disabled = isLoading;
-    dom.copyButton.disabled = isLoading || !state.markdown;
+    const noOutput = isLoading || !state.markdown;
+    dom.copyButton.disabled = noOutput;
+    dom.copyMenuToggle.disabled = noOutput;
     dom.refreshButtonLabel.textContent = isLoading ? "Reading..." : "Re-extract";
   }
   function requestPageData() {
@@ -6506,9 +6511,11 @@ ${content}
   }
   function renderMarkdown(markdownResult, capturedAt) {
     state.markdown = markdownResult.markdown;
+    state.title = markdownResult.title || "";
     dom.output.textContent = markdownResult.markdown;
     dom.preview.innerHTML = md.render(markdownResult.markdown);
     dom.copyButton.disabled = false;
+    dom.copyMenuToggle.disabled = false;
     const capturedTime = new Date(capturedAt).toLocaleTimeString();
     setStatus(
       `Extracted ${markdownResult.length.toLocaleString()} characters at ${capturedTime}.`,
@@ -6568,9 +6575,11 @@ ${escapeBlockquote(`OCR: ${text2}`)}
   }
   function renderError(error2) {
     state.markdown = "";
+    state.title = "";
     dom.output.textContent = `Error: ${error2.message}`;
     dom.preview.innerHTML = "";
     dom.copyButton.disabled = true;
+    dom.copyMenuToggle.disabled = true;
     setStatus("Could not convert this page.", "error");
   }
   function setViewMode(view, { persist = true } = {}) {
@@ -6658,11 +6667,64 @@ ${escapeBlockquote(`OCR: ${text2}`)}
       setStatus("Clipboard access failed. Copy manually.", "error");
     }
   }
+  function slugifyForFilename(text2) {
+    const base2 = (text2 || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+    return base2 || "paperboy";
+  }
+  function downloadMarkdown() {
+    if (!state.markdown) {
+      return;
+    }
+    const filename = `${slugifyForFilename(state.title)}.md`;
+    const blob = new Blob([state.markdown], {
+      type: "text/markdown;charset=utf-8"
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1e3);
+    setStatus(`Downloaded ${filename}.`, "success");
+  }
+  function setCopyMenuOpen(open) {
+    dom.copyMenu.hidden = !open;
+    dom.copyMenuToggle.setAttribute("aria-expanded", open ? "true" : "false");
+  }
   dom.refreshButton.addEventListener("click", () => {
     extractCurrentPage();
   });
   dom.copyButton.addEventListener("click", () => {
     copyMarkdown();
+  });
+  dom.copyMenuToggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    setCopyMenuOpen(dom.copyMenu.hidden);
+  });
+  dom.copyMenu.addEventListener("click", (event) => {
+    const item = event.target.closest("button[data-action]");
+    if (!item) return;
+    setCopyMenuOpen(false);
+    if (item.dataset.action === "copy") {
+      copyMarkdown();
+    } else if (item.dataset.action === "download") {
+      downloadMarkdown();
+    }
+  });
+  document.addEventListener("click", (event) => {
+    if (dom.copyMenu.hidden) return;
+    if (event.target === dom.copyMenuToggle || dom.copyMenu.contains(event.target)) {
+      return;
+    }
+    setCopyMenuOpen(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !dom.copyMenu.hidden) {
+      setCopyMenuOpen(false);
+      dom.copyMenuToggle.focus();
+    }
   });
   dom.pickButton.addEventListener("click", () => {
     startRegionPicker();

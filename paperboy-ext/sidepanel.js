@@ -16,6 +16,8 @@ const dom = {
   refreshButtonLabel: document.getElementById("refresh-btn-label"),
   copyButton: document.getElementById("copy-btn"),
   copyButtonLabel: document.getElementById("copy-btn-label"),
+  copyMenuToggle: document.getElementById("copy-btn-menu-toggle"),
+  copyMenu: document.getElementById("copy-btn-menu"),
   pickButton: document.getElementById("pick-btn"),
   pickButtonLabel: document.getElementById("pick-btn-label"),
   ocrButton: document.getElementById("ocr-btn"),
@@ -42,6 +44,7 @@ const checkIconMarkup = `
 
 const state = {
   markdown: "",
+  title: "",
   isLoading: false,
   view: "source",
   ocrEnabled: false,
@@ -137,7 +140,9 @@ function setLoading(isLoading) {
   dom.refreshButton.disabled = isLoading;
   dom.pickButton.disabled = isLoading;
   dom.ocrButton.disabled = isLoading;
-  dom.copyButton.disabled = isLoading || !state.markdown;
+  const noOutput = isLoading || !state.markdown;
+  dom.copyButton.disabled = noOutput;
+  dom.copyMenuToggle.disabled = noOutput;
   dom.refreshButtonLabel.textContent = isLoading ? "Reading..." : "Re-extract";
 }
 
@@ -291,9 +296,11 @@ function convertHtmlToMarkdown(payload) {
 
 function renderMarkdown(markdownResult, capturedAt) {
   state.markdown = markdownResult.markdown;
+  state.title = markdownResult.title || "";
   dom.output.textContent = markdownResult.markdown;
   dom.preview.innerHTML = md.render(markdownResult.markdown);
   dom.copyButton.disabled = false;
+  dom.copyMenuToggle.disabled = false;
 
   const capturedTime = new Date(capturedAt).toLocaleTimeString();
   setStatus(
@@ -365,9 +372,11 @@ async function annotateMarkdownWithOcr(markdown, payload) {
 
 function renderError(error) {
   state.markdown = "";
+  state.title = "";
   dom.output.textContent = `Error: ${error.message}`;
   dom.preview.innerHTML = "";
   dom.copyButton.disabled = true;
+  dom.copyMenuToggle.disabled = true;
   setStatus("Could not convert this page.", "error");
 }
 
@@ -472,12 +481,84 @@ async function copyMarkdown() {
   }
 }
 
+function slugifyForFilename(text) {
+  const base = (text || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  return base || "paperboy";
+}
+
+function downloadMarkdown() {
+  if (!state.markdown) {
+    return;
+  }
+
+  const filename = `${slugifyForFilename(state.title)}.md`;
+  const blob = new Blob([state.markdown], {
+    type: "text/markdown;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  // Revoke after the browser has a chance to start the download.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  setStatus(`Downloaded ${filename}.`, "success");
+}
+
+function setCopyMenuOpen(open) {
+  dom.copyMenu.hidden = !open;
+  dom.copyMenuToggle.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
 dom.refreshButton.addEventListener("click", () => {
   extractCurrentPage();
 });
 
 dom.copyButton.addEventListener("click", () => {
   copyMarkdown();
+});
+
+dom.copyMenuToggle.addEventListener("click", (event) => {
+  event.stopPropagation();
+  setCopyMenuOpen(dom.copyMenu.hidden);
+});
+
+dom.copyMenu.addEventListener("click", (event) => {
+  const item = event.target.closest("button[data-action]");
+  if (!item) return;
+  setCopyMenuOpen(false);
+  if (item.dataset.action === "copy") {
+    copyMarkdown();
+  } else if (item.dataset.action === "download") {
+    downloadMarkdown();
+  }
+});
+
+document.addEventListener("click", (event) => {
+  if (dom.copyMenu.hidden) return;
+  if (
+    event.target === dom.copyMenuToggle ||
+    dom.copyMenu.contains(event.target)
+  ) {
+    return;
+  }
+  setCopyMenuOpen(false);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !dom.copyMenu.hidden) {
+    setCopyMenuOpen(false);
+    dom.copyMenuToggle.focus();
+  }
 });
 
 dom.pickButton.addEventListener("click", () => {
