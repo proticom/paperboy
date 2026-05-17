@@ -1,5 +1,6 @@
 import { initEditor } from "./editor.js";
 import { createPreview } from "./preview.js";
+import { initSettings } from "./settings.js";
 import { initUiState } from "./theme.js";
 import {
   convertImportedFile,
@@ -84,6 +85,8 @@ editor.onChange((content) => {
 });
 editor.onScroll(() => syncFromEditor());
 preview.onScroll(() => syncFromPreview());
+
+const settings = initSettings({ invoke });
 
 createTab();
 setupMenuListeners();
@@ -274,7 +277,8 @@ async function setupMenuListeners() {
     "menu-view-full-path": () => void toggleFullPath(),
     "menu-view-preview": () => ui.setViewMode("preview"),
     "menu-view-editor": () => ui.setViewMode("editor"),
-    "menu-view-split": () => ui.setViewMode("split")
+    "menu-view-split": () => ui.setViewMode("split"),
+    "menu-settings": () => settings.open()
   };
   await Promise.all(Object.entries(map).map(([name, fn]) => listen(name, fn)));
 }

@@ -146,6 +146,62 @@
       </footer>
     </div>
 
+    <dialog class="settings-dialog" data-settings-dialog aria-label="Paperboy settings">
+      <form class="settings-form" data-settings-form method="dialog">
+        <header class="settings-header">
+          <h2>Settings</h2>
+          <button type="button" class="settings-close" data-settings-close aria-label="Close settings">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </header>
+
+        <section class="settings-section">
+          <h3>AI provider</h3>
+          <p class="settings-help">
+            Pick a provider for optional AI cleanup and image descriptions. Keys are stored in your
+            operating system&rsquo;s native keychain and shared with the Paperboy CLI.
+          </p>
+          <label class="settings-label" for="settings-provider">Provider</label>
+          <select id="settings-provider" data-settings-provider>
+            <option value="disabled">Disabled (deterministic only)</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="xai">xAI / Grok</option>
+            <option value="ollama">Ollama (local)</option>
+            <option value="local-endpoint">Local OpenAI-compatible endpoint</option>
+          </select>
+        </section>
+
+        <section class="settings-section" data-settings-key-section hidden>
+          <label class="settings-label" for="settings-api-key">
+            API key
+            <span class="settings-key-status" data-settings-key-status></span>
+          </label>
+          <div class="settings-key-row">
+            <input id="settings-api-key" data-settings-key type="password" autocomplete="off" spellcheck="false" placeholder="sk-..." />
+            <button type="button" class="settings-key-save" data-settings-key-save>Save</button>
+            <button type="button" class="settings-key-clear" data-settings-key-clear>Remove</button>
+          </div>
+          <p class="settings-help settings-key-link" data-settings-signup hidden>
+            Get a key at <a data-settings-signup-link target="_blank" rel="noopener">the provider&rsquo;s console</a>.
+          </p>
+        </section>
+
+        <section class="settings-section" data-settings-endpoint-section hidden>
+          <label class="settings-label" for="settings-base-url">Base URL</label>
+          <input id="settings-base-url" data-settings-base-url type="text" autocomplete="off" spellcheck="false" />
+          <label class="settings-label" for="settings-model">Model</label>
+          <input id="settings-model" data-settings-model type="text" autocomplete="off" spellcheck="false" />
+        </section>
+
+        <footer class="settings-footer">
+          <p class="settings-status" data-settings-status aria-live="polite"></p>
+          <button type="button" class="settings-done" data-settings-done>Done</button>
+        </footer>
+      </form>
+    </dialog>
+
     <script src="./scripts/vendor/markdown-it.min.js"></script>
     <script src="./scripts/vendor/markdown-it-footnote.min.js"></script>
     <script src="./scripts/vendor/markdown-it-deflist.js"></script>

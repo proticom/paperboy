@@ -12,4 +12,8 @@ serde = { version = "1", features = ["derive"] }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-utils = "2"
+# OS-native credential storage. Default features give us macOS Keychain,
+# Windows Credential Manager, and Linux Secret Service (D-Bus) without
+# per-platform feature gymnastics.
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 

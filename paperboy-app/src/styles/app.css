@@ -563,3 +563,181 @@ option,
 .app-toast[data-kind="error"] {
   border-color: #8f3d3d;
 }
+
+/* --- Settings dialog ------------------------------------------------- */
+
+.settings-dialog {
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  max-width: 480px;
+  width: calc(100% - 32px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+}
+
+.settings-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+}
+
+.settings-close {
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.settings-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.settings-close:hover {
+  background: var(--bg-secondary);
+}
+
+.settings-section {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-section h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.settings-help {
+  margin: 0;
+  color: var(--text-primary);
+  opacity: 0.7;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.settings-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.settings-key-status {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.settings-key-status[data-state="stored"] {
+  color: #5d9a5d;
+  opacity: 1;
+}
+
+.settings-key-status[data-state="error"] {
+  color: #b35353;
+  opacity: 1;
+}
+
+.settings-dialog select,
+.settings-dialog input[type="text"],
+.settings-dialog input[type="password"] {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-radius: 6px;
+  font-family: inherit;
+}
+
+.settings-dialog select:focus,
+.settings-dialog input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.settings-key-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.settings-key-row input {
+  flex: 1;
+}
+
+.settings-key-save,
+.settings-key-clear,
+.settings-done {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.settings-key-save:hover,
+.settings-key-clear:hover,
+.settings-done:hover {
+  border-color: var(--accent);
+}
+
+.settings-key-link a {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+.settings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  gap: 12px;
+}
+
+.settings-status {
+  margin: 0;
+  font-size: 11px;
+  min-height: 1em;
+}
+
+.settings-status[data-kind="error"] {
+  color: #b35353;
+}
+
+.settings-status[data-kind="success"] {
+  color: #5d9a5d;
+}

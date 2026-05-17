@@ -1,7 +1,32 @@
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use keyring::Entry;
 use serde::Serialize;
 use std::{fs, path::PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
+
+// Same service name the CLI writes under, so keys set in either place are
+// visible in both. Account names match the CLI's per-provider env var names:
+//   PAPERBOY_OPENROUTER_API_KEY, PAPERBOY_OPENAI_API_KEY, etc.
+const KEYRING_SERVICE: &str = "paperboy-cli";
+
+// Providers that take an API key. Kept in sync with paperboy-cli/src/providers.ts
+// (openrouter, openai, anthropic, xai). Ollama and local-endpoint don't need
+// a key. "disabled" isn't a real provider here.
+fn provider_env_var(provider: &str) -> Option<&'static str> {
+  match provider {
+    "openrouter" => Some("PAPERBOY_OPENROUTER_API_KEY"),
+    "openai" => Some("PAPERBOY_OPENAI_API_KEY"),
+    "anthropic" => Some("PAPERBOY_ANTHROPIC_API_KEY"),
+    "xai" => Some("PAPERBOY_XAI_API_KEY"),
+    _ => None,
+  }
+}
+
+fn provider_entry(provider: &str) -> Result<Entry, String> {
+  let envvar = provider_env_var(provider)
+    .ok_or_else(|| format!("Unknown provider: {provider}"))?;
+  Entry::new(KEYRING_SERVICE, envvar).map_err(|err| err.to_string())
+}
 use tauri::{
   menu::{
     AboutMetadataBuilder, CheckMenuItem, CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder,
@@ -66,6 +91,53 @@ fn save_file_as(app: AppHandle, content: String) -> Result<Option<FilePayload>, 
 fn set_full_path_menu_checked(app: AppHandle, checked: bool) -> Result<(), String> {
   let item = app.state::<CheckMenuItem<Wry>>();
   item.set_checked(checked).map_err(|e| e.to_string())
+}
+
+// --- AI key management -------------------------------------------------
+//
+// The JS settings panel calls these to read, write, and remove API keys
+// in the OS-native credential store. Backed by the `keyring` crate, which
+// targets macOS Keychain, Windows Credential Manager, and Linux Secret
+// Service. Keys are shared with paperboy-cli (same service name and
+// per-provider account names).
+
+#[tauri::command]
+fn get_api_key(provider: String) -> Result<Option<String>, String> {
+  let entry = provider_entry(&provider)?;
+  match entry.get_password() {
+    Ok(value) => Ok(Some(value)),
+    Err(keyring::Error::NoEntry) => Ok(None),
+    Err(err) => Err(err.to_string()),
+  }
+}
+
+#[tauri::command]
+fn set_api_key(provider: String, key: String) -> Result<(), String> {
+  let entry = provider_entry(&provider)?;
+  entry.set_password(&key).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn delete_api_key(provider: String) -> Result<(), String> {
+  let entry = provider_entry(&provider)?;
+  match entry.delete_credential() {
+    Ok(()) => Ok(()),
+    Err(keyring::Error::NoEntry) => Ok(()),
+    Err(err) => Err(err.to_string()),
+  }
+}
+
+#[tauri::command]
+fn list_configured_providers() -> Vec<String> {
+  let mut configured = Vec::new();
+  for provider in ["openrouter", "openai", "anthropic", "xai"] {
+    if let Ok(entry) = provider_entry(provider) {
+      if entry.get_password().is_ok() {
+        configured.push(provider.to_string());
+      }
+    }
+  }
+  configured
 }
 
 #[tauri::command]
@@ -136,6 +208,8 @@ fn menu(app: &AppHandle, full_path_item: &CheckMenuItem<Wry>) -> tauri::Result<t
   let app_menu = SubmenuBuilder::new(app, "Paperboy")
     .about(Some(about.clone()))
     .separator()
+    .item(&MenuItemBuilder::with_id("settings", "Settings…").accelerator("CmdOrCtrl+,").build(app)?)
+    .separator()
     .services()
     .separator()
     .hide()
@@ -174,7 +248,11 @@ fn menu(app: &AppHandle, full_path_item: &CheckMenuItem<Wry>) -> tauri::Result<t
     .select_all()
     .build()?;
   #[cfg(not(target_os = "macos"))]
-  let help = SubmenuBuilder::new(app, "Help").about(Some(about)).build()?;
+  let help = SubmenuBuilder::new(app, "Help")
+    .item(&MenuItemBuilder::with_id("settings", "Settings…").accelerator("CmdOrCtrl+,").build(app)?)
+    .separator()
+    .about(Some(about))
+    .build()?;
   #[cfg(target_os = "macos")]
   let items: [&dyn tauri::menu::IsMenuItem<tauri::Wry>; 4] = [&app_menu, &file, &edit, &view];
   #[cfg(not(target_os = "macos"))]
@@ -192,7 +270,11 @@ fn main() {
       save_file,
       save_file_as,
       create_window,
-      set_full_path_menu_checked
+      set_full_path_menu_checked,
+      get_api_key,
+      set_api_key,
+      delete_api_key,
+      list_configured_providers
     ])
     .setup(|app| {
       let full_path_item =
@@ -214,6 +296,7 @@ fn main() {
       "view_editor" => emit(app, "menu-view-editor"),
       "view_split" => emit(app, "menu-view-split"),
       "view_full_path" => emit(app, "menu-view-full-path"),
+      "settings" => emit(app, "menu-settings"),
       _ => {}
     })
     .run(tauri::generate_context!())
