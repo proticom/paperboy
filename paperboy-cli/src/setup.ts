@@ -3,17 +3,20 @@ import { confirm, input, password, select } from "@inquirer/prompts";
 import { fetchOpenRouterModels } from "./ai.js";
 import {
   CONFIG_PATH,
-  DEFAULT_CONFIG,
-  OPENROUTER_ENV_VAR,
   hasSecretTool,
   loadConfig,
   saveConfig,
   writeApiKeyToDotenv,
   writeApiKeyToKeychain,
   writeApiKeyToSecretTool,
+  writeApiKeyToWindowsCredentialManager,
 } from "./config.js";
-
-type SetupMode = "disabled" | "ollama-download" | "local-endpoint" | "openrouter";
+import {
+  listProvidersForSetup,
+  PROVIDERS,
+  type ProviderId,
+  type ProviderInfo,
+} from "./providers.js";
 
 function commandExists(command: string): boolean {
   try {
@@ -32,6 +35,113 @@ async function runOllamaPull(model: string): Promise<void> {
   execSync(`ollama pull ${model}`, { stdio: "inherit" });
 }
 
+// Walk the user through choosing a storage backend (OS keychain when
+// available, dotenv as fallback) and write the supplied key there.
+async function storeProviderKey(
+  provider: ProviderInfo,
+  key: string,
+): Promise<void> {
+  if (!provider.envVar) return;
+  const trimmed = key.trim();
+  if (!trimmed) {
+    console.log("No key entered. Skipping key storage.");
+    return;
+  }
+
+  const choices: Array<{ name: string; value: string }> = [];
+  if (process.platform === "darwin") {
+    choices.push({
+      name: "Store key in macOS Keychain (recommended)",
+      value: "keychain",
+    });
+  }
+  if (process.platform === "linux" && hasSecretTool()) {
+    choices.push({
+      name: "Store key in GNOME Keyring (recommended)",
+      value: "secret-tool",
+    });
+  }
+  if (process.platform === "win32") {
+    choices.push({
+      name: "Store key in Windows Credential Manager (recommended)",
+      value: "wincred",
+    });
+  }
+  choices.push(
+    {
+      name: "Save key to ~/.config/paperboy-cli/.env (plaintext)",
+      value: "dotenv",
+    },
+    { name: "Skip for now", value: "skip" },
+  );
+
+  const storage = await select<string>({
+    message: `How should ${provider.envVar} be stored?`,
+    choices,
+  });
+
+  if (storage === "skip") return;
+
+  if (storage === "keychain") {
+    const ok = writeApiKeyToKeychain(provider.envVar, trimmed);
+    if (!ok) {
+      console.log("Failed to write to Keychain. Saved to dotenv instead.");
+      await writeApiKeyToDotenv(provider.envVar, trimmed);
+    }
+    return;
+  }
+  if (storage === "secret-tool") {
+    const ok = writeApiKeyToSecretTool(provider.envVar, trimmed);
+    if (!ok) {
+      console.log("Failed to write to secret-tool. Saved to dotenv instead.");
+      await writeApiKeyToDotenv(provider.envVar, trimmed);
+    }
+    return;
+  }
+  if (storage === "wincred") {
+    const ok = writeApiKeyToWindowsCredentialManager(provider.envVar, trimmed);
+    if (!ok) {
+      console.log(
+        "Failed to write to Windows Credential Manager. Saved to dotenv instead.",
+      );
+      await writeApiKeyToDotenv(provider.envVar, trimmed);
+    }
+    return;
+  }
+  await writeApiKeyToDotenv(provider.envVar, trimmed);
+}
+
+async function pickOpenRouterModel(currentModel: string): Promise<string> {
+  try {
+    const models = await fetchOpenRouterModels(12);
+    if (models.length === 0) throw new Error("No models returned.");
+    const selected = await select<string>({
+      message: "Choose a cloud model",
+      choices: [
+        ...models.map((entry) => ({
+          name:
+            `${entry.id}  [in ${formatCost(entry.inputCostPerMillion)}, ` +
+            `out ${formatCost(entry.outputCostPerMillion)}, ` +
+            `ctx ${entry.contextLength}]` +
+            (entry.supportsVision ? "  vision" : ""),
+          value: entry.id,
+        })),
+        { name: "Custom model id", value: "__custom__" },
+      ],
+    });
+    if (selected !== "__custom__") return selected;
+    return await input({
+      message: "Enter model id (provider/model)",
+      default: currentModel || PROVIDERS.openrouter.defaultModel,
+    });
+  } catch {
+    return await input({
+      message: "OpenRouter model id",
+      default: currentModel || PROVIDERS.openrouter.defaultModel,
+    });
+  }
+}
+
 export async function runSetup(): Promise<void> {
   const current = await loadConfig();
   const next = {
@@ -46,159 +156,100 @@ export async function runSetup(): Promise<void> {
   console.log("Choose how optional AI features should run.");
   console.log("");
 
-  const mode = await select<SetupMode>({
-    message: "AI mode",
-    default:
-      current.ai.mode === "disabled"
-        ? "disabled"
-        : current.ai.mode === "ollama"
-          ? "ollama-download"
-          : current.ai.mode,
+  const providerChoices = listProvidersForSetup().map((p) => ({
+    name: p.label,
+    value: p.id,
+  }));
+
+  const providerId = await select<ProviderId>({
+    message: "AI provider",
+    default: current.ai.mode === "disabled" ? "openrouter" : current.ai.mode,
     choices: [
-      { name: "Deterministic only (no AI)", value: "disabled" },
-      { name: "Download local model with Ollama", value: "ollama-download" },
-      { name: "Use existing local endpoint", value: "local-endpoint" },
-      { name: "Use cloud API key (OpenRouter)", value: "openrouter" },
+      { name: "Deterministic only (no AI)", value: "disabled" as ProviderId },
+      ...providerChoices,
     ],
   });
 
-  if (mode === "disabled") {
+  if (providerId === "disabled") {
     next.ai.mode = "disabled";
-  }
+  } else {
+    const provider = PROVIDERS[providerId];
+    next.ai.mode = providerId;
+    next.ai.apiKeyEnvVar = provider.envVar ?? "";
+    next.ai.baseUrl = provider.defaultBaseUrl;
 
-  if (mode === "ollama-download") {
-    const model = await select<string>({
-      message: "Choose local model to use",
-      default: current.ai.model || "phi3:mini",
-      choices: [
-        { name: "phi3:mini (small, fast)", value: "phi3:mini" },
-        { name: "llama3.2:3b (balanced)", value: "llama3.2:3b" },
-        { name: "qwen2.5:3b-instruct (instruction tuned)", value: "qwen2.5:3b-instruct" },
-        { name: "Custom model name", value: "__custom__" },
-      ],
-    });
-
-    const resolvedModel =
-      model === "__custom__"
-        ? await input({
-            message: "Enter Ollama model name",
-            default: current.ai.model || "phi3:mini",
-          })
-        : model;
-
-    const hasOllama = commandExists("ollama");
-    if (!hasOllama) {
-      console.log("");
-      console.log("Ollama is not installed. Install from https://ollama.com and rerun setup.");
-      console.log("Saving config anyway so Paperboy CLI knows which model you want.");
-    } else {
-      const shouldPull = await confirm({
-        message: `Download ${resolvedModel} now with 'ollama pull'?`,
-        default: true,
+    if (providerId === "openrouter") {
+      next.ai.model = (await pickOpenRouterModel(current.ai.model)).trim();
+    } else if (providerId === "ollama") {
+      const model = await select<string>({
+        message: "Choose local model",
+        default: current.ai.model || "phi3:mini",
+        choices: [
+          { name: "phi3:mini (small, fast)", value: "phi3:mini" },
+          { name: "llama3.2:3b (balanced)", value: "llama3.2:3b" },
+          { name: "qwen2.5:3b-instruct (instruction tuned)", value: "qwen2.5:3b-instruct" },
+          { name: "Custom model name", value: "__custom__" },
+        ],
       });
-      if (shouldPull) {
-        console.log("");
-        await runOllamaPull(resolvedModel);
-      }
-    }
+      const resolved =
+        model === "__custom__"
+          ? await input({
+              message: "Enter Ollama model name",
+              default: current.ai.model || "phi3:mini",
+            })
+          : model;
+      next.ai.model = resolved.trim();
 
-    next.ai.mode = "ollama";
-    next.ai.baseUrl = "http://localhost:11434";
-    next.ai.model = resolvedModel;
-  }
-
-  if (mode === "local-endpoint") {
-    const baseUrl = await input({
-      message: "Local endpoint base URL",
-      default: current.ai.baseUrl || "http://localhost:1234",
-    });
-    const model = await input({
-      message: "Model id for that endpoint",
-      default: current.ai.model || "local-model",
-    });
-
-    next.ai.mode = "local-endpoint";
-    next.ai.baseUrl = baseUrl.trim();
-    next.ai.model = model.trim();
-  }
-
-  if (mode === "openrouter") {
-    let model = current.ai.model || DEFAULT_CONFIG.ai.model;
-
-    try {
-      const models = await fetchOpenRouterModels(12);
-      if (models.length > 0) {
-        const selected = await select<string>({
-          message: "Choose a cloud model",
-          choices: [
-            ...models.map((entry) => ({
-              name:
-                `${entry.id}  [in ${formatCost(entry.inputCostPerMillion)}, out ${formatCost(entry.outputCostPerMillion)}, ctx ${entry.contextLength}]` +
-                (entry.supportsVision ? "  vision" : ""),
-              value: entry.id,
-            })),
-            { name: "Custom model id", value: "__custom__" },
-          ],
+      if (commandExists("ollama")) {
+        const shouldPull = await confirm({
+          message: `Download ${resolved} now with 'ollama pull'?`,
+          default: true,
         });
-        model =
-          selected === "__custom__"
-            ? await input({
-                message: "Enter model id (provider/model)",
-                default: current.ai.model || "openai/gpt-5-mini",
-              })
-            : selected;
+        if (shouldPull) await runOllamaPull(resolved);
+      } else {
+        console.log("");
+        console.log("Ollama is not installed. Install from https://ollama.com and rerun setup.");
       }
-    } catch {
-      model = await input({
-        message: "OpenRouter model id",
-        default: current.ai.model || "openai/gpt-5-mini",
-      });
+    } else if (providerId === "local-endpoint") {
+      next.ai.baseUrl = (await input({
+        message: "Local endpoint base URL",
+        default: current.ai.baseUrl || provider.defaultBaseUrl,
+      })).trim();
+      next.ai.model = (await input({
+        message: "Model id for that endpoint",
+        default: current.ai.model || provider.defaultModel,
+      })).trim();
+    } else {
+      // openai, anthropic, xai — direct cloud APIs with their own key.
+      next.ai.model = (await input({
+        message: `Model id for ${provider.label}`,
+        default: current.ai.model || provider.defaultModel,
+      })).trim();
+
+      if (provider.needsKey && provider.envVar) {
+        if (provider.signupUrl) {
+          console.log("");
+          console.log(`Get an API key at: ${provider.signupUrl}`);
+        }
+        const key = await password({
+          message: `Enter your ${provider.label} API key`,
+          mask: "*",
+        });
+        await storeProviderKey(provider, key);
+      }
     }
 
-    const storageChoices: Array<{ name: string; value: string }> = [];
-    if (process.platform === "darwin") {
-      storageChoices.push({ name: "Store key in macOS Keychain (recommended)", value: "keychain" });
-    }
-    if (process.platform === "linux" && hasSecretTool()) {
-      storageChoices.push({ name: "Store key in GNOME Keyring (recommended)", value: "secret-tool" });
-    }
-    storageChoices.push(
-      { name: "Save key to ~/.config/paperboy-cli/.env (plaintext)", value: "dotenv" },
-      { name: "Skip for now", value: "skip" },
-    );
-
-    const storage = await select<string>({
-      message: `How should ${OPENROUTER_ENV_VAR} be stored?`,
-      choices: storageChoices,
-    });
-
-    if (storage !== "skip") {
+    if (providerId === "openrouter" && provider.envVar) {
+      if (provider.signupUrl) {
+        console.log("");
+        console.log(`Get an API key at: ${provider.signupUrl}`);
+      }
       const key = await password({
-        message: "Enter your OpenRouter API key",
+        message: `Enter your ${provider.label} API key`,
         mask: "*",
       });
-      if (!key.trim()) {
-        console.log("No key entered. Skipping key storage.");
-      } else if (storage === "keychain") {
-        const ok = writeApiKeyToKeychain(OPENROUTER_ENV_VAR, key.trim());
-        if (!ok) {
-          console.log("Failed to write to Keychain. Saved to dotenv instead.");
-          await writeApiKeyToDotenv(OPENROUTER_ENV_VAR, key.trim());
-        }
-      } else if (storage === "secret-tool") {
-        const ok = writeApiKeyToSecretTool(OPENROUTER_ENV_VAR, key.trim());
-        if (!ok) {
-          console.log("Failed to write to secret-tool. Saved to dotenv instead.");
-          await writeApiKeyToDotenv(OPENROUTER_ENV_VAR, key.trim());
-        }
-      } else {
-        await writeApiKeyToDotenv(OPENROUTER_ENV_VAR, key.trim());
-      }
+      await storeProviderKey(provider, key);
     }
-
-    next.ai.mode = "openrouter";
-    next.ai.model = model.trim();
-    next.ai.apiKeyEnvVar = OPENROUTER_ENV_VAR;
   }
 
   next.defaults.includeLayoutTable = await confirm({
@@ -216,7 +267,8 @@ export async function runSetup(): Promise<void> {
   console.log("");
   console.log("Setup complete.");
   console.log(`Mode: ${next.ai.mode}`);
-  console.log(`Model: ${next.ai.model}`);
+  if (next.ai.model) console.log(`Model: ${next.ai.model}`);
+  if (next.ai.baseUrl) console.log(`Base URL: ${next.ai.baseUrl}`);
   console.log(`Config written to ${CONFIG_PATH}`);
   console.log("");
 }
