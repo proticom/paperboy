@@ -1,4 +1,4 @@
-// node_modules/@chenglou/pretext/src/bidi.ts
+// ../node_modules/@chenglou/pretext/src/bidi.ts
 var baseTypes = [
   "BN",
   "BN",
@@ -613,7 +613,7 @@ function computeSegmentLevels(normalized, segStarts) {
   return segLevels;
 }
 
-// node_modules/@chenglou/pretext/src/analysis.ts
+// ../node_modules/@chenglou/pretext/src/analysis.ts
 var collapsibleWhitespaceRunRe = /[ \t\n\r\f]+/g;
 var needsWhitespaceNormalizationRe = /[\t\n\r\f]| {2,}|^ | $/;
 function getWhiteSpaceProfile(whiteSpace) {
@@ -1379,7 +1379,7 @@ function analyzeText(text, profile, whiteSpace = "normal") {
   };
 }
 
-// node_modules/@chenglou/pretext/src/measurement.ts
+// ../node_modules/@chenglou/pretext/src/measurement.ts
 var measureContext = null;
 var segmentMetricCaches = /* @__PURE__ */ new Map();
 var cachedEngineProfile = null;
@@ -1538,7 +1538,7 @@ function clearMeasurementCaches() {
   sharedGraphemeSegmenter = null;
 }
 
-// node_modules/@chenglou/pretext/src/line-break.ts
+// ../node_modules/@chenglou/pretext/src/line-break.ts
 function canBreakAfter(kind) {
   return kind === "space" || kind === "preserved-space" || kind === "tab" || kind === "zero-width-break" || kind === "soft-hyphen";
 }
@@ -2352,7 +2352,7 @@ function layoutNextLineRangeSimple(prepared, normalizedStart, maxWidth) {
   return finishLine();
 }
 
-// node_modules/@chenglou/pretext/src/layout.ts
+// ../node_modules/@chenglou/pretext/src/layout.ts
 var sharedGraphemeSegmenter2 = null;
 var sharedLineTextCaches = /* @__PURE__ */ new WeakMap();
 function getSharedGraphemeSegmenter2() {

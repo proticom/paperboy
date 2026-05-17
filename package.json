@@ -1,0 +1,19 @@
+{
+  "name": "paperboy-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Paperboy monorepo: shared converter library, CLI, desktop app, Chrome extension, and embeddable widget.",
+  "workspaces": [
+    "paperboy-converter",
+    "paperboy-cli",
+    "paperboy-app",
+    "paperboy-ext",
+    "paperboy-widget"
+  ],
+  "scripts": {
+    "build:converter": "npm run build --workspace=@proticom/paperboy-converter",
+    "watch:converter": "npm --workspace=@proticom/paperboy-converter exec -- tsc -w -p tsconfig.json",
+    "tauri:dev": "npm run tauri --workspace=paperboy-editor -- dev",
+    "tauri:build": "npm run tauri --workspace=paperboy-editor -- build"
+  }
+}

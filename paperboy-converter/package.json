@@ -33,7 +33,8 @@
     ".": "./dist/index.js",
     "./turndown": "./dist/turndown.js",
     "./helpers": "./dist/helpers.js",
-    "./types": "./dist/types.js"
+    "./types": "./dist/types.js",
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",

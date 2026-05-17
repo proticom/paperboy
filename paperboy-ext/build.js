@@ -22,22 +22,23 @@ const RUNTIME_FILES = [
   "icons/icon-128.png",
 ];
 
+// Resolve installed package directories via Node's resolution algorithm so
+// the build works under npm workspaces (deps hoist to the monorepo root).
+function resolvePackageDir(pkgName) {
+  return path.dirname(require.resolve(`${pkgName}/package.json`));
+}
+
 function prepareTesseractAssets() {
   const destDir = path.join(rootDir, "lib", "tesseract");
   fs.mkdirSync(destDir, { recursive: true });
 
   // From tesseract.js: the JS library + the worker script.
-  const tesseractJsDist = path.join(
-    rootDir,
-    "node_modules",
-    "tesseract.js",
-    "dist",
-  );
+  const tesseractJsDist = path.join(resolvePackageDir("tesseract.js"), "dist");
   for (const asset of ["tesseract.min.js", "worker.min.js"]) {
     const src = path.join(tesseractJsDist, asset);
     if (!fs.existsSync(src)) {
       throw new Error(
-        `Missing tesseract.js asset: ${src}. Run npm install in paperboy-ext.`,
+        `Missing tesseract.js asset: ${src}. Run npm install at the monorepo root.`,
       );
     }
     fs.copyFileSync(src, path.join(destDir, asset));
@@ -46,7 +47,7 @@ function prepareTesseractAssets() {
   // From tesseract.js-core: the WASM glue script (loaded via importScripts
   // inside the worker — MV3 CSP blocks loading this from a CDN) and the WASM
   // binary it expects to find alongside.
-  const tesseractCoreDir = path.join(rootDir, "node_modules", "tesseract.js-core");
+  const tesseractCoreDir = resolvePackageDir("tesseract.js-core");
   for (const asset of [
     "tesseract-core-simd-lstm.wasm.js",
     "tesseract-core-simd-lstm.wasm",
@@ -54,7 +55,7 @@ function prepareTesseractAssets() {
     const src = path.join(tesseractCoreDir, asset);
     if (!fs.existsSync(src)) {
       throw new Error(
-        `Missing tesseract.js-core asset: ${src}. Run npm install in paperboy-ext.`,
+        `Missing tesseract.js-core asset: ${src}. Run npm install at the monorepo root.`,
       );
     }
     fs.copyFileSync(src, path.join(destDir, asset));
@@ -63,15 +64,12 @@ function prepareTesseractAssets() {
 
 function readConverterVersion() {
   const pkgPath = path.join(
-    rootDir,
-    "node_modules",
-    "@proticom",
-    "paperboy-converter",
+    resolvePackageDir("@proticom/paperboy-converter"),
     "package.json",
   );
   if (!fs.existsSync(pkgPath)) {
     throw new Error(
-      `Missing installed converter at ${pkgPath}. Run npm install in paperboy-ext.`,
+      `Missing installed converter at ${pkgPath}. Run npm install at the monorepo root.`,
     );
   }
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));

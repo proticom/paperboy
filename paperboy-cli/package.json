@@ -31,7 +31,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@proticom/paperboy-converter": "file:../paperboy-converter",
+    "@proticom/paperboy-converter": "*",
     "@inquirer/prompts": "^7.8.4",
     "commander": "^14.0.1",
     "dotenv": "^17.2.3"

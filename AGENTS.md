@@ -22,6 +22,22 @@ Clone both into the same parent if you want the historical layout: check out `pa
 | `paperboy-cli/` | CLI (`paperboy-cli`). See package `README.md`. |
 | `paperboy-converter/` | Shared `@proticom/paperboy-converter` library used by app, site, widget, ext, and CLI. |
 
+## npm workspaces (dev install)
+
+The monorepo root has its own `package.json` with `workspaces: ["paperboy-converter", "paperboy-cli", "paperboy-app", "paperboy-ext", "paperboy-widget"]`. One `npm install` at the root installs everything; `@proticom/paperboy-converter` is symlinked into each consumer's `node_modules` instead of being copied from a tarball.
+
+```bash
+# from the monorepo root
+npm install                # installs all workspaces + symlinks the converter
+npm run build:converter    # builds paperboy-converter/dist
+npm run watch:converter    # tsc --watch on the converter (run in one terminal)
+npm run tauri:dev          # desktop app dev loop      (run in another terminal)
+```
+
+Edits in `paperboy-converter/src/` flow through to every consumer the next time they reload — no `sync:vendor` step required during dev. `paperboy-converter/scripts/sync-all.mjs` (`npm run sync:vendor`) is still used to vendor a packed `.tgz` into `paperboy-site/` for production deploys (the site is a separate Git repo and can't see the monorepo).
+
+`paperboy-site/` is **not** a workspace member — it deploys independently via Vercel and continues to consume the converter as a vendored tarball.
+
 ## npm publishing (`@proticom/paperboy-converter`)
 
 Publishing matches **Proticom’s Gnosys setup** ([gnosys](https://www.npmjs.com/package/gnosys), repo [proticom/gnosys](https://github.com/proticom/gnosys)): **OIDC trusted publishing** from GitHub Actions — **no `NPM_TOKEN` secret**. Push a **`v*`** tag (e.g. `v0.2.0`) after bumping `paperboy-converter/package.json` version; workflow **Publish to npm** runs tests and `npm publish`. One-time: register this repo as the package’s **Trusted Publisher** on npm (same scope `@proticom` as Gnosys). Details: `paperboy-converter/README.md` → *Publishing to npm*.
