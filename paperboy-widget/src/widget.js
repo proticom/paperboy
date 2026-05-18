@@ -130,6 +130,7 @@ function readConfig(scriptTag) {
     render: ds.render === "inline" ? "inline" : "overlay",
     togglePosition,
     copyPosition,
+    toggleMountTarget: ds.toggleMountTarget ?? null,
     mdFont: ds.mdFont ?? null,
     mdColor: ds.mdColor ?? null,
     mdBg: ds.mdBg ?? null,
@@ -213,7 +214,24 @@ function buildUi(config) {
 
   panel.append(copyButton, output);
   overlay.append(message, panel);
-  document.body.append(toggle, restoreButton, overlay);
+
+  // Toggle placement: by default it floats on body via position: fixed.
+  // If data-toggle-mount-target is set and the element exists, append
+  // the toggle (and restore button) into that container; CSS detects the
+  // .pbw-scoped class and switches to position: static so the toggle
+  // integrates with the host layout instead of floating.
+  let toggleMount = null;
+  if (config.toggleMountTarget) {
+    toggleMount = document.querySelector(config.toggleMountTarget);
+  }
+  if (toggleMount) {
+    toggle.classList.add("pbw-scoped");
+    restoreButton.classList.add("pbw-scoped");
+    toggleMount.append(toggle, restoreButton);
+  } else {
+    document.body.append(toggle, restoreButton);
+  }
+  document.body.append(overlay);
 
   // Inline rendering surface: hidden until markdown view in inline mode.
   // Built but never inserted into the DOM until a target is found.

@@ -77,6 +77,18 @@ export const PAPERBOY_WIDGET_STYLE = `
   pointer-events: none;
 }
 
+/* When data-toggle-mount-target embeds the toggle into a host container
+   instead of floating it on body, switch out of position: fixed so it
+   integrates with the parent's layout. */
+.pbw-toggle.pbw-scoped,
+.pbw-restore-btn.pbw-scoped {
+  position: static;
+  top: auto;
+  bottom: auto;
+  left: auto;
+  right: auto;
+}
+
 .pbw-toggle-pill {
   position: absolute;
   inset: 1px auto 1px 1px;
