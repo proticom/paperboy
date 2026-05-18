@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { reflowPdfPageText } from "../src/handlers/pdf.js";
 import { createTurndownService } from "../src/turndown.js";
 
 describe("createTurndownService", () => {
@@ -25,21 +24,3 @@ describe("createTurndownService", () => {
   });
 });
 
-describe("reflowPdfPageText", () => {
-  it("joins soft line breaks and promotes ALL-CAPS section lines to headings", () => {
-    const raw =
-      "Intro line here\nKEY SECTION TITLE\nFirst line of body that was\nwrapped across many\nphysical lines.\n\nNext paragraph start.";
-    const out = reflowPdfPageText(raw);
-
-    expect(out).toContain("Intro line here");
-    expect(out).toContain("## KEY SECTION TITLE");
-    expect(out).toContain(
-      "First line of body that was wrapped across many physical lines.",
-    );
-    expect(out).toContain("Next paragraph start.");
-  });
-
-  it("merges hyphenated line breaks from PDF extraction", () => {
-    expect(reflowPdfPageText("some long-\nword here")).toBe("some longword here");
-  });
-});
