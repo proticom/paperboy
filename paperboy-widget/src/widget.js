@@ -34,8 +34,8 @@ function initializeWidget() {
 
   const ui = buildUi(config);
   applyToggleStyles(ui.toggle, config);
-  applyCopyPosition(ui.copyButton, config);
-  applyInlineCopyPosition(ui.inlineCopyButton, config);
+  ui.copyButton.dataset.position = config.copyPosition;
+  ui.inlineCopyButton.dataset.position = config.copyPosition;
   applyMarkdownStyles(ui, config);
 
   const targetNodes = findTargetNodes(config.selector, ui);
@@ -278,14 +278,6 @@ function applyToggleStyles(toggle, config) {
   toggle.style.setProperty("--pbw-toggle-bottom", pos.bottom);
   toggle.style.setProperty("--pbw-toggle-left", pos.left);
   toggle.style.setProperty("--pbw-toggle-right", pos.right);
-}
-
-function applyCopyPosition(button, config) {
-  button.dataset.position = config.copyPosition;
-}
-
-function applyInlineCopyPosition(button, config) {
-  button.dataset.position = config.copyPosition;
 }
 
 function applyMarkdownStyles(ui, config) {
