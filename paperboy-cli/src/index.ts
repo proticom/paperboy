@@ -11,7 +11,6 @@ export {
   DEFAULT_CONFIG,
   CONFIG_PATH,
   DOTENV_PATH,
-  OPENROUTER_ENV_VAR,
   type PaperboyCliConfig,
 } from "./config.js";
 export { runSetup } from "./setup.js";

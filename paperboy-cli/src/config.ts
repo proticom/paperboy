@@ -4,11 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import dotenv from "dotenv";
-import {
-  getProvider,
-  PROVIDERS,
-  type ProviderId,
-} from "./providers.js";
+import { PROVIDERS, type ProviderId } from "./providers.js";
 
 // Kept as the canonical AI mode label across config files. New provider ids
 // (openai, anthropic, xai) join the older ones; existing configs that use
@@ -30,10 +26,6 @@ export interface PaperboyCliConfig {
   };
 }
 
-// Retained for backward compatibility with code that pre-dates the provider
-// catalog (older imports). Prefer PROVIDERS.openrouter.envVar in new code.
-export const OPENROUTER_ENV_VAR = PROVIDERS.openrouter.envVar ?? "";
-
 const CONFIG_DIRECTORY_OVERRIDE = process.env.PAPERBOY_CLI_CONFIG_DIR?.trim();
 export const CONFIG_DIRECTORY = CONFIG_DIRECTORY_OVERRIDE
   ? path.resolve(CONFIG_DIRECTORY_OVERRIDE)
@@ -51,7 +43,7 @@ export const DEFAULT_CONFIG: PaperboyCliConfig = {
     mode: "disabled",
     model: PROVIDERS.openrouter.defaultModel,
     baseUrl: PROVIDERS.openrouter.defaultBaseUrl,
-    apiKeyEnvVar: OPENROUTER_ENV_VAR,
+    apiKeyEnvVar: PROVIDERS.openrouter.envVar ?? "",
   },
   defaults: {
     includeLayoutTable: true,
@@ -307,9 +299,4 @@ export function getApiKey(envVarName: string): string {
   } catch {
     return "";
   }
-}
-
-export function getApiKeyForProvider(providerId: string): string {
-  const provider = getProvider(providerId);
-  return provider.envVar ? getApiKey(provider.envVar) : "";
 }
