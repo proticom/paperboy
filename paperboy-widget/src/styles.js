@@ -57,8 +57,11 @@ export const PAPERBOY_WIDGET_STYLE = `
   left: var(--pbw-toggle-left);
   right: var(--pbw-toggle-right);
   z-index: 2147483646;
-  display: inline-grid;
-  grid-template-columns: auto auto;
+  /* Flex (not grid) so the toggle handles any number of children inline:
+     two toggle cells + a minimize chevron. Grid-template-columns: auto
+     auto would wrap the third child onto a new row, making the toggle
+     two rows tall. */
+  display: inline-flex;
   align-items: stretch;
   padding: 1px;
   border: 1px solid var(--pbw-border);
@@ -78,21 +81,32 @@ export const PAPERBOY_WIDGET_STYLE = `
 }
 
 /* When data-toggle-mount-target embeds the toggle into a host container
-   instead of floating it on body, switch out of position: fixed so it
-   integrates with the parent's layout. */
+   instead of floating it on body, switch out of position: fixed. Use
+   position: relative (not static) so the absolutely-positioned sliding
+   pill inside the toggle still anchors to the toggle itself rather than
+   walking up to the nearest positioned ancestor (which on most sites
+   is <body>, drawing a giant rectangle across the page). */
 .pbw-toggle.pbw-scoped,
 .pbw-restore-btn.pbw-scoped {
-  position: static;
+  position: relative;
   top: auto;
   bottom: auto;
   left: auto;
   right: auto;
 }
 
+.pbw-toggle-cells {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+
 .pbw-toggle-pill {
   position: absolute;
-  inset: 1px auto 1px 1px;
-  width: calc(50% - 1px);
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
   border: 1px solid var(--pbw-border);
   background: var(--pbw-surface);
   transition: transform 180ms ease-out;
@@ -104,7 +118,7 @@ export const PAPERBOY_WIDGET_STYLE = `
 }
 
 .pbw-toggle[data-active="2"] .pbw-toggle-pill {
-  transform: translateX(calc(100% + 1px));
+  transform: translateX(100%);
 }
 
 .pbw-toggle-btn {

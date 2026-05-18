@@ -175,7 +175,12 @@ function buildUi(config) {
   minimizeButton.setAttribute("aria-label", "Minimize Paperboy");
   minimizeButton.innerHTML = getChevronRightSvg();
 
-  toggle.append(pill, webButton, mdButton, minimizeButton);
+  // Wrap the two cells + sliding pill in a sub-container so the pill's
+  // 50%-width math anchors to just the cells (not the cells + minimize).
+  const cells = document.createElement("div");
+  cells.className = "pbw-toggle-cells";
+  cells.append(pill, webButton, mdButton);
+  toggle.append(cells, minimizeButton);
 
   const restoreButton = document.createElement("button");
   restoreButton.className = "pbw-restore-btn";
