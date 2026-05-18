@@ -1,41 +1,69 @@
 export const PAPERBOY_WIDGET_STYLE = `
+/* Paperboy widget — paper-aesthetic theme.
+ *
+ * All colors are exposed as CSS custom properties scoped to the
+ * widget's root elements (.pbw-toggle, .pbw-overlay, .pbw-restore-btn,
+ * .pbw-inline). Host pages can override any of them by re-declaring
+ * the variable on a higher-specificity rule, e.g. setting --pbw-bg to
+ * transparent so the widget inherits the host's own paper texture.
+ */
 .pbw-toggle,
-.pbw-overlay {
-  --pbw-bg: rgba(245, 245, 243, 0.98);
-  --pbw-surface: #ffffff;
-  --pbw-border: #d8d8d5;
-  --pbw-ink: #111111;
-  --pbw-muted: #5e5e5a;
-  --pbw-pill: #e9ebf1;
-  --pbw-accent: #1f4fd6;
+.pbw-overlay,
+.pbw-restore-btn,
+.pbw-inline {
+  --pbw-bg: #e9e5db;
+  --pbw-surface: transparent;
+  --pbw-border: #1a1a1a;
+  --pbw-ink: #1a1a1a;
+  --pbw-muted: #595959;
+  --pbw-font-ui:
+    "IM Fell English", "Times New Roman", Times, serif;
+  --pbw-font-mono:
+    "Courier Prime", "Courier New", ui-monospace, SFMono-Regular,
+    Menlo, monospace;
+  /* Markdown panel can override font/colors independently. Defaults to
+     the same palette as the toggle. */
+  --pbw-md-font: var(--pbw-font-mono);
+  --pbw-md-color: var(--pbw-ink);
+  --pbw-md-bg: var(--pbw-surface);
+  /* Toggle + copy placement (overlay mode). Set to a single keyword
+     via the JS, which writes the appropriate top/bottom/left/right
+     custom property at runtime. */
+  --pbw-toggle-top: auto;
+  --pbw-toggle-bottom: 16px;
+  --pbw-toggle-left: auto;
+  --pbw-toggle-right: 16px;
 }
 
 @media (prefers-color-scheme: dark) {
   .pbw-toggle,
-  .pbw-overlay {
-    --pbw-bg: rgba(18, 18, 18, 0.98);
-    --pbw-surface: #1d1d1d;
-    --pbw-border: #363636;
-    --pbw-ink: #f4f4f4;
-    --pbw-muted: #b6b6b6;
-    --pbw-pill: #2f3342;
-    --pbw-accent: #78a3ff;
+  .pbw-overlay,
+  .pbw-restore-btn,
+  .pbw-inline {
+    --pbw-bg: #1a1a1a;
+    --pbw-surface: transparent;
+    --pbw-border: #ffffff;
+    --pbw-ink: #ffffff;
+    --pbw-muted: #a0a0a0;
   }
 }
 
+/* --- Toggle (always present) --------------------------------------- */
+
 .pbw-toggle {
   position: fixed;
-  right: 18px;
-  bottom: 18px;
+  top: var(--pbw-toggle-top);
+  bottom: var(--pbw-toggle-bottom);
+  left: var(--pbw-toggle-left);
+  right: var(--pbw-toggle-right);
   z-index: 2147483646;
-  display: flex;
-  align-items: center;
-  padding: 4px;
-  border-radius: 999px;
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  align-items: stretch;
+  padding: 1px;
   border: 1px solid var(--pbw-border);
   background: var(--pbw-surface);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--pbw-font-ui);
   transition: opacity 0.2s ease-out, transform 0.2s ease-out;
 }
 
@@ -45,19 +73,17 @@ export const PAPERBOY_WIDGET_STYLE = `
 
 .pbw-toggle.pbw-collapsed {
   opacity: 0;
-  transform: scale(0.8);
+  transform: scale(0.85);
   pointer-events: none;
 }
 
 .pbw-toggle-pill {
   position: absolute;
-  left: 4px;
-  top: 4px;
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  background: var(--pbw-pill);
-  transition: transform 0.18s ease-out;
+  inset: 1px auto 1px 1px;
+  width: calc(50% - 1px);
+  border: 1px solid var(--pbw-border);
+  background: var(--pbw-surface);
+  transition: transform 180ms ease-out;
   pointer-events: none;
 }
 
@@ -66,59 +92,81 @@ export const PAPERBOY_WIDGET_STYLE = `
 }
 
 .pbw-toggle[data-active="2"] .pbw-toggle-pill {
-  transform: translateX(36px);
+  transform: translateX(calc(100% + 1px));
 }
 
 .pbw-toggle-btn {
   position: relative;
   z-index: 1;
-  width: 36px;
-  height: 36px;
-  border: none;
-  background: transparent;
-  color: var(--pbw-muted);
-  border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--pbw-muted);
   cursor: pointer;
-  padding: 0;
-}
-
-.pbw-toggle-btn svg {
-  width: 16px;
-  height: 16px;
+  padding: 2px 6px;
+  min-width: 26px;
+  min-height: 20px;
+  transition: opacity 160ms;
+  opacity: 0.4;
 }
 
 .pbw-toggle-btn.pbw-active {
   color: var(--pbw-ink);
+  opacity: 1;
+}
+
+.pbw-toggle-btn:hover:not(.pbw-active) {
+  opacity: 0.75;
 }
 
 .pbw-toggle-btn:focus-visible {
-  outline: 2px solid var(--pbw-accent);
+  outline: 1px solid var(--pbw-ink);
   outline-offset: -2px;
 }
 
+.pbw-toggle-btn svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Label override: when data-labels=A,B is set on the script tag, the
+   toggle cells contain text instead of icons. Bumped padding + uppercase
+   tracking for readability. */
+.pbw-toggle.pbw-labels .pbw-toggle-btn {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  line-height: 1;
+}
+
+.pbw-toggle.pbw-labels .pbw-toggle-btn svg {
+  display: none;
+}
+
+/* Minimize chevron tucked to the right of the toggle */
 .pbw-minimize-btn {
   position: relative;
   z-index: 1;
-  width: 20px;
-  height: 36px;
-  border: none;
-  background: transparent;
-  color: var(--pbw-muted);
-  border-radius: 0 999px 999px 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 16px;
+  border: 0;
+  border-left: 1px solid var(--pbw-border);
+  background: transparent;
+  color: var(--pbw-muted);
   cursor: pointer;
-  padding: 0 4px 0 0;
-  margin-left: -2px;
+  padding: 0 2px;
+  margin-left: 2px;
 }
 
 .pbw-minimize-btn svg {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 .pbw-minimize-btn:hover {
@@ -126,48 +174,51 @@ export const PAPERBOY_WIDGET_STYLE = `
 }
 
 .pbw-minimize-btn:focus-visible {
-  outline: 2px solid var(--pbw-accent);
+  outline: 1px solid var(--pbw-ink);
   outline-offset: -2px;
 }
 
+/* --- Restore button (collapsed state) ------------------------------- */
+
 .pbw-restore-btn {
   position: fixed;
-  right: 18px;
-  bottom: 18px;
+  top: var(--pbw-toggle-top);
+  bottom: var(--pbw-toggle-bottom);
+  left: var(--pbw-toggle-left);
+  right: var(--pbw-toggle-right);
   z-index: 2147483646;
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
+  width: 28px;
+  height: 22px;
   border: 1px solid var(--pbw-border);
   background: var(--pbw-surface);
   color: var(--pbw-muted);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
   display: none;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   padding: 0;
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--pbw-font-ui);
 }
 
 .pbw-restore-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 11px;
+  height: 11px;
 }
 
 .pbw-restore-btn:hover {
   color: var(--pbw-ink);
-  border-color: var(--pbw-accent);
 }
 
 .pbw-restore-btn:focus-visible {
-  outline: 2px solid var(--pbw-accent);
+  outline: 1px solid var(--pbw-ink);
   outline-offset: -2px;
 }
 
 .pbw-restore-btn.pbw-visible {
   display: inline-flex;
 }
+
+/* --- Overlay rendering (default render mode) ----------------------- */
 
 .pbw-overlay {
   position: fixed;
@@ -177,7 +228,8 @@ export const PAPERBOY_WIDGET_STYLE = `
   overflow: auto;
   background: var(--pbw-bg);
   padding: 28px 20px 92px;
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--pbw-font-ui);
+  color: var(--pbw-ink);
 }
 
 .pbw-panel {
@@ -186,21 +238,57 @@ export const PAPERBOY_WIDGET_STYLE = `
   position: relative;
 }
 
-.pbw-copy-btn {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+.pbw-output {
+  margin: 0;
+  background: var(--pbw-md-bg);
+  color: var(--pbw-md-color);
+  border: 1px solid var(--pbw-border);
+  padding: 16px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--pbw-md-font);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.pbw-msg {
+  margin: 0 auto 10px;
+  max-width: 1000px;
+  padding: 6px 10px;
   border: 1px solid var(--pbw-border);
   background: var(--pbw-surface);
   color: var(--pbw-muted);
-  border-radius: 8px;
-  padding: 6px 10px;
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
+  font-family: var(--pbw-font-ui);
+  font-size: 11px;
+}
+
+/* Copy button — bare icon, no background. Position is set per-instance
+   via data-copy-position (top-right by default; corners + "none" all
+   supported). */
+.pbw-copy-btn {
+  position: absolute;
+  border: 0;
+  background: transparent;
+  color: var(--pbw-muted);
   cursor: pointer;
-  font-size: 12px;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
+}
+
+.pbw-copy-btn[data-position="top-right"] { top: 4px; right: 4px; }
+.pbw-copy-btn[data-position="top-left"] { top: 4px; left: 4px; }
+.pbw-copy-btn[data-position="bottom-right"] { bottom: 4px; right: 4px; }
+.pbw-copy-btn[data-position="bottom-left"] { bottom: 4px; left: 4px; }
+.pbw-copy-btn[data-position="none"] { display: none; }
+
+.pbw-copy-btn:hover,
+.pbw-copy-btn:focus-visible {
+  color: var(--pbw-ink);
+  outline: none;
 }
 
 .pbw-copy-btn svg {
@@ -208,59 +296,56 @@ export const PAPERBOY_WIDGET_STYLE = `
   height: 14px;
 }
 
-.pbw-copy-btn:hover {
-  border-color: var(--pbw-accent);
-  color: var(--pbw-ink);
+.pbw-copy-label {
+  display: none;
 }
 
-.pbw-copy-btn:focus-visible {
-  outline: 2px solid var(--pbw-accent);
-  outline-offset: 2px;
-}
-
-.pbw-output {
-  margin: 0;
-  background: var(--pbw-surface);
-  color: var(--pbw-ink);
-  border: 1px solid var(--pbw-border);
-  border-radius: 12px;
-  min-height: 260px;
-  padding: 24px;
-  padding-right: 92px;
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family:
-    "Courier Prime",
-    "Courier New",
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
-  font-size: 12px;
-  line-height: 1.55;
-}
-
-.pbw-msg {
-  margin: 0 auto 12px;
-  max-width: 1000px;
-  padding: 10px 12px;
-  border: 1px solid var(--pbw-border);
-  border-radius: 8px;
-  background: var(--pbw-surface);
-  color: var(--pbw-muted);
-  font-size: 12px;
-}
+/* Optional syntax coloring for the markdown source. Activated when
+   the script tag has data-md-syntax="on" — the widget wraps detected
+   tokens in spans that pick up these styles. All colors fall back to
+   the standard ink/muted colors so the host page can override them.
+   Off by default; the plain <pre> just shows monochrome markdown. */
+.pbw-output .pbw-md-heading { color: var(--pbw-md-heading, var(--pbw-ink)); font-weight: 700; }
+.pbw-output .pbw-md-blockquote { color: var(--pbw-md-blockquote, var(--pbw-muted)); font-style: italic; }
+.pbw-output .pbw-md-bullet { color: var(--pbw-md-bullet, var(--pbw-muted)); }
+.pbw-output .pbw-md-fence { color: var(--pbw-md-fence, var(--pbw-muted)); }
+.pbw-output .pbw-md-code { color: var(--pbw-md-code, var(--pbw-ink)); background: rgba(0, 0, 0, 0.06); }
+.pbw-output .pbw-md-link { color: var(--pbw-md-link, var(--pbw-ink)); text-decoration: underline; }
 
 @media (max-width: 600px) {
   .pbw-overlay {
-    padding: 16px 12px 80px;
+    padding: 16px 12px 72px;
   }
-
   .pbw-output {
     font-size: 11px;
-    padding: 16px;
-    padding-right: 80px;
+    padding: 12px;
   }
+}
+
+/* --- Inline rendering (data-render="inline") ----------------------- */
+/*
+ * In inline mode the widget hides the target nodes and inserts an
+ * inline output panel in their place — no overlay covers the viewport.
+ * Background is transparent by default so it inherits the host page's
+ * paper texture; the host can override the variables to taste.
+ */
+.pbw-inline {
+  position: relative;
+  display: none;
+  background: var(--pbw-surface);
+  color: var(--pbw-ink);
+  border: 1px solid var(--pbw-border);
+  padding: 16px;
+  font-family: var(--pbw-font-mono);
+}
+
+.pbw-inline.pbw-visible {
+  display: block;
+}
+
+.pbw-inline .pbw-output {
+  border: 0;
+  padding: 0;
+  padding-right: 28px;
 }
 `;

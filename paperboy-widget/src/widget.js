@@ -6,6 +6,13 @@ const VIEW_MD = "md";
 const STORAGE_KEY = "paperboy-view";
 const COLLAPSED_KEY = "paperboy-collapsed";
 
+const TOGGLE_POSITIONS = {
+  "bottom-right": { top: "auto", bottom: "16px", left: "auto", right: "16px" },
+  "bottom-left":  { top: "auto", bottom: "16px", left: "16px", right: "auto" },
+  "top-right":    { top: "16px", bottom: "auto", left: "auto", right: "16px" },
+  "top-left":     { top: "16px", bottom: "auto", left: "16px", right: "auto" },
+};
+
 if (window.__paperboyWidgetLoaded) {
   console.warn("Paperboy widget is already running on this page.");
 } else {
@@ -17,8 +24,7 @@ function initializeWidget() {
   injectStyles();
 
   const scriptTag = getCurrentScriptTag();
-  const selector = scriptTag?.dataset.selector ?? "";
-  const defaultView = scriptTag?.dataset.defaultView === VIEW_MD ? VIEW_MD : null;
+  const config = readConfig(scriptTag);
   const turndownService = createTurndownService();
   const state = {
     markdown: "",
@@ -26,8 +32,13 @@ function initializeWidget() {
     previousFocus: null,
   };
 
-  const ui = buildUi();
-  const targetNodes = findTargetNodes(selector, ui);
+  const ui = buildUi(config);
+  applyToggleStyles(ui.toggle, config);
+  applyCopyPosition(ui.copyButton, config);
+  applyInlineCopyPosition(ui.inlineCopyButton, config);
+  applyMarkdownStyles(ui, config);
+
+  const targetNodes = findTargetNodes(config.selector, ui);
 
   if (targetNodes.length === 0) {
     ui.message.textContent =
@@ -35,69 +46,57 @@ function initializeWidget() {
     ui.mdButton.disabled = true;
   }
 
+  if (config.render === "inline" && targetNodes.length > 0) {
+    // Mount the inline output panel immediately before the first target
+    // so it occupies the same flow position. Hidden until markdown view.
+    const firstTarget = targetNodes[0];
+    firstTarget.parentNode?.insertBefore(ui.inline, firstTarget);
+  }
+
   ui.webButton.addEventListener("click", () => {
-    setView(VIEW_WEB, { ui, state, targetNodes, turndownService });
+    setView(VIEW_WEB, { ui, state, targetNodes, turndownService, config });
   });
 
   ui.mdButton.addEventListener("click", () => {
-    setView(VIEW_MD, { ui, state, targetNodes, turndownService });
+    setView(VIEW_MD, { ui, state, targetNodes, turndownService, config });
   });
 
-  ui.copyButton.addEventListener("click", async () => {
-    if (!state.markdown) {
-      return;
-    }
-
+  const copyHandler = async () => {
+    if (!state.markdown) return;
     try {
       await navigator.clipboard.writeText(state.markdown);
-      ui.copyLabel.textContent = "Copied";
-      setCopyButtonIcon(ui.copyButton, getCheckIconSvg());
-      ui.message.textContent = "Markdown copied to clipboard.";
-
-      setTimeout(() => {
-        ui.copyLabel.textContent = "Copy";
-        setCopyButtonIcon(ui.copyButton, getCopyIconSvg());
-      }, 2000);
+      flashCopied(ui);
     } catch (_error) {
-      ui.message.textContent = "Copy failed. You can still select and copy manually.";
+      ui.message.textContent =
+        "Copy failed. You can still select and copy manually.";
     }
-  });
+  };
+  ui.copyButton.addEventListener("click", copyHandler);
+  ui.inlineCopyButton.addEventListener("click", copyHandler);
 
-  ui.minimizeButton.addEventListener("click", () => {
-    collapseToggle(ui);
-  });
-
-  ui.restoreButton.addEventListener("click", () => {
-    restoreToggle(ui);
-  });
+  ui.minimizeButton.addEventListener("click", () => collapseToggle(ui));
+  ui.restoreButton.addEventListener("click", () => restoreToggle(ui));
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && ui.overlay.style.display === "block") {
-      setView(VIEW_WEB, { ui, state, targetNodes, turndownService });
+    if (event.key === "Escape" && config.render === "overlay" && ui.overlay.style.display === "block") {
+      setView(VIEW_WEB, { ui, state, targetNodes, turndownService, config });
     }
   });
 
   ui.overlay.addEventListener("keydown", (event) => {
-    if (event.key !== "Tab") {
-      return;
-    }
+    if (event.key !== "Tab") return;
     trapFocus(event, ui);
   });
 
-  if (readCollapsed()) {
-    collapseToggle(ui);
-  }
+  if (readCollapsed()) collapseToggle(ui);
 
   const savedView = readSavedView();
-  const initialView = defaultView || savedView || VIEW_WEB;
-  setView(initialView, { ui, state, targetNodes, turndownService });
+  const initialView = config.defaultView || savedView || VIEW_WEB;
+  setView(initialView, { ui, state, targetNodes, turndownService, config });
 }
 
 function injectStyles() {
-  if (document.getElementById("paperboy-widget-style")) {
-    return;
-  }
-
+  if (document.getElementById("paperboy-widget-style")) return;
   const styleTag = document.createElement("style");
   styleTag.id = "paperboy-widget-style";
   styleTag.textContent = PAPERBOY_WIDGET_STYLE;
@@ -108,16 +107,40 @@ function getCurrentScriptTag() {
   if (document.currentScript instanceof HTMLScriptElement) {
     return document.currentScript;
   }
-
-  const scripts = Array.from(document.querySelectorAll("script[src]"));
-  return (
-    scripts.find((script) => script.src.includes("paperboy-widget")) || null
-  );
+  // Fall back to last <script src*="paperboy-widget"> when document.currentScript
+  // isn't available (e.g. when the script is injected dynamically).
+  const candidates = document.querySelectorAll("script[src*='paperboy-widget']");
+  return candidates[candidates.length - 1] || null;
 }
 
-function buildUi() {
+function readConfig(scriptTag) {
+  const ds = scriptTag?.dataset ?? {};
+  const labels = (ds.labels ?? "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+  const togglePosition = TOGGLE_POSITIONS[ds.togglePosition] ? ds.togglePosition : "bottom-right";
+  const copyPosition = ["top-right", "top-left", "bottom-right", "bottom-left", "none"].includes(ds.copyPosition)
+    ? ds.copyPosition
+    : "top-right";
+  return {
+    selector: ds.selector ?? "",
+    defaultView: ds.defaultView === VIEW_MD ? VIEW_MD : null,
+    labels: labels.length === 2 ? labels : null,
+    render: ds.render === "inline" ? "inline" : "overlay",
+    togglePosition,
+    copyPosition,
+    mdFont: ds.mdFont ?? null,
+    mdColor: ds.mdColor ?? null,
+    mdBg: ds.mdBg ?? null,
+    mdSyntax: ds.mdSyntax === "on",
+  };
+}
+
+function buildUi(config) {
   const toggle = document.createElement("div");
   toggle.className = "pbw-toggle";
+  if (config.labels) toggle.classList.add("pbw-labels");
   toggle.dataset.active = "1";
   toggle.setAttribute("role", "toolbar");
   toggle.setAttribute("aria-label", "Paperboy view toggle");
@@ -126,21 +149,23 @@ function buildUi() {
   pill.className = "pbw-toggle-pill";
   pill.setAttribute("aria-hidden", "true");
 
+  const [webLabel, mdLabel] = config.labels ?? [null, null];
+
   const webButton = document.createElement("button");
   webButton.className = "pbw-toggle-btn pbw-active";
   webButton.type = "button";
-  webButton.title = "Web view";
-  webButton.setAttribute("aria-label", "Web view");
+  webButton.title = webLabel ?? "Web view";
+  webButton.setAttribute("aria-label", webLabel ?? "Web view");
   webButton.setAttribute("aria-pressed", "true");
-  webButton.innerHTML = getWebIconSvg();
+  webButton.innerHTML = `${getWebIconSvg()}${webLabel ? `<span>${escapeHtml(webLabel)}</span>` : ""}`;
 
   const mdButton = document.createElement("button");
   mdButton.className = "pbw-toggle-btn";
   mdButton.type = "button";
-  mdButton.title = "Markdown view";
-  mdButton.setAttribute("aria-label", "Markdown view");
+  mdButton.title = mdLabel ?? "Markdown view";
+  mdButton.setAttribute("aria-label", mdLabel ?? "Markdown view");
   mdButton.setAttribute("aria-pressed", "false");
-  mdButton.innerHTML = getMarkdownIconSvg();
+  mdButton.innerHTML = `${getMarkdownIconSvg()}${mdLabel ? `<span>${escapeHtml(mdLabel)}</span>` : ""}`;
 
   const minimizeButton = document.createElement("button");
   minimizeButton.className = "pbw-minimize-btn";
@@ -176,8 +201,8 @@ function buildUi() {
   const copyButton = document.createElement("button");
   copyButton.className = "pbw-copy-btn";
   copyButton.type = "button";
-  copyButton.innerHTML = `${getCopyIconSvg()}<span class="pbw-copy-label">Copy</span>`;
   copyButton.setAttribute("aria-label", "Copy markdown");
+  copyButton.innerHTML = `${getCopyIconSvg()}<span class="pbw-copy-label">Copy</span>`;
 
   const output = document.createElement("pre");
   output.className = "pbw-output";
@@ -190,7 +215,22 @@ function buildUi() {
   overlay.append(message, panel);
   document.body.append(toggle, restoreButton, overlay);
 
-  const copyLabel = copyButton.querySelector(".pbw-copy-label");
+  // Inline rendering surface: hidden until markdown view in inline mode.
+  // Built but never inserted into the DOM until a target is found.
+  const inline = document.createElement("div");
+  inline.className = "pbw-inline";
+  const inlineCopyButton = document.createElement("button");
+  inlineCopyButton.className = "pbw-copy-btn";
+  inlineCopyButton.type = "button";
+  inlineCopyButton.setAttribute("aria-label", "Copy markdown");
+  inlineCopyButton.innerHTML = `${getCopyIconSvg()}<span class="pbw-copy-label">Copy</span>`;
+  const inlineOutput = document.createElement("pre");
+  inlineOutput.className = "pbw-output";
+  inlineOutput.setAttribute("tabindex", "0");
+  inlineOutput.setAttribute("role", "region");
+  inlineOutput.setAttribute("aria-label", "Markdown output");
+  inlineOutput.textContent = "Markdown will appear here.";
+  inline.append(inlineCopyButton, inlineOutput);
 
   return {
     toggle,
@@ -201,9 +241,37 @@ function buildUi() {
     overlay,
     message,
     copyButton,
-    copyLabel,
     output,
+    inline,
+    inlineCopyButton,
+    inlineOutput,
   };
+}
+
+function applyToggleStyles(toggle, config) {
+  const pos = TOGGLE_POSITIONS[config.togglePosition];
+  if (!pos) return;
+  toggle.style.setProperty("--pbw-toggle-top", pos.top);
+  toggle.style.setProperty("--pbw-toggle-bottom", pos.bottom);
+  toggle.style.setProperty("--pbw-toggle-left", pos.left);
+  toggle.style.setProperty("--pbw-toggle-right", pos.right);
+}
+
+function applyCopyPosition(button, config) {
+  button.dataset.position = config.copyPosition;
+}
+
+function applyInlineCopyPosition(button, config) {
+  button.dataset.position = config.copyPosition;
+}
+
+function applyMarkdownStyles(ui, config) {
+  const targets = [ui.overlay, ui.inline];
+  for (const target of targets) {
+    if (config.mdFont) target.style.setProperty("--pbw-md-font", config.mdFont);
+    if (config.mdColor) target.style.setProperty("--pbw-md-color", config.mdColor);
+    if (config.mdBg) target.style.setProperty("--pbw-md-bg", config.mdBg);
+  }
 }
 
 function findTargetNodes(selector, ui) {
@@ -213,14 +281,10 @@ function findTargetNodes(selector, ui) {
   }
 
   const mainNode = document.querySelector("main");
-  if (mainNode) {
-    return [mainNode];
-  }
+  if (mainNode) return [mainNode];
 
   const articleNode = document.querySelector("article");
-  if (articleNode) {
-    return [articleNode];
-  }
+  if (articleNode) return [articleNode];
 
   const headerNode = document.querySelector("header");
   const footerNode = document.querySelector("footer");
@@ -230,23 +294,20 @@ function findTargetNodes(selector, ui) {
     footerNode &&
     headerNode.compareDocumentPosition(footerNode) & Node.DOCUMENT_POSITION_FOLLOWING
   ) {
-    const betweenNodes = [];
+    const between = [];
     let pointer = headerNode.nextElementSibling;
-
     while (pointer && pointer !== footerNode) {
       if (
         pointer !== ui.toggle &&
         pointer !== ui.overlay &&
-        pointer !== ui.restoreButton
+        pointer !== ui.restoreButton &&
+        pointer !== ui.inline
       ) {
-        betweenNodes.push(pointer);
+        between.push(pointer);
       }
       pointer = pointer.nextElementSibling;
     }
-
-    if (betweenNodes.length > 0) {
-      return betweenNodes;
-    }
+    if (between.length > 0) return between;
   }
 
   return Array.from(document.body.children).filter((node) => {
@@ -254,14 +315,16 @@ function findTargetNodes(selector, ui) {
       node !== ui.toggle &&
       node !== ui.overlay &&
       node !== ui.restoreButton &&
+      node !== ui.inline &&
       node.tagName !== "SCRIPT"
     );
   });
 }
 
 function setView(viewMode, context) {
-  const { ui, state, targetNodes, turndownService } = context;
+  const { ui, state, targetNodes, turndownService, config } = context;
   const isMarkdown = viewMode === VIEW_MD;
+  const useInline = config.render === "inline";
 
   ui.toggle.dataset.active = isMarkdown ? "2" : "1";
   ui.webButton.classList.toggle("pbw-active", !isMarkdown);
@@ -273,30 +336,43 @@ function setView(viewMode, context) {
     try {
       const markdown = generateMarkdown(targetNodes, turndownService);
       state.markdown = markdown;
-      ui.output.textContent = markdown;
-      ui.message.textContent = `Converted ${targetNodes.length} content block(s).`;
-      hideTargetNodes(targetNodes, state.hiddenNodeDisplayMap);
-      ui.overlay.style.display = "block";
-
-      state.previousFocus = document.activeElement;
-      ui.copyButton.focus();
-
+      const rendered = config.mdSyntax ? highlightMarkdown(markdown) : escapeHtml(markdown);
+      if (useInline) {
+        ui.inlineOutput.innerHTML = rendered;
+        hideTargetNodes(targetNodes, state.hiddenNodeDisplayMap);
+        ui.inline.classList.add("pbw-visible");
+      } else {
+        ui.output.innerHTML = rendered;
+        ui.message.textContent = `Converted ${targetNodes.length} content block(s).`;
+        hideTargetNodes(targetNodes, state.hiddenNodeDisplayMap);
+        ui.overlay.style.display = "block";
+        state.previousFocus = document.activeElement;
+        ui.copyButton.focus();
+      }
       saveView(VIEW_MD);
     } catch (error) {
       state.markdown = "";
-      ui.output.textContent = `Error: ${error.message}`;
-      ui.message.textContent = "Could not convert this page. Try a specific data-selector.";
-      ui.overlay.style.display = "block";
+      const message = `Could not convert this page. ${error?.message ?? ""}`.trim();
+      if (useInline) {
+        ui.inlineOutput.textContent = `Error: ${error.message}`;
+        ui.inline.classList.add("pbw-visible");
+      } else {
+        ui.output.textContent = `Error: ${error.message}`;
+        ui.message.textContent = message;
+        ui.overlay.style.display = "block";
+      }
     }
   } else {
     restoreTargetNodes(state.hiddenNodeDisplayMap);
-    ui.overlay.style.display = "none";
-
-    if (state.previousFocus && typeof state.previousFocus.focus === "function") {
-      state.previousFocus.focus();
-      state.previousFocus = null;
+    if (useInline) {
+      ui.inline.classList.remove("pbw-visible");
+    } else {
+      ui.overlay.style.display = "none";
+      if (state.previousFocus && typeof state.previousFocus.focus === "function") {
+        state.previousFocus.focus();
+        state.previousFocus = null;
+      }
     }
-
     saveView(VIEW_WEB);
   }
 }
@@ -305,10 +381,8 @@ function generateMarkdown(targetNodes, turndownService) {
   if (targetNodes.length === 0) {
     throw new Error("No target content was found.");
   }
-
   const html = targetNodes.map((node) => node.outerHTML).join("\n\n");
   const bodyMarkdown = turndownService.turndown(html).trim();
-
   const markdownLines = [
     `# ${document.title || "Untitled page"}`,
     "",
@@ -316,7 +390,6 @@ function generateMarkdown(targetNodes, turndownService) {
     "",
     bodyMarkdown || "_No markdown generated._",
   ];
-
   return `${markdownLines.join("\n").trim()}\n`;
 }
 
@@ -352,13 +425,9 @@ function trapFocus(event, ui) {
   const focusable = ui.overlay.querySelectorAll(
     'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
   );
-  if (focusable.length === 0) {
-    return;
-  }
-
+  if (focusable.length === 0) return;
   const first = focusable[0];
   const last = focusable[focusable.length - 1];
-
   if (event.shiftKey && document.activeElement === first) {
     event.preventDefault();
     last.focus();
@@ -368,34 +437,34 @@ function trapFocus(event, ui) {
   }
 }
 
-function setCopyButtonIcon(copyButton, svgMarkup) {
-  const oldIcon = copyButton.querySelector("svg");
-  if (oldIcon) {
-    oldIcon.remove();
+function flashCopied(ui) {
+  for (const btn of [ui.copyButton, ui.inlineCopyButton]) {
+    btn.innerHTML = `${getCheckIconSvg()}<span class="pbw-copy-label">Copied</span>`;
   }
-  copyButton.insertAdjacentHTML("afterbegin", svgMarkup);
+  setTimeout(() => {
+    for (const btn of [ui.copyButton, ui.inlineCopyButton]) {
+      btn.innerHTML = `${getCopyIconSvg()}<span class="pbw-copy-label">Copy</span>`;
+    }
+  }, 1800);
 }
 
 function readSavedView() {
   try {
-    const value = window.localStorage.getItem(STORAGE_KEY);
-    return value === VIEW_MD ? VIEW_MD : value === VIEW_WEB ? VIEW_WEB : null;
-  } catch (_error) {
-    return null;
-  }
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === VIEW_WEB || saved === VIEW_MD) return saved;
+  } catch (_error) {}
+  return null;
 }
 
 function saveView(viewMode) {
   try {
-    window.localStorage.setItem(STORAGE_KEY, viewMode);
-  } catch (_error) {
-    // localStorage may be unavailable in some contexts.
-  }
+    localStorage.setItem(STORAGE_KEY, viewMode);
+  } catch (_error) {}
 }
 
 function readCollapsed() {
   try {
-    return window.localStorage.getItem(COLLAPSED_KEY) === "true";
+    return localStorage.getItem(COLLAPSED_KEY) === "1";
   } catch (_error) {
     return false;
   }
@@ -403,32 +472,65 @@ function readCollapsed() {
 
 function saveCollapsed(collapsed) {
   try {
-    if (collapsed) {
-      window.localStorage.setItem(COLLAPSED_KEY, "true");
-    } else {
-      window.localStorage.removeItem(COLLAPSED_KEY);
-    }
-  } catch (_error) {
-    // localStorage may be unavailable in some contexts.
-  }
+    localStorage.setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch (_error) {}
+}
+
+// Lightweight regex-based markdown tokenizer for optional syntax coloring.
+// Off by default; enabled via data-md-syntax="on". Tokens get class names
+// the stylesheet picks up (.pbw-md-heading, etc.).
+function highlightMarkdown(md) {
+  return md
+    .split("\n")
+    .map((line) => {
+      if (/^#{1,6}\s/.test(line)) {
+        return `<span class="pbw-md-heading">${escapeHtml(line)}</span>`;
+      }
+      if (/^>\s?/.test(line)) {
+        return `<span class="pbw-md-blockquote">${escapeHtml(line)}</span>`;
+      }
+      if (/^\s*```/.test(line)) {
+        return `<span class="pbw-md-fence">${escapeHtml(line)}</span>`;
+      }
+      const bullet = line.match(/^(\s*)([-*+]|\d+\.)(\s+)(.*)$/);
+      if (bullet) {
+        const [, indent, marker, gap, rest] = bullet;
+        return `${indent}<span class="pbw-md-bullet">${escapeHtml(marker)}</span>${gap}${highlightInline(rest)}`;
+      }
+      return highlightInline(line);
+    })
+    .join("\n");
+}
+
+function highlightInline(text) {
+  return escapeHtml(text)
+    .replace(/`([^`]+)`/g, '<span class="pbw-md-code">`$1`</span>')
+    .replace(/(\[[^\]]+\]\([^)]+\))/g, '<span class="pbw-md-link">$1</span>');
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function getWebIconSvg() {
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+  return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>`;
 }
 
 function getMarkdownIconSvg() {
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>`;
+  return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`;
 }
 
 function getCopyIconSvg() {
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+  return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
 }
 
 function getCheckIconSvg() {
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+  return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
 }
 
 function getChevronRightSvg() {
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>`;
+  return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>`;
 }
