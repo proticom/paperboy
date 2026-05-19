@@ -9,10 +9,6 @@ const converterDir = path.resolve(__dirname, "..");
 const workspaceDir = path.resolve(converterDir, "..");
 
 const SHARED_PACKAGE_NAME = "@proticom/paperboy-converter";
-// Only paperboy-site needs a packed tarball — it lives in a separate Git repo
-// (deployed to Vercel) and can't see the monorepo. The CLI, app, widget, and
-// extension are npm workspaces members that symlink the converter directly.
-const TARBALL_CONSUMERS = ["paperboy-site"];
 
 function run(command, args, cwd, extraOptions = {}) {
   const result = spawnSync(command, args, {
