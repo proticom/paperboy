@@ -88,7 +88,7 @@ function initializeWidget() {
     trapFocus(event, ui);
   });
 
-  if (readCollapsed()) collapseToggle(ui);
+  if (config.showCollapse && readCollapsed()) collapseToggle(ui);
 
   const savedView = readSavedView();
   const initialView = config.defaultView || savedView || VIEW_WEB;
@@ -131,6 +131,8 @@ function readConfig(scriptTag) {
     togglePosition,
     copyPosition,
     toggleMountTarget: ds.toggleMountTarget ?? null,
+    compact: ds.compact === "on",
+    showCollapse: ds.showCollapse !== "off",
     mdFont: ds.mdFont ?? null,
     mdColor: ds.mdColor ?? null,
     mdBg: ds.mdBg ?? null,
@@ -142,6 +144,8 @@ function buildUi(config) {
   const toggle = document.createElement("div");
   toggle.className = "pbw-toggle";
   if (config.labels) toggle.classList.add("pbw-labels");
+  if (config.compact) toggle.classList.add("pbw-compact");
+  if (!config.showCollapse) toggle.classList.add("pbw-no-collapse");
   toggle.dataset.active = "1";
   toggle.setAttribute("role", "toolbar");
   toggle.setAttribute("aria-label", "Paperboy view toggle");

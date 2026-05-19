@@ -63,9 +63,10 @@ export const PAPERBOY_WIDGET_STYLE = `
      two rows tall. */
   display: inline-flex;
   align-items: stretch;
-  padding: 1px;
+  padding: 4px;
   border: 1px solid var(--pbw-border);
   background: var(--pbw-surface);
+  color: var(--pbw-ink);
   font-family: var(--pbw-font-ui);
   transition: opacity 0.2s ease-out, transform 0.2s ease-out;
 }
@@ -131,9 +132,7 @@ export const PAPERBOY_WIDGET_STYLE = `
   background: transparent;
   color: var(--pbw-muted);
   cursor: pointer;
-  padding: 2px 6px;
-  min-width: 26px;
-  min-height: 20px;
+  padding: 4px 8px;
   transition: opacity 160ms;
   opacity: 0.4;
 }
@@ -158,18 +157,54 @@ export const PAPERBOY_WIDGET_STYLE = `
 }
 
 /* Label override: when data-labels=A,B is set on the script tag, the
-   toggle cells contain text instead of icons. Bumped padding + uppercase
-   tracking for readability. */
+   toggle cells contain text instead of icons. Sized to match the rest
+   of the masthead's toggle controls (e.g. EditionToggle) — bold
+   uppercase 10-12px Inter-fell, wide tracking, breathing room on the
+   button padding. */
 .pbw-toggle.pbw-labels .pbw-toggle-btn {
-  padding: 3px 8px;
-  font-size: 11px;
+  padding: 4px 8px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   line-height: 1;
 }
 
+@media (min-width: 640px) {
+  .pbw-toggle.pbw-labels .pbw-toggle-btn { font-size: 12px; }
+}
+
 .pbw-toggle.pbw-labels .pbw-toggle-btn svg {
+  display: none;
+}
+
+/* Compact variant — opt-in via data-compact="on" on the script tag.
+   Used by in-page demo cards/panels where the toggle needs to be
+   visually subordinate to the demo content. The masthead instance
+   does NOT set data-compact. */
+.pbw-toggle.pbw-compact {
+  padding: 1px;
+}
+
+.pbw-toggle.pbw-compact .pbw-toggle-btn {
+  padding: 2px 6px;
+}
+
+.pbw-toggle.pbw-compact .pbw-toggle-btn svg {
+  width: 11px;
+  height: 11px;
+}
+
+.pbw-toggle.pbw-compact.pbw-labels .pbw-toggle-btn {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+/* When data-show-collapse="off", hide the minimize chevron entirely.
+   Used by hosts that don't want the user to be able to dismiss the
+   toggle (e.g. the paperboy site masthead, where the toggle is part
+   of the page chrome). */
+.pbw-toggle.pbw-no-collapse .pbw-minimize-btn {
   display: none;
 }
 
@@ -361,7 +396,7 @@ export const PAPERBOY_WIDGET_STYLE = `
   background: var(--pbw-surface);
   color: var(--pbw-ink);
   border: 1px solid var(--pbw-border);
-  padding: 16px;
+  padding: 8px;
   font-family: var(--pbw-font-mono);
 }
 

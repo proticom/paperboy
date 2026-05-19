@@ -46,3 +46,7 @@ next-env.d.ts
 
 # Optional: packed converter tarball (rebuild with npm pack in paperboy-converter)
 *.tgz
+
+# project-status-dashboard skill outputs
+project-status-dashboard.html
+project-status-dashboard.data.json
