@@ -92,6 +92,9 @@ createTab();
 setupMenuListeners();
 setupWindowDrag();
 checkInitialFile();
+// Cold-launch "Open With"/double-click: RunEvent::Opened already fired and
+// buffered the path Rust-side before this script ran. Drain it now.
+void drainPendingOpens();
 void syncNativeMenuShowFullPath();
 window.addEventListener("storage", (event) => {
   if (event.key !== FULL_PATH_KEY || event.newValue === null) return;
@@ -280,18 +283,33 @@ async function setupMenuListeners() {
     "menu-view-split": () => ui.setViewMode("split"),
     "menu-settings": () => settings.open(),
     // Emitted by Rust on RunEvent::Opened — macOS "Open With → Paperboy",
-    // double-click in Finder, or drag onto the Dock icon. Payload is the
-    // absolute file path the OS handed us. If the current tab is empty,
-    // load it in place; otherwise spawn a new tab so we don't clobber
-    // the user's unsaved work.
-    "menu-open-path": (event) => {
-      const path = typeof event?.payload === "string" ? event.payload : null;
-      if (!path) return;
-      if (state.currentFile || state.isDirty) createTab();
-      loadFileIntoCurrentTab(path);
-    },
+    // double-click in Finder, or drag onto the Dock icon. The actual paths
+    // are buffered Rust-side (a cold launch fires this before listeners
+    // exist, so the ping itself can be missed); we drain them here, and also
+    // once at startup so the cold-launch case isn't lost.
+    "pending-open": () => void drainPendingOpens(),
   };
   await Promise.all(Object.entries(map).map(([name, fn]) => listen(name, fn)));
+}
+
+// Pull any "Open With" file paths macOS buffered for us and load them. The
+// Rust drain is atomic, so calling this from both the startup one-shot and
+// the `pending-open` ping never double-loads a file. An empty current tab is
+// reused; otherwise we spawn a tab so unsaved work isn't clobbered.
+async function drainPendingOpens() {
+  if (!invoke) return;
+  let paths;
+  try {
+    paths = await invoke("take_pending_open_paths");
+  } catch (e) {
+    console.error("Failed to read pending open paths", e);
+    return;
+  }
+  for (const path of paths || []) {
+    if (typeof path !== "string" || !path) continue;
+    if (state.currentFile || state.isDirty) createTab();
+    await loadFileIntoCurrentTab(path);
+  }
 }
 
 async function maybeProceed(action) {

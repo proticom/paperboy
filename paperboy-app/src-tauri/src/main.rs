@@ -2,6 +2,7 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use keyring::Entry;
 use serde::Serialize;
 use std::{fs, path::PathBuf};
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 // Same service name the CLI writes under, so keys set in either place are
@@ -38,6 +39,15 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_utils::TitleBarStyle;
 
 static WINDOW_COUNTER: AtomicU32 = AtomicU32::new(1);
+
+/// Buffers file paths handed to us by macOS `RunEvent::Opened` (Finder
+/// double-click, "Open With", drag-onto-Dock). On a cold launch that event
+/// fires before the webview's JS listeners exist, so a fire-and-forget emit is
+/// lost and the window comes up blank. We stash paths here instead; the
+/// frontend drains them once it's ready (and again on each `pending-open`
+/// ping, which covers the already-running "warm" case).
+#[derive(Default)]
+struct PendingOpen(Mutex<Vec<String>>);
 
 #[derive(Serialize)]
 struct FilePayload {
@@ -194,19 +204,17 @@ fn emit(app: &AppHandle, event: &str) {
   }
 }
 
-/// Emit a payload-carrying event to whichever window is focused (or the
-/// main window if none). Used by the macOS "Open With → Paperboy" hook
-/// to hand off the file path to the JS layer.
-fn emit_payload<S: serde::Serialize + Clone>(app: &AppHandle, event: &str, payload: S) {
-  for (_, window) in app.webview_windows() {
-    if window.is_focused().unwrap_or(false) {
-      let _ = window.emit(event, payload);
-      return;
-    }
-  }
-  if let Some(window) = app.get_webview_window("main") {
-    let _ = window.emit(event, payload);
-  }
+/// Atomically drain the file paths buffered by `RunEvent::Opened`. Safe to
+/// call from more than one trigger (the frontend's startup one-shot and each
+/// `pending-open` ping) — the mutex guarantees every path is handed to exactly
+/// one caller, so files never load twice.
+#[tauri::command]
+fn take_pending_open_paths(state: tauri::State<PendingOpen>) -> Vec<String> {
+  state
+    .0
+    .lock()
+    .map(|mut queue| std::mem::take(&mut *queue))
+    .unwrap_or_default()
 }
 
 fn about_metadata() -> tauri::menu::AboutMetadata<'static> {
@@ -289,9 +297,11 @@ fn main() {
       get_api_key,
       set_api_key,
       delete_api_key,
-      list_configured_providers
+      list_configured_providers,
+      take_pending_open_paths
     ])
     .setup(|app| {
+      app.manage(PendingOpen::default());
       let full_path_item =
         CheckMenuItemBuilder::with_id("view_full_path", "Show Full Path in Footer").checked(false).build(app.handle())?;
       app.manage(full_path_item.clone());
@@ -317,18 +327,24 @@ fn main() {
     .build(tauri::generate_context!())
     .expect("error while building Paperboy")
     .run(|app_handle, event| {
-      // macOS "Open With → Paperboy" (Finder, drag-onto-Dock-icon, lsopen).
-      // tauri::RunEvent::Opened arrives whether the app was already running
-      // or just launched. Forward each file path to the JS layer where the
-      // existing loadFileIntoCurrentTab() flow takes over.
+      // macOS "Open With → Paperboy" (Finder double-click, drag-onto-Dock,
+      // lsopen). RunEvent::Opened can fire before the webview's JS listeners
+      // exist (cold launch), so we never rely on a fire-and-forget emit:
+      // buffer the paths and let the frontend drain them when it's ready. The
+      // `pending-open` ping is a best-effort nudge for the already-running case.
       if let tauri::RunEvent::Opened { urls } = event {
-        for url in urls {
-          if let Ok(path) = url.to_file_path() {
-            if let Some(path_str) = path.to_str() {
-              emit_payload(app_handle, "menu-open-path", path_str.to_string());
+        if let Some(state) = app_handle.try_state::<PendingOpen>() {
+          if let Ok(mut queue) = state.0.lock() {
+            for url in &urls {
+              if let Ok(path) = url.to_file_path() {
+                if let Some(path_str) = path.to_str() {
+                  queue.push(path_str.to_string());
+                }
+              }
             }
           }
         }
+        emit(app_handle, "pending-open");
       }
     });
 }
