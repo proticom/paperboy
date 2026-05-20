@@ -194,6 +194,21 @@ fn emit(app: &AppHandle, event: &str) {
   }
 }
 
+/// Emit a payload-carrying event to whichever window is focused (or the
+/// main window if none). Used by the macOS "Open With → Paperboy" hook
+/// to hand off the file path to the JS layer.
+fn emit_payload<S: serde::Serialize + Clone>(app: &AppHandle, event: &str, payload: S) {
+  for (_, window) in app.webview_windows() {
+    if window.is_focused().unwrap_or(false) {
+      let _ = window.emit(event, payload);
+      return;
+    }
+  }
+  if let Some(window) = app.get_webview_window("main") {
+    let _ = window.emit(event, payload);
+  }
+}
+
 fn about_metadata() -> tauri::menu::AboutMetadata<'static> {
   AboutMetadataBuilder::new()
     .name(Some("Paperboy"))
@@ -299,6 +314,21 @@ fn main() {
       "settings" => emit(app, "menu-settings"),
       _ => {}
     })
-    .run(tauri::generate_context!())
-    .expect("error while running Paperboy");
+    .build(tauri::generate_context!())
+    .expect("error while building Paperboy")
+    .run(|app_handle, event| {
+      // macOS "Open With → Paperboy" (Finder, drag-onto-Dock-icon, lsopen).
+      // tauri::RunEvent::Opened arrives whether the app was already running
+      // or just launched. Forward each file path to the JS layer where the
+      // existing loadFileIntoCurrentTab() flow takes over.
+      if let tauri::RunEvent::Opened { urls } = event {
+        for url in urls {
+          if let Ok(path) = url.to_file_path() {
+            if let Some(path_str) = path.to_str() {
+              emit_payload(app_handle, "menu-open-path", path_str.to_string());
+            }
+          }
+        }
+      }
+    });
 }

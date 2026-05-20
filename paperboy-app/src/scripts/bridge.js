@@ -278,7 +278,18 @@ async function setupMenuListeners() {
     "menu-view-preview": () => ui.setViewMode("preview"),
     "menu-view-editor": () => ui.setViewMode("editor"),
     "menu-view-split": () => ui.setViewMode("split"),
-    "menu-settings": () => settings.open()
+    "menu-settings": () => settings.open(),
+    // Emitted by Rust on RunEvent::Opened — macOS "Open With → Paperboy",
+    // double-click in Finder, or drag onto the Dock icon. Payload is the
+    // absolute file path the OS handed us. If the current tab is empty,
+    // load it in place; otherwise spawn a new tab so we don't clobber
+    // the user's unsaved work.
+    "menu-open-path": (event) => {
+      const path = typeof event?.payload === "string" ? event.payload : null;
+      if (!path) return;
+      if (state.currentFile || state.isDirty) createTab();
+      loadFileIntoCurrentTab(path);
+    },
   };
   await Promise.all(Object.entries(map).map(([name, fn]) => listen(name, fn)));
 }
