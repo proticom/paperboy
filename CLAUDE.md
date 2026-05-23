@@ -43,25 +43,17 @@ This project uses **Gnosys** for persistent memory via MCP. Gnosys uses a centra
 
 `architecture` · `decisions` · `requirements` · `concepts` · `roadmap` · `landscape` · `open-questions`
 
-### User preferences
-
-- **Edward assistant collaboration preferences**: Persistent working preferences to follow in coding sessions:
-
-- Explanations should be beginner-friendly with simple wording and real-world examples.
-- Avoid heavy jargon and advanced theory unless necessary; define terms plainly when used.
-- Prefer straightforward, readable solutions over clever or over-engineered ones.
-- Keep implementation practical and avoid unnecessary complexity.
-- For UI assets: do not use emoji in UI elements; use Font Awesome or Google icons.
-- Prefer SVG for logos/graphics so themes can recolor them easily.
-- When code is shown for learning, include clear step-by-step comments.
-- **Explanation Style**: beginner-friendly plain language with examples
-- **Ui Icon Guideline**: no emoji in UI; use Font Awesome or Google icons; prefer SVG assets
-- **Engineering Style**: prefer simple readable solutions; do not over engineer
-
 ### Project conventions
 
-- **Extension preview toggle: Source/Preview, no split**: Extension side panel has a 2-button pill toggle (Source / Preview) in the header, mirroring the app's view-toggle but only 2 positions instead of 3.
-- **macOS NAS mount stability (no AutoFS)**: Project source lives on Synology NAS at /Volumes/Dev/projects/paperboy/ (moved from iCloud Drive). The volume unmounts on display sleep, breaking dev.
-- **Browser extension preview toggle: 2-button source/preview, no plugins, no scroll sync**: Browser extension preview toggle: 2-button pill toggle (Source / Preview) in the side panel header, mirroring the app's view-toggle but only 2 positions instead of 3 (no split view, no scroll sync). Uses markdown-it core with no plugins (deliberately simpler than the app, which uses footnote/deflist/mark/sub/sup/task-lists). Defaults to source view because the dominant workflow is extract-then-copy-markdown.
-- **macOS NAS mount stability: no AutoFS, use Energy + Login Items + Keychain**: macOS NAS mount stability for Synology Dev share: rejected AutoFS due to plaintext password concern.
+- **Extension preview toggle scope**: Extension side panel has a 2-button pill toggle (Source / Preview) in the header, mirroring the app's view-toggle but only 2 positions instead of 3.
+- **macOS NAS mount stability (no AutoFS)**: Project source lives on Synology NAS at /Volumes/Dev/projects/paperboy/ (moved from iCloud Drive 2026-04-28). The volume unmounts on display sleep, breaking dev.
+- **M045 — Design Decisions Summary**: Key design decisions: (1) Sharp corners everywhere — border radius defaults to 0. (2) Geist Mono is the primary typeface for body, labels, and UI chrome; Geist Sans for h1-h6 hero headings only; Geist Pixel reserved for accent. (3) No external UI component libraries — all components hand-built. (4) Icons exclusively from `lucide-react` and SVG files — no emoji in UI. (5) Dark theme is the default. (6) The markdown view toggle is a brand/personality feature. (7) The gradient border hover effect is a signature interaction pattern. (8) The home hero uses canvas 2D, not WebGL/Three.js (the WebGL experiments are at /v2-v5 only). (9) Content is data-driven from YAML, not hardcoded in page components. (10) The site publishes llms.txt for AI crawlers as part of GEO strategy. (11) "Operator not advisor" aesthetic — live system UI, status-bar labels, command-center look. (12) No stock photography, no gradient backgrounds, no bubbly rounded SaaS UI, no people-in-meetings imagery.
+- **M054 — Content Integrity: Fabricated Stats Removed**: Content integrity decisions made in Phase 3 (PR #66): Fabricated statistics were explicitly removed — fake "50+ clients", "7 AI models", "15 agents", "99.9% uptime SLA" were all deleted. Approved stats only: `29 years`, `100+ clients`, `200+ projects`, `5 AI products`. Defense vertical was removed entirely (page, nav, footer, homepage, about, site-knowledge). "15 years healthcare" was removed from all non-healthcare pages (the healthcare page keeps it in appropriate context). Rule: never fabricate numbers or statistics on the site.
+- **M061 — CLAW Terminology Integration (Phase 9)**: Phase 9 — CLAW Terminology Integration (PRs 92-93). Context: "Claw" became mainstream term for autonomous AI agents. OpenClaw (250K+ GitHub stars), NVIDIA NemoClaw for enterprise, Jensen Huang's claw strategy framing.
+- **M063 — Email Domain Standardisation**: Email addresses standardised across all pages: `@proticom.ai` → `@proticom.com`. This change was made in Phase 2 and reinforced in Phase 4 (PRs 70-78). The canonical contact email is `contact@proticom.com`. All page references, footer, contact forms, and site knowledge use `@proticom.com`.
+- **Paperboy fonts**: Paperboy uses two canonical fonts across all packages, plus two display fonts on the marketing site only.
+- **npm workspaces conversion (2026-05): converter symlinked across consumers**: **Decision (2026-05-17, commit `14cea4b`):** The monorepo at `/Volumes/Dev/projects/paperboy/` is now an npm workspaces project. Workspace members: `paperboy-converter`, `paperboy-cli`, `paperboy-app`, `paperboy-ext`, `paperboy-widget`. The site (`paperboy-site/`) is **not** a workspace member — it's a separate Git repo (Vercel-deployed) that still consumes the converter as a vendored `.tgz`.
+- **Site masthead toggle uses the paperboy-widget bundle (dogfooding)**: **Decision (2026-05-17, commit `dccca96` site + `f3d5d8f` widget):** The Newspaper/Markdown toggle in the site masthead is provided by the paperboy-widget bundle itself, not a separate React component. The site dogfoods the same bundle that ships to third-party embedders.
+- **Codebase cleanup audit — 2026-05-19, -1862 lines across 9 modules**: Ran `/safe-isomorphic-code-cleanup` across the monorepo + paperboy-site in leaf-first order with gated approval at each module. **-1862 lines total**, all builds + tests green.
+- **CARGO_TARGET_DIR scoping — /cargo-build skill, not ~/.zshrc export**: Decision (2026-05-19, supersedes prior "put it in ~/.zshrc" guidance):
 <!-- GNOSYS:END -->
