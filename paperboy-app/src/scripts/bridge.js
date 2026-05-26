@@ -397,7 +397,10 @@ async function loadFileIntoCurrentTab(path) {
 
     setDocument(targetPath, result.markdown, false, nativeMarkdown ? null : path);
     if (result.warnings.length > 0) {
-      window.alert(`Converted with warnings:\n\n${result.warnings.map((warning) => `- ${warning}`).join("\n")}`);
+      showToast(
+        `Converted with warnings: ${result.warnings.join("; ")}`,
+        "info"
+      );
     }
     ui.setViewMode("preview");
     showToast(
@@ -416,7 +419,6 @@ async function loadFileIntoCurrentTab(path) {
   } catch (error) {
     console.error("Failed to import file", error);
     showToast("Paperboy could not import this file.", "error");
-    window.alert("Paperboy could not import this file.");
   }
 }
 

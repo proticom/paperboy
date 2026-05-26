@@ -832,6 +832,35 @@
       "title": "Replace alert() with toast notifications",
       "dashboard_group": "Phase 4 — Desktop app feature completeness",
       "dashboard_ref": "paperboy-spec-tasks.json#4.8",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "4.8-1779773828",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T05:37:08+00:00",
+      "artifacts": {
+        "review": "reviews/4.8/claude-review-turn-2.md",
+        "reply": "reviews/4.8/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed",
+      "notes": "Both blockers fixed: L400-403 uses showToast(..., 'info') with '; '-joined warnings; L419 redundant alert deleted. Codebase grep confirms no other alert() in paperboy-app/src/. Converter bundle + all 31 workspace tests green."
+    },
+    {
+      "id": "4.9",
+      "title": "Add Find/Replace overlay (Cmd+F)",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.9",
       "status": "active",
       "phase": "review",
       "next_role": "reviewer",
@@ -843,45 +872,17 @@
       },
       "turn": 1,
       "max_turns": 4,
-      "handoff_token": "4.8-0001",
+      "handoff_token": "4.9-0001",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T04:47:00+00:00",
+      "last_updated": "2026-05-26T05:37:08+00:00",
       "artifacts": {
-        "review": "reviews/4.8/claude-review-turn-1.md",
+        "review": "reviews/4.9/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
       "review_status": "in_review"
-    },
-    {
-      "id": "4.9",
-      "title": "Add Find/Replace overlay (Cmd+F)",
-      "dashboard_group": "Phase 4 — Desktop app feature completeness",
-      "dashboard_ref": "paperboy-spec-tasks.json#4.9",
-      "status": "pending",
-      "phase": null,
-      "next_role": null,
-      "next_agent": null,
-      "roles": {
-        "builder": "cursor",
-        "reviewer": "claude",
-        "decider": "claude"
-      },
-      "turn": 0,
-      "max_turns": 4,
-      "handoff_token": null,
-      "claimed_by": null,
-      "claimed_at": null,
-      "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
-      "artifacts": {
-        "review": null,
-        "reply": null,
-        "decision": null
-      },
-      "review_status": "not_started"
     },
     {
       "id": "4.10",

@@ -328,10 +328,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-25",
     "total_atomic_tasks": 56,
-    "completed": 27,
+    "completed": 28,
     "partial": 0,
     "in_progress": 1,
-    "todo": 24,
+    "todo": 23,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -460,8 +460,8 @@
     {
       "id": "phase-3",
       "title": "Phase 3 — Publish npm packages",
-      "status": "in_progress",
-      "progress": "7/8",
+      "status": "done",
+      "progress": "8/8",
       "tasks": [
         {
           "id": "3.1",
@@ -600,18 +600,19 @@
         {
           "id": "4.8",
           "title": "Replace alert() with toast notifications",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "review_passed",
+          "notes": "Both blockers fixed: L400-403 uses showToast(..., 'info') with '; '-joined warnings; L419 redundant alert deleted. Codebase grep confirms no other alert() in paperboy-app/src/. Converter bundle + all 31 workspace tests green."
         },
         {
           "id": "4.9",
           "title": "Add Find/Replace overlay (Cmd+F)",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         },
         {
           "id": "4.10",
