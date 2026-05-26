@@ -41,13 +41,7 @@
     ],
     "fileAssociations": [
       {
-        "ext": [
-          "md",
-          "markdown",
-          "mdown",
-          "mkd",
-          "mdx"
-        ],
+        "ext": ["md", "markdown", "mdown", "mkd", "mdx"],
         "name": "Markdown",
         "description": "Markdown document",
         "role": "Editor",
@@ -55,14 +49,76 @@
         "mimeType": "text/markdown"
       },
       {
-        "ext": [
-          "txt"
-        ],
+        "ext": ["txt"],
         "name": "Plain Text",
         "description": "Plain text document",
         "role": "Editor",
         "rank": "Alternate",
         "mimeType": "text/plain"
+      },
+      {
+        "ext": ["html", "htm"],
+        "name": "HTML",
+        "description": "HTML document",
+        "role": "Editor",
+        "rank": "Alternate",
+        "mimeType": "text/html"
+      },
+      {
+        "ext": ["rtf"],
+        "name": "Rich Text",
+        "description": "Rich Text Format document",
+        "role": "Editor",
+        "rank": "Alternate",
+        "mimeType": "application/rtf"
+      },
+      {
+        "ext": ["docx"],
+        "name": "Word Document",
+        "description": "Microsoft Word document",
+        "role": "Editor",
+        "rank": "Alternate",
+        "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      },
+      {
+        "ext": ["pdf"],
+        "name": "PDF",
+        "description": "PDF document",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "application/pdf"
+      },
+      {
+        "ext": ["epub"],
+        "name": "EPUB",
+        "description": "EPUB book",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "application/epub+zip"
+      },
+      {
+        "ext": ["csv"],
+        "name": "CSV",
+        "description": "Comma-separated values",
+        "role": "Editor",
+        "rank": "Alternate",
+        "mimeType": "text/csv"
+      },
+      {
+        "ext": ["xlsx"],
+        "name": "Excel Spreadsheet",
+        "description": "Microsoft Excel spreadsheet",
+        "role": "Editor",
+        "rank": "Alternate",
+        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      },
+      {
+        "ext": ["png", "jpg", "jpeg", "gif", "bmp", "webp", "tif", "tiff"],
+        "name": "Image",
+        "description": "Image file",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "image/*"
       }
     ]
   }

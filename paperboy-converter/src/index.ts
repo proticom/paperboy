@@ -23,6 +23,8 @@ import type {
 const handlers: Record<string, ConverterHandler> = {
   md: convertText,
   markdown: convertText,
+  mdown: convertText,
+  mkd: convertText,
   mdx: convertText,
   txt: convertText,
   html: convertHtml,
@@ -46,6 +48,8 @@ const handlers: Record<string, ConverterHandler> = {
 const textInputExtensions = new Set([
   "md",
   "markdown",
+  "mdown",
+  "mkd",
   "mdx",
   "txt",
   "html",

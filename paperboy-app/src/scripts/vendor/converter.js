@@ -97982,6 +97982,8 @@ ${rowsToMarkdownTable(nonEmptyRows)}`);
 var handlers = {
   md: convertText,
   markdown: convertText,
+  mdown: convertText,
+  mkd: convertText,
   mdx: convertText,
   txt: convertText,
   html: convertHtml,
@@ -98004,6 +98006,8 @@ var handlers = {
 var textInputExtensions = /* @__PURE__ */ new Set([
   "md",
   "markdown",
+  "mdown",
+  "mkd",
   "mdx",
   "txt",
   "html",
