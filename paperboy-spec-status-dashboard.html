@@ -328,10 +328,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-25",
     "total_atomic_tasks": 56,
-    "completed": 25,
+    "completed": 27,
     "partial": 0,
     "in_progress": 1,
-    "todo": 26,
+    "todo": 24,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -461,7 +461,7 @@
       "id": "phase-3",
       "title": "Phase 3 — Publish npm packages",
       "status": "in_progress",
-      "progress": "6/8",
+      "progress": "7/8",
       "tasks": [
         {
           "id": "3.1",
@@ -517,20 +517,20 @@
         {
           "id": "3.7",
           "title": "Switch site from vendored tarball to registry converter",
-          "status": "todo",
+          "status": "done",
           "evidence": "Unblocked — converter v0.2.2 live on npm. Replace paperboy-site `proticom-paperboy-converter-0.2.1.tgz` with `\"@proticom/paperboy-converter\": \"^0.2.2\"` in package.json; delete the .tgz; update the sync-widget skill to stop assuming a vendored tarball.",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started",
-          "notes": "Unblocked — converter v0.2.2 live on npm. Replace paperboy-site `proticom-paperboy-converter-0.2.1.tgz` with `\"@proticom/paperboy-converter\": \"^0.2.2\"` in package.json; delete the .tgz; update the sync-widget skill to stop assuming a vendored tarball."
+          "review_status": "review_passed",
+          "notes": "All 5 findings fixed: site uses ^0.2.2 registry (lockfile resolves to registry URL); both stale converter .tgz removed; sync-all.mjs is Option A (build-only); bump-version + release-cut docs scrubbed in both .claude and .agents skill trees; site tsc/build + monorepo build/test all green."
         },
         {
           "id": "3.8",
           "title": "Flip site install copy to live npm/jsDelivr snippets",
-          "status": "todo",
+          "status": "done",
           "evidence": "Unblocked — publishes live. Flip the 'in final review' copy in `lib/distribution.ts` (cascades to a4 widget jsDelivr + a5 CLI install) so the install snippets read as live.",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started",
-          "notes": "Unblocked — publishes live. Flip the 'in final review' copy in `lib/distribution.ts` (cascades to a4 widget jsDelivr + a5 CLI install) so the install snippets read as live."
+          "review_status": "review_passed",
+          "notes": "Verified: lib/distribution.ts cli+widget strings flipped, a4 cascades via distribution.widget.summary, help FAQ interpolates distribution.cli.installSnippet, desktop+extension pre-release copy preserved. grep 'final review|publish pending|will work once' in lib/+app/ -> 0 hits; tsc + npm run build both exit 0 (18/18 routes)."
         }
       ]
     },
@@ -538,7 +538,7 @@
       "id": "phase-4",
       "title": "Phase 4 — Desktop app feature completeness",
       "status": "in_progress",
-      "progress": "6/13",
+      "progress": "7/13",
       "tasks": [
         {
           "id": "4.1",
@@ -591,18 +591,19 @@
         {
           "id": "4.7",
           "title": "Expand file associations for converter formats",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "SENT TO BUILDER (turn 1) — not started: bundle.fileAssociations declares only Markdown (md/markdown/mdown/mkd/mdx) + Plain Text; converter supports 19 ext (md/markdown/mdx/txt/html/htm/rtf/docx/pdf/csv/xlsx/epub + 8 image). Expand to 10 groups covering all 19, Markdown stays rank=Default, rest rank=Alternate. role=Editor for editable text (md/txt/html/rtf/docx/csv/xlsx), role=Viewer for PDF/EPUB/images (we convert-to-md, not edit-in-place). Also add mdown/mkd to paperboy-converter handlers map (or remove from bundle) — currently inconsistent. Runtime path (loadFileIntoCurrentTab) already handles all 19; gap is purely the macOS bundle declaration. [reviews/4.7/claude-review-turn-1.md]",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "waiting_for_reviewer"
+          "review_status": "review_passed",
+          "notes": "Bundle declares 10 groups / 22 unique exts (was 2 / 6). Markdown=Default; others=Alternate; Editor for editable text, Viewer for PDF/EPUB/images. mdown/mkd reconciled into converter handlers + textInputExtensions (Option A). All workspace builds + tests green; JSON valid; npm pack clean."
         },
         {
           "id": "4.8",
           "title": "Replace alert() with toast notifications",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         },
         {
           "id": "4.9",

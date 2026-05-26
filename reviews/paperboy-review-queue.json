@@ -606,28 +606,29 @@
       "title": "Flip site install copy to live npm/jsDelivr snippets",
       "dashboard_group": "Phase 3 — Publish npm packages",
       "dashboard_ref": "paperboy-spec-tasks.json#3.8",
-      "status": "active",
-      "phase": "review",
-      "next_role": "reviewer",
-      "next_agent": "claude",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 1,
+      "turn": 2,
       "max_turns": 4,
-      "handoff_token": "3.8-0001",
+      "handoff_token": "3.8-1779770820",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T04:39:21+00:00",
+      "last_updated": "2026-05-26T04:47:00+00:00",
       "artifacts": {
-        "review": "reviews/3.8/claude-review-turn-1.md",
-        "reply": null,
+        "review": "reviews/3.8/claude-review-turn-2.md",
+        "reply": "reviews/3.8/cursor-reply-turn-1.md",
         "decision": null
       },
-      "review_status": "in_review"
+      "review_status": "review_passed",
+      "notes": "Verified: lib/distribution.ts cli+widget strings flipped, a4 cascades via distribution.widget.summary, help FAQ interpolates distribution.cli.installSnippet, desktop+extension pre-release copy preserved. grep 'final review|publish pending|will work once' in lib/+app/ -> 0 hits; tsc + npm run build both exit 0 (18/18 routes)."
     },
     {
       "id": "4.1",
@@ -831,28 +832,28 @@
       "title": "Replace alert() with toast notifications",
       "dashboard_group": "Phase 4 — Desktop app feature completeness",
       "dashboard_ref": "paperboy-spec-tasks.json#4.8",
-      "status": "pending",
-      "phase": null,
-      "next_role": null,
-      "next_agent": null,
+      "status": "active",
+      "phase": "review",
+      "next_role": "reviewer",
+      "next_agent": "claude",
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 0,
+      "turn": 1,
       "max_turns": 4,
-      "handoff_token": null,
+      "handoff_token": "4.8-0001",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
+      "last_updated": "2026-05-26T04:47:00+00:00",
       "artifacts": {
-        "review": null,
+        "review": "reviews/4.8/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "in_review"
     },
     {
       "id": "4.9",

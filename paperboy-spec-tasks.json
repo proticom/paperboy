@@ -5,10 +5,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-25",
     "total_atomic_tasks": 56,
-    "completed": 26,
+    "completed": 27,
     "partial": 0,
     "in_progress": 1,
-    "todo": 25,
+    "todo": 24,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -138,7 +138,7 @@
       "id": "phase-3",
       "title": "Phase 3 — Publish npm packages",
       "status": "in_progress",
-      "progress": "6/8",
+      "progress": "7/8",
       "tasks": [
         {
           "id": "3.1",
@@ -203,11 +203,11 @@
         {
           "id": "3.8",
           "title": "Flip site install copy to live npm/jsDelivr snippets",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "Unblocked — publishes live. Flip the 'in final review' copy in `lib/distribution.ts` (cascades to a4 widget jsDelivr + a5 CLI install) so the install snippets read as live.",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review",
-          "notes": "Unblocked — publishes live. Flip the 'in final review' copy in `lib/distribution.ts` (cascades to a4 widget jsDelivr + a5 CLI install) so the install snippets read as live."
+          "review_status": "review_passed",
+          "notes": "Verified: lib/distribution.ts cli+widget strings flipped, a4 cascades via distribution.widget.summary, help FAQ interpolates distribution.cli.installSnippet, desktop+extension pre-release copy preserved. grep 'final review|publish pending|will work once' in lib/+app/ -> 0 hits; tsc + npm run build both exit 0 (18/18 routes)."
         }
       ]
     },
@@ -277,10 +277,10 @@
         {
           "id": "4.8",
           "title": "Replace alert() with toast notifications",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         },
         {
           "id": "4.9",
