@@ -71,10 +71,14 @@ const editorEl = document.querySelector("[data-editor]");
 const filepathEl = document.querySelector("[data-filepath]");
 const pathFooterEl = document.querySelector("[data-path-footer]");
 const previewEl = document.querySelector("[data-preview]");
+const statusWordsEl = document.querySelector("[data-status-words]");
+const statusCursorEl = document.querySelector("[data-status-cursor]");
+const statusExtEl = document.querySelector("[data-status-ext]");
 let toastEl = null;
 let toastTimer = null;
 const editor = initEditor(editorEl, document.querySelector("[data-toolbar]"));
 const preview = createPreview(previewEl);
+updateStatusBar();
 let ignoredScrollSource = null;
 let ignoredScrollTimer;
 
@@ -106,8 +110,16 @@ editor.onChange((content) => {
   previewLater();
   updateTitle();
   renderTabBar();
+  updateStatusWords();
+  updateStatusCursor();
 });
 editor.onScroll(() => syncFromEditor());
+editorEl.addEventListener("keyup", updateStatusCursor);
+editorEl.addEventListener("mouseup", updateStatusCursor);
+editorEl.addEventListener("focus", updateStatusCursor);
+document.addEventListener("selectionchange", () => {
+  if (document.activeElement === editorEl) updateStatusCursor();
+});
 preview.onScroll(() => syncFromPreview());
 
 const settings = initSettings({ invoke });
@@ -161,6 +173,7 @@ function restoreTab(tab) {
   syncPreviewToEditor();
   updateTitle();
   updatePathFooter();
+  updateStatusBar();
 }
 
 function createTab() {
@@ -560,6 +573,7 @@ function setDocument(path, content, saved, sourceFile = null) {
   updatePathFooter();
   updateTitle();
   renderTabBar();
+  updateStatusBar();
 }
 
 function updateTitle() {
@@ -577,6 +591,40 @@ function updatePathFooter() {
   const displayPath = state.currentFile || state.sourceFile;
   filepathEl.textContent = displayPath || "";
   pathFooterEl.hidden = !state.showFullPath;
+}
+
+function updateStatusWords() {
+  if (!statusWordsEl) return;
+  const trimmed = editor.getContent().trim();
+  const count = trimmed ? trimmed.split(/\s+/).length : 0;
+  statusWordsEl.textContent = `${count.toLocaleString()} ${count === 1 ? "word" : "words"}`;
+}
+
+function updateStatusCursor() {
+  if (!statusCursorEl) return;
+  const pos = editorEl.selectionStart ?? 0;
+  const upto = editorEl.value.slice(0, pos);
+  const line = (upto.match(/\n/g) || []).length + 1;
+  const lastNewline = upto.lastIndexOf("\n");
+  const col = (lastNewline === -1 ? upto.length : upto.length - lastNewline - 1) + 1;
+  statusCursorEl.textContent = `Ln ${line}, Col ${col}`;
+}
+
+function updateStatusExt() {
+  if (!statusExtEl) return;
+  const path = state.currentFile || state.sourceFile;
+  if (!path) {
+    statusExtEl.textContent = "md";
+    return;
+  }
+  const match = path.match(/\.([A-Za-z0-9]+)$/);
+  statusExtEl.textContent = match ? match[1].toLowerCase() : "md";
+}
+
+function updateStatusBar() {
+  updateStatusWords();
+  updateStatusCursor();
+  updateStatusExt();
 }
 
 async function syncNativeMenuShowFullPath() {

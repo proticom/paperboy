@@ -919,37 +919,8 @@
       "title": "Add status bar (word count, cursor position)",
       "dashboard_group": "Phase 4 — Desktop app feature completeness",
       "dashboard_ref": "paperboy-spec-tasks.json#4.11",
-      "status": "active",
-      "phase": "reply",
-      "next_role": "builder",
-      "next_agent": "cursor",
-      "roles": {
-        "builder": "cursor",
-        "reviewer": "claude",
-        "decider": "claude"
-      },
-      "turn": 1,
-      "max_turns": 4,
-      "handoff_token": "4.11-1779775844",
-      "claimed_by": null,
-      "claimed_at": null,
-      "claimed_token": null,
-      "last_updated": "2026-05-26T06:10:44+00:00",
-      "artifacts": {
-        "review": "reviews/4.11/claude-review-turn-1.md",
-        "reply": null,
-        "decision": null
-      },
-      "review_status": "waiting_for_builder",
-      "notes": "4.11 turn 1: Status bar not yet implemented. Send to builder — new <footer class=status-bar> row after .path-footer in index.html with 3 always-visible segments (words / Ln,Col / ext). CSS rule matching .path-footer register. bridge.js adds 3 refs + 4 helpers, wires editor.onChange (words+cursor) + textarea keyup/mouseup/focus + selectionchange + setDocument/tab-restore. No editor.js changes, no Rust changes."
-    },
-    {
-      "id": "4.12",
-      "title": "Wire or remove unused headingId editor action",
-      "dashboard_group": "Phase 4 — Desktop app feature completeness",
-      "dashboard_ref": "paperboy-spec-tasks.json#4.12",
-      "status": "pending",
-      "phase": null,
+      "status": "review_passed",
+      "phase": "decision",
       "next_role": null,
       "next_agent": null,
       "roles": {
@@ -957,19 +928,48 @@
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 0,
+      "turn": 2,
       "max_turns": 4,
-      "handoff_token": null,
+      "handoff_token": "4.11-1779776215",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
+      "last_updated": "2026-05-26T06:16:55+00:00",
       "artifacts": {
-        "review": null,
+        "review": "reviews/4.11/claude-review-turn-2.md",
+        "reply": "reviews/4.11/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed",
+      "notes": "4.11 review_passed turn 2: Status-bar row added to index.html L168-174 (after .path-footer, always visible). 3 segments wired in bridge.js (refs L74-76, helpers L596-628): words (trim+split, singular/plural), Ln/Col (1-based, derived from editorEl.selectionStart), ext (lowercased, defaults md). Triggers cover editor.onChange + textarea keyup/mouseup/focus + selectionchange + setDocument + restoreTab + startup. CSS L516-537 matches .path-footer register. node --check OK; cargo check OK; full workspace build OK; 31/31 tests pass."
+    },
+    {
+      "id": "4.12",
+      "title": "Wire or remove unused headingId editor action",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.12",
+      "status": "active",
+      "phase": "review",
+      "next_role": "reviewer",
+      "next_agent": "claude",
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "4.12-0001",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T06:16:55+00:00",
+      "artifacts": {
+        "review": "reviews/4.12/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "in_review"
     },
     {
       "id": "4.13",

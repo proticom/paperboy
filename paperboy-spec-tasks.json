@@ -5,10 +5,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-25",
     "total_atomic_tasks": 56,
-    "completed": 30,
+    "completed": 31,
     "partial": 0,
     "in_progress": 1,
-    "todo": 21,
+    "todo": 20,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -215,7 +215,7 @@
       "id": "phase-4",
       "title": "Phase 4 — Desktop app feature completeness",
       "status": "in_progress",
-      "progress": "9/13",
+      "progress": "10/13",
       "tasks": [
         {
           "id": "4.1",
@@ -304,19 +304,19 @@
         {
           "id": "4.11",
           "title": "Add status bar (word count, cursor position)",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "waiting_for_builder",
-          "notes": "4.11 turn 1: Status bar not yet implemented. Send to builder — new <footer class=status-bar> row after .path-footer in index.html with 3 always-visible segments (words / Ln,Col / ext). CSS rule matching .path-footer register. bridge.js adds 3 refs + 4 helpers, wires editor.onChange (words+cursor) + textarea keyup/mouseup/focus + selectionchange + setDocument/tab-restore. No editor.js changes, no Rust changes."
+          "review_status": "review_passed",
+          "notes": "4.11 review_passed turn 2: Status-bar row added to index.html L168-174 (after .path-footer, always visible). 3 segments wired in bridge.js (refs L74-76, helpers L596-628): words (trim+split, singular/plural), Ln/Col (1-based, derived from editorEl.selectionStart), ext (lowercased, defaults md). Triggers cover editor.onChange + textarea keyup/mouseup/focus + selectionchange + setDocument + restoreTab + startup. CSS L516-537 matches .path-footer register. node --check OK; cargo check OK; full workspace build OK; 31/31 tests pass."
         },
         {
           "id": "4.12",
           "title": "Wire or remove unused headingId editor action",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         },
         {
           "id": "4.13",
