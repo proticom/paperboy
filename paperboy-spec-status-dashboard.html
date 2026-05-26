@@ -581,18 +581,18 @@
         {
           "id": "4.6",
           "title": "Add in-window drag-and-drop file import",
-          "status": "in_progress",
-          "evidence": "SENT TO BUILDER (turn 1) — not started: no webview drag-drop handler, no drop zone/affordance, tauri.conf dragDropEnabled null (v2 default true). Add setupFileDrop() in bridge.js init using the webview onDragDropEvent (Tauri v2 native drop = absolute paths); funnel each dropped path through loadFileIntoCurrentTab (reuses open pipeline + 4.5 recent-files); new tab/maybeProceed guard for dirty current tab; drag-over affordance toggled on enter/over, cleared on leave/cancel/drop. [reviews/4.6/claude-review-turn-1.md]",
+          "status": "done",
+          "evidence": "PASSED (turn 2): finding fixed. setupFileDrop() wired in bridge.js init (L122) after drainPendingOpens; uses Tauri v2 webview.onDragDropEvent (absolute paths) on document.body drop root; toggles drag-over class on enter/over, clears on leave/cancel/drop. On drop each path funnels through loadFileIntoCurrentTab (reuses open pipeline + 4.5 recent-files); first dirty drop guarded by maybeProceed, subsequent (or dirty/current-file) spawn createTab mirroring drainPendingOpens. Sharp-corner dashed outline affordance in styles/app.css. No-ops cleanly when onDragDropEvent unavailable. tauri.conf dragDropEnabled stays null (v2 default true). Landed in 81b4570 (+71 bridge.js, +5 app.css). build:converter / build / test gates exit 0 (19 cli + 12 widget tests). [reviews/4.6/claude-review-turn-2.md]",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "waiting_for_reviewer"
+          "review_status": "review_passed"
         },
         {
           "id": "4.7",
           "title": "Expand file associations for converter formats",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         },
         {
           "id": "4.8",

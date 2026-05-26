@@ -1,4 +1,4 @@
-var PAPERBOY_CONVERTER_VERSION = "0.2.1";
+var PAPERBOY_CONVERTER_VERSION = "0.2.2";
 
 (() => {
   var __defProp = Object.defineProperty;

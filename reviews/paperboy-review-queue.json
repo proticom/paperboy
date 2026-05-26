@@ -773,6 +773,34 @@
       "title": "Add in-window drag-and-drop file import",
       "dashboard_group": "Phase 4 — Desktop app feature completeness",
       "dashboard_ref": "paperboy-spec-tasks.json#4.6",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "4.6-1779768947",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T04:15:47+00:00",
+      "artifacts": {
+        "review": "reviews/4.6/claude-review-turn-2.md",
+        "reply": "reviews/4.6/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "4.7",
+      "title": "Expand file associations for converter formats",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.7",
       "status": "active",
       "phase": "review",
       "next_role": "reviewer",
@@ -782,47 +810,19 @@
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 2,
+      "turn": 1,
       "max_turns": 4,
-      "handoff_token": "4.6-1779757743",
+      "handoff_token": "4.7-0001",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T01:09:03+00:00",
+      "last_updated": "2026-05-26T04:15:47+00:00",
       "artifacts": {
-        "review": "reviews/4.6/claude-review-turn-1.md",
-        "reply": "reviews/4.6/cursor-reply-turn-1.md",
-        "decision": null
-      },
-      "review_status": "waiting_for_reviewer"
-    },
-    {
-      "id": "4.7",
-      "title": "Expand file associations for converter formats",
-      "dashboard_group": "Phase 4 — Desktop app feature completeness",
-      "dashboard_ref": "paperboy-spec-tasks.json#4.7",
-      "status": "pending",
-      "phase": null,
-      "next_role": null,
-      "next_agent": null,
-      "roles": {
-        "builder": "cursor",
-        "reviewer": "claude",
-        "decider": "claude"
-      },
-      "turn": 0,
-      "max_turns": 4,
-      "handoff_token": null,
-      "claimed_by": null,
-      "claimed_at": null,
-      "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
-      "artifacts": {
-        "review": null,
+        "review": "reviews/4.7/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "in_review"
     },
     {
       "id": "4.8",
