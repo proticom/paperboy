@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "Paperboy Extension",
   "description": "Convert the current page into copyable markdown in a side panel.",
+  "homepage_url": "https://paperboy.run/a3",
   "version": "0.2.2",
   "minimum_chrome_version": "114",
   "permissions": [
