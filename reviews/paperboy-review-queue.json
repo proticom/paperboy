@@ -1036,9 +1036,9 @@
       "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
       "dashboard_ref": "paperboy-spec-tasks.json#5.2",
       "status": "active",
-      "phase": "review",
-      "next_role": "reviewer",
-      "next_agent": "claude",
+      "phase": "reply",
+      "next_role": "builder",
+      "next_agent": "cursor",
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
@@ -1046,17 +1046,18 @@
       },
       "turn": 1,
       "max_turns": 4,
-      "handoff_token": "5.2-0001",
+      "handoff_token": "5.2-1779778357",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T06:48:12+00:00",
+      "last_updated": "2026-05-26T06:52:37+00:00",
       "artifacts": {
         "review": "reviews/5.2/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "in_review"
+      "review_status": "waiting_for_builder",
+      "notes": "5.2 turn 1: add bundle.macOS block (signingIdentity:null env-var driven; entitlements:'Entitlements.plist'; minimumSystemVersion:'10.13') + create paperboy-app/src-tauri/Entitlements.plist with 8 hardened-runtime keys. Surgical: 2 files. No CI / no skill edits (5.6 wires those). /tauri-sign skill stays as operational runbook."
     },
     {
       "id": "5.3",

@@ -351,7 +351,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "5.2 turn 1: add bundle.macOS block (signingIdentity:null env-var driven; entitlements:'Entitlements.plist'; minimumSystemVersion:'10.13') + create paperboy-app/src-tauri/Entitlements.plist with 8 hardened-runtime keys. Surgical: 2 files. No CI / no skill edits (5.6 wires those). /tauri-sign skill stays as operational runbook."
         },
         {
           "id": "5.3",
