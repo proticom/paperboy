@@ -5,10 +5,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-25",
     "total_atomic_tasks": 56,
-    "completed": 32,
+    "completed": 33,
     "partial": 0,
     "in_progress": 1,
-    "todo": 19,
+    "todo": 18,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -215,7 +215,7 @@
       "id": "phase-4",
       "title": "Phase 4 — Desktop app feature completeness",
       "status": "in_progress",
-      "progress": "11/13",
+      "progress": "12/13",
       "tasks": [
         {
           "id": "4.1",
@@ -322,11 +322,11 @@
         {
           "id": "4.13",
           "title": "Add desktop smoke tests for import flows",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "waiting_for_builder",
-          "notes": "4.13 turn 1: paperboy-app has zero test harness. Direct builder to add vitest+happy-dom smoke suite targeting convertImportedFile (the single chokepoint every desktop import funnels through) with 5-6 deterministic tests (md/html/csv/png-disabled/unsupported/png-AI-wiring) — no binary fixtures, no tauri-driver. True Tauri E2E deferred to plan 7.3 by explicit README note."
+          "review_status": "review_passed",
+          "notes": "Verified 52/52 workspace tests pass (6 new in paperboy-app, A-F: md/html/csv/png-AI-off/unsupported/png-AI-on). All workspace builds green. Node env + localStorage polyfill swap (over happy-dom) accepted: tesseract.js worker URLs broke happy-dom; same goal achieved, README documents it. Tauri E2E deferred to 7.3 as designed."
         }
       ]
     },
@@ -339,10 +339,10 @@
         {
           "id": "5.1",
           "title": "Change tauri bundle targets to dmg/nsis/deb/appimage",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         },
         {
           "id": "5.2",

@@ -3,3 +3,7 @@ src-tauri/target/
 dist/
 .DS_Store
 
+# tesseract.js language data downloaded by vitest smoke tests (tests/import-flow.test.js)
+eng.traineddata
+*.traineddata
+
