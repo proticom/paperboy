@@ -328,10 +328,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-25",
     "total_atomic_tasks": 56,
-    "completed": 28,
+    "completed": 29,
     "partial": 0,
     "in_progress": 1,
-    "todo": 23,
+    "todo": 22,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -538,7 +538,7 @@
       "id": "phase-4",
       "title": "Phase 4 — Desktop app feature completeness",
       "status": "in_progress",
-      "progress": "7/13",
+      "progress": "8/13",
       "tasks": [
         {
           "id": "4.1",
@@ -609,18 +609,19 @@
         {
           "id": "4.9",
           "title": "Add Find/Replace overlay (Cmd+F)",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "review_passed",
+          "notes": "4.9 turn 3 PASS: Cmd+F moved to document-level handler in bridge.js alongside Cmd+G; editor.js duplicate intercept + onOpenFind plumbing fully removed; openOverlay() handles preview->editor switch. Builds green, 31 tests pass."
         },
         {
           "id": "4.10",
           "title": "Add Export submenu (HTML and PDF)",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         },
         {
           "id": "4.11",
