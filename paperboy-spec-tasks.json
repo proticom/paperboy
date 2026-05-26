@@ -533,7 +533,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "Turn 1 contract for 8.3: new file paperboy-widget/tests/widget.integration.test.js with 5 jsdom-driven integration tests against the BUILT dist/paperboy-widget.min.js bundle (not src/). Tests cover selector resolution, overlay vs inline rendering, copy-to-clipboard (navigator.clipboard stubbed), localStorage view persistence + restore-on-reload. Per-file '// @vitest-environment jsdom' pragma so existing turndown unit test stays in Node env. APPROVED devDep additions: 'jsdom': '^25.0.0' (spec explicitly names jsdom). Also updates scripts.test from 'vitest run' to 'npm run build && vitest run' to match converter/cli patterns. No src/ or vitest.config.js or build.js edits."
         },
         {
           "id": "8.4",

@@ -1555,9 +1555,9 @@
       "dashboard_group": "Phase 8 — Cross-cutting hardening",
       "dashboard_ref": "paperboy-spec-tasks.json#8.3",
       "status": "active",
-      "phase": "review",
-      "next_role": "reviewer",
-      "next_agent": "claude",
+      "phase": "reply",
+      "next_role": "builder",
+      "next_agent": "cursor",
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
@@ -1565,17 +1565,18 @@
       },
       "turn": 1,
       "max_turns": 4,
-      "handoff_token": "8.3-0001",
+      "handoff_token": "8.3-1779799190",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T12:36:42+00:00",
+      "last_updated": "2026-05-26T12:39:50+00:00",
       "artifacts": {
         "review": "reviews/8.3/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "in_review"
+      "review_status": "waiting_for_builder",
+      "notes": "Turn 1 contract for 8.3: new file paperboy-widget/tests/widget.integration.test.js with 5 jsdom-driven integration tests against the BUILT dist/paperboy-widget.min.js bundle (not src/). Tests cover selector resolution, overlay vs inline rendering, copy-to-clipboard (navigator.clipboard stubbed), localStorage view persistence + restore-on-reload. Per-file '// @vitest-environment jsdom' pragma so existing turndown unit test stays in Node env. APPROVED devDep additions: 'jsdom': '^25.0.0' (spec explicitly names jsdom). Also updates scripts.test from 'vitest run' to 'npm run build && vitest run' to match converter/cli patterns. No src/ or vitest.config.js or build.js edits."
     },
     {
       "id": "8.4",
