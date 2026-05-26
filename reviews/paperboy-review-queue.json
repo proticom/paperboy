@@ -920,9 +920,9 @@
       "dashboard_group": "Phase 4 — Desktop app feature completeness",
       "dashboard_ref": "paperboy-spec-tasks.json#4.11",
       "status": "active",
-      "phase": "review",
-      "next_role": "reviewer",
-      "next_agent": "claude",
+      "phase": "reply",
+      "next_role": "builder",
+      "next_agent": "cursor",
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
@@ -930,17 +930,18 @@
       },
       "turn": 1,
       "max_turns": 4,
-      "handoff_token": "4.11-0001",
+      "handoff_token": "4.11-1779775844",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T06:07:29+00:00",
+      "last_updated": "2026-05-26T06:10:44+00:00",
       "artifacts": {
         "review": "reviews/4.11/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "in_review"
+      "review_status": "waiting_for_builder",
+      "notes": "4.11 turn 1: Status bar not yet implemented. Send to builder — new <footer class=status-bar> row after .path-footer in index.html with 3 always-visible segments (words / Ln,Col / ext). CSS rule matching .path-footer register. bridge.js adds 3 refs + 4 helpers, wires editor.onChange (words+cursor) + textarea keyup/mouseup/focus + selectionchange + setDocument/tab-restore. No editor.js changes, no Rust changes."
     },
     {
       "id": "4.12",

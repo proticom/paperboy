@@ -307,7 +307,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "4.11 turn 1: Status bar not yet implemented. Send to builder — new <footer class=status-bar> row after .path-footer in index.html with 3 always-visible segments (words / Ln,Col / ext). CSS rule matching .path-footer register. bridge.js adds 3 refs + 4 helpers, wires editor.onChange (words+cursor) + textarea keyup/mouseup/focus + selectionchange + setDocument/tab-restore. No editor.js changes, no Rust changes."
         },
         {
           "id": "4.12",
