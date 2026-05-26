@@ -54,7 +54,11 @@
       "mcp__claude_ai_Vercel__get_deployment_build_logs",
       "mcp__claude_ai_Vercel__get_project",
       "mcp__claude_ai_Vercel__get_runtime_logs",
-      "Bash(npm view *)"
+      "Bash(npm view *)",
+      "Bash(git push origin main)",
+      "Bash(git push origin master)",
+      "Bash(git add -A)",
+      "Bash(git commit -m *)"
     ]
   }
 }
