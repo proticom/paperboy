@@ -289,7 +289,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "Required: 4.9 not yet implemented. Build Find/Replace overlay per Finding 1 (Cmd+F open, Esc close, Enter/Shift+Enter nav, Aa case toggle, counter, Replace All via single-pass regex per Finding 3 to avoid index shifts, info toast on Replace All). Verify no existing Tauri Edit->Find accelerator (Finding 2). Defer regex toggle. Exact HTML/CSS/JS sketches inlined."
         },
         {
           "id": "4.10",
