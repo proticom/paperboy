@@ -890,37 +890,8 @@
       "title": "Add Export submenu (HTML and PDF)",
       "dashboard_group": "Phase 4 — Desktop app feature completeness",
       "dashboard_ref": "paperboy-spec-tasks.json#4.10",
-      "status": "active",
-      "phase": "reply",
-      "next_role": "builder",
-      "next_agent": "cursor",
-      "roles": {
-        "builder": "cursor",
-        "reviewer": "claude",
-        "decider": "claude"
-      },
-      "turn": 1,
-      "max_turns": 4,
-      "handoff_token": "4.10-1779775232",
-      "claimed_by": null,
-      "claimed_at": null,
-      "claimed_token": null,
-      "last_updated": "2026-05-26T06:00:32+00:00",
-      "artifacts": {
-        "review": "reviews/4.10/claude-review-turn-1.md",
-        "reply": null,
-        "decision": null
-      },
-      "review_status": "waiting_for_builder",
-      "notes": "4.10 turn 1: Export submenu not yet implemented. Send to builder with full spec — Rust adds Export submenu under File with export_html/export_pdf items; JS adds menu-export-html/-pdf listeners — HTML export wraps previewEl.innerHTML + saveDialog + existing save_file invoke; PDF export flips to preview and calls window.print() for macOS WebView Save as PDF."
-    },
-    {
-      "id": "4.11",
-      "title": "Add status bar (word count, cursor position)",
-      "dashboard_group": "Phase 4 — Desktop app feature completeness",
-      "dashboard_ref": "paperboy-spec-tasks.json#4.11",
-      "status": "pending",
-      "phase": null,
+      "status": "review_passed",
+      "phase": "decision",
       "next_role": null,
       "next_agent": null,
       "roles": {
@@ -928,19 +899,48 @@
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 0,
+      "turn": 2,
       "max_turns": 4,
-      "handoff_token": null,
+      "handoff_token": "4.10-1779775649",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
+      "last_updated": "2026-05-26T06:07:29+00:00",
       "artifacts": {
-        "review": null,
+        "review": "reviews/4.10/claude-review-turn-2.md",
+        "reply": "reviews/4.10/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed",
+      "notes": "4.10 turn 2 PASS. Verified Rust adds File→Export submenu (HTML…, PDF…) between Save As and Close, emitting menu-export-html/menu-export-pdf. JS exportHtml refreshes preview, wraps previewEl.innerHTML in portable HTML doc + saveDialog + existing save_file invoke + toast. exportPdf flips to preview, RAF-settles, window.print() (macOS Save as PDF), restores prior view. Builder added defensive renderPreview() before reading innerHTML. cargo check + all workspace builds + 31 tests green."
+    },
+    {
+      "id": "4.11",
+      "title": "Add status bar (word count, cursor position)",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.11",
+      "status": "active",
+      "phase": "review",
+      "next_role": "reviewer",
+      "next_agent": "claude",
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "4.11-0001",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T06:07:29+00:00",
+      "artifacts": {
+        "review": "reviews/4.11/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "in_review"
     },
     {
       "id": "4.12",

@@ -303,6 +303,8 @@ async function setupMenuListeners() {
     "menu-open-window": () => openFile("window"),
     "menu-save": () => saveCurrent(),
     "menu-save-as": () => saveAsCurrent(),
+    "menu-export-html": () => void exportHtml(),
+    "menu-export-pdf": () => void exportPdf(),
     "menu-close": () => closeCurrentTab(),
     "menu-view-full-path": () => void toggleFullPath(),
     "menu-view-preview": () => ui.setViewMode("preview"),
@@ -473,6 +475,74 @@ async function saveAsCurrent() {
   if (!path) return false;
   await invoke("save_file", { path, content });
   setDocument(path, content, true);
+  return true;
+}
+
+function exportBaseName() {
+  if (state.currentFile) {
+    return state.currentFile.split(/[\\/]/).pop().replace(/\.[^.]+$/, "");
+  }
+  if (state.sourceFile) {
+    return state.sourceFile.split(/[\\/]/).pop().replace(/\.[^.]+$/, "");
+  }
+  return "untitled";
+}
+
+function buildStandaloneHtml(title, bodyHtml) {
+  const escape = (value) =>
+    value.replace(/[&<>]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[char]));
+  const css = `
+    :root { color-scheme: light; }
+    body { font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; background: #fff; }
+    h1, h2, h3, h4, h5, h6 { line-height: 1.25; margin: 1.5em 0 0.5em; }
+    pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    pre { background: #f5f5f5; padding: 1em; overflow: auto; border-radius: 6px; }
+    code { background: #f0f0f0; padding: 0.1em 0.3em; border-radius: 3px; }
+    pre code { background: none; padding: 0; }
+    blockquote { border-left: 3px solid #ccc; margin: 1em 0; padding: 0 1em; color: #555; }
+    table { border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 0.4em 0.7em; }
+    img { max-width: 100%; }
+    a { color: #0366d6; }
+  `;
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escape(title)}</title>
+<style>${css}</style>
+</head>
+<body class="markdown-body">
+${bodyHtml}
+</body>
+</html>`;
+}
+
+async function exportHtml() {
+  if (!invoke || !saveDialog) return false;
+  renderPreview({ content: state.content, resetScroll: false });
+  const title = exportBaseName();
+  const html = buildStandaloneHtml(title, previewEl.innerHTML);
+  const path = await saveDialog({
+    defaultPath: `${title}.html`,
+    filters: [{ name: "HTML", extensions: ["html", "htm"] }],
+  });
+  if (!path) return false;
+  await invoke("save_file", { path, content: html });
+  showToast(`Exported HTML to ${path}`, "info");
+  return true;
+}
+
+async function exportPdf() {
+  const previous = state.viewMode;
+  if (previous !== "preview") {
+    ui.setViewMode("preview");
+    renderPreview({ content: state.content, resetScroll: false });
+  }
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  window.print();
+  if (previous !== "preview") ui.setViewMode(previous);
   return true;
 }
 

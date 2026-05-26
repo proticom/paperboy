@@ -306,6 +306,10 @@ fn menu(
     .quit()
     .build()?;
   let open_recent = build_open_recent_submenu(app, recent)?;
+  let export = SubmenuBuilder::new(app, "Export")
+    .item(&MenuItemBuilder::with_id("export_html", "HTML…").build(app)?)
+    .item(&MenuItemBuilder::with_id("export_pdf", "PDF…").build(app)?)
+    .build()?;
   let file = SubmenuBuilder::new(app, "File")
     .item(&MenuItemBuilder::with_id("new", "New Tab").accelerator("CmdOrCtrl+N").build(app)?)
     .item(&MenuItemBuilder::with_id("new_window", "New Window").accelerator("CmdOrCtrl+Shift+N").build(app)?)
@@ -317,6 +321,8 @@ fn menu(
     .separator()
     .item(&MenuItemBuilder::with_id("save", "Save").accelerator("CmdOrCtrl+S").build(app)?)
     .item(&MenuItemBuilder::with_id("save_as", "Save As…").accelerator("CmdOrCtrl+Shift+S").build(app)?)
+    .separator()
+    .item(&export)
     .separator()
     .item(&MenuItemBuilder::with_id("close", "Close Tab").accelerator("CmdOrCtrl+W").build(app)?)
     .build()?;
@@ -388,6 +394,8 @@ fn main() {
       "open_window" => emit(app, "menu-open-window"),
       "save" => emit(app, "menu-save"),
       "save_as" => emit(app, "menu-save-as"),
+      "export_html" => emit(app, "menu-export-html"),
+      "export_pdf" => emit(app, "menu-export-pdf"),
       "close" => emit(app, "menu-close"),
       "view_preview" => emit(app, "menu-view-preview"),
       "view_editor" => emit(app, "menu-view-editor"),
