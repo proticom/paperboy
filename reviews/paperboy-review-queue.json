@@ -1294,9 +1294,9 @@
       "dashboard_group": "Phase 6 — Extension sideload release",
       "dashboard_ref": "paperboy-spec-tasks.json#6.2",
       "status": "active",
-      "phase": "review",
-      "next_role": "reviewer",
-      "next_agent": "claude",
+      "phase": "reply",
+      "next_role": "builder",
+      "next_agent": "cursor",
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
@@ -1304,17 +1304,18 @@
       },
       "turn": 1,
       "max_turns": 4,
-      "handoff_token": "6.2-0001",
+      "handoff_token": "6.2-1779782373",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T07:57:41+00:00",
+      "last_updated": "2026-05-26T07:59:33+00:00",
       "artifacts": {
         "review": "reviews/6.2/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "in_review"
+      "review_status": "waiting_for_builder",
+      "notes": "Spec route turn 1: add homepage_url https://paperboy.run/a3 to paperboy-ext/manifest.json (plan line 144). One line; no version bump; only manifest touched. /a3 verified live."
     },
     {
       "id": "6.3",

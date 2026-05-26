@@ -437,7 +437,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "Spec route turn 1: add homepage_url https://paperboy.run/a3 to paperboy-ext/manifest.json (plan line 144). One line; no version bump; only manifest touched. /a3 verified live."
         },
         {
           "id": "6.3",
