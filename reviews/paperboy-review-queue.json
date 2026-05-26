@@ -1179,29 +1179,29 @@
       "title": "Add missing platform icon sizes",
       "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
       "dashboard_ref": "paperboy-spec-tasks.json#5.7",
-      "status": "active",
-      "phase": "reply",
-      "next_role": "builder",
-      "next_agent": "cursor",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 1,
+      "turn": 2,
       "max_turns": 4,
-      "handoff_token": "5.7-1779781166",
+      "handoff_token": "5.7-1779781589",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T07:39:26+00:00",
+      "last_updated": "2026-05-26T07:46:29+00:00",
       "artifacts": {
-        "review": "reviews/5.7/claude-review-turn-1.md",
-        "reply": null,
+        "review": "reviews/5.7/claude-review-turn-2.md",
+        "reply": "reviews/5.7/cursor-reply-turn-1.md",
         "decision": null
       },
-      "review_status": "waiting_for_builder",
-      "notes": "5.7 turn 1: route to builder. Run 'npx @tauri-apps/cli@2 icon src-tauri/icons/icon.png -o src-tauri/icons/' from paperboy-app/ (regenerates standard set + emits Windows Store tile set incl. Square150x150Logo.png AND fixes 16x16-only icon.ico to multi-size 16/32/48/64/128/256); copy paperboy-logo.svg → paperboy-app/src-tauri/icons/icon.svg; append 'icons/icon.svg' + 'icons/Square150x150Logo.png' to bundle.icon in tauri.conf.json. No other changes."
+      "review_status": "review_passed",
+      "notes": "5.7 PASS: icon.ico now 6 icons multi-size (was 16x16-only); Square150x150Logo.png 150x150; icon.svg copied from paperboy-logo.svg; bundle.icon extended with both new entries (8 total); 5.1-5.6 conf fields intact; icon.icns 10 sizes preserved; 52/52 tests + cargo check + npm build green. Scope: icons/ + tauri.conf.json only."
     },
     {
       "id": "5.8",
@@ -1264,28 +1264,28 @@
       "title": "Update paperboy-ext README (remove content.js refs)",
       "dashboard_group": "Phase 6 — Extension sideload release",
       "dashboard_ref": "paperboy-spec-tasks.json#6.1",
-      "status": "pending",
-      "phase": null,
-      "next_role": null,
-      "next_agent": null,
+      "status": "active",
+      "phase": "review",
+      "next_role": "reviewer",
+      "next_agent": "claude",
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 0,
+      "turn": 1,
       "max_turns": 4,
-      "handoff_token": null,
+      "handoff_token": "6.1-0001",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
+      "last_updated": "2026-05-26T07:46:29+00:00",
       "artifacts": {
-        "review": null,
+        "review": "reviews/6.1/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "in_review"
     },
     {
       "id": "6.2",

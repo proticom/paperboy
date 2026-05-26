@@ -328,10 +328,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-26",
     "total_atomic_tasks": 56,
-    "completed": 38,
+    "completed": 39,
     "partial": 0,
     "in_progress": 1,
-    "todo": 13,
+    "todo": 12,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -657,7 +657,7 @@
       "id": "phase-5",
       "title": "Phase 5 — Desktop distribution (mac/win/linux)",
       "status": "in_progress",
-      "progress": "4/9",
+      "progress": "5/9",
       "tasks": [
         {
           "id": "5.1",
@@ -715,10 +715,11 @@
         {
           "id": "5.7",
           "title": "Add missing platform icon sizes",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "review_passed",
+          "notes": "5.7 PASS: icon.ico now 6 icons multi-size (was 16x16-only); Square150x150Logo.png 150x150; icon.svg copied from paperboy-logo.svg; bundle.icon extended with both new entries (8 total); 5.1-5.6 conf fields intact; icon.icns 10 sizes preserved; 52/52 tests + cargo check + npm build green. Scope: icons/ + tauri.conf.json only."
         },
         {
           "id": "5.8",
@@ -747,10 +748,10 @@
         {
           "id": "6.1",
           "title": "Update paperboy-ext README (remove content.js refs)",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         },
         {
           "id": "6.2",

@@ -44,7 +44,9 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico",
-      "icons/icon.png"
+      "icons/icon.png",
+      "icons/icon.svg",
+      "icons/Square150x150Logo.png"
     ],
     "fileAssociations": [
       {
