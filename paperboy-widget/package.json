@@ -1,6 +1,6 @@
 {
   "name": "@proticom/paperboy-widget",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Embeddable web/markdown toggle widget — converts any page to Markdown with one click.",
   "homepage": "https://github.com/proticom/paperboy/tree/main/paperboy-widget#readme",
   "main": "dist/paperboy-widget.min.js",

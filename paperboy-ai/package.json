@@ -1,6 +1,6 @@
 {
   "name": "@proticom/paperboy-ai",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Shared AI provider catalog and image-description helpers for Paperboy (OpenRouter, OpenAI, Anthropic, xAI, Ollama, local endpoints).",
   "type": "module",
   "license": "MIT",
