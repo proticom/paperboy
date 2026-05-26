@@ -40,7 +40,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@proticom/paperboy-converter": "*"
+    "@proticom/paperboy-converter": "^0.2.2"
   },
   "devDependencies": {
     "@types/node": "^24.6.1",
