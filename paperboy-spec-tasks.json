@@ -395,7 +395,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "5.7 turn 1: route to builder. Run 'npx @tauri-apps/cli@2 icon src-tauri/icons/icon.png -o src-tauri/icons/' from paperboy-app/ (regenerates standard set + emits Windows Store tile set incl. Square150x150Logo.png AND fixes 16x16-only icon.ico to multi-size 16/32/48/64/128/256); copy paperboy-logo.svg → paperboy-app/src-tauri/icons/icon.svg; append 'icons/icon.svg' + 'icons/Square150x150Logo.png' to bundle.icon in tauri.conf.json. No other changes."
         },
         {
           "id": "5.8",

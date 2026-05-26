@@ -1180,9 +1180,9 @@
       "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
       "dashboard_ref": "paperboy-spec-tasks.json#5.7",
       "status": "active",
-      "phase": "review",
-      "next_role": "reviewer",
-      "next_agent": "claude",
+      "phase": "reply",
+      "next_role": "builder",
+      "next_agent": "cursor",
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
@@ -1190,17 +1190,18 @@
       },
       "turn": 1,
       "max_turns": 4,
-      "handoff_token": "5.7-0001",
+      "handoff_token": "5.7-1779781166",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T07:34:40+00:00",
+      "last_updated": "2026-05-26T07:39:26+00:00",
       "artifacts": {
         "review": "reviews/5.7/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "in_review"
+      "review_status": "waiting_for_builder",
+      "notes": "5.7 turn 1: route to builder. Run 'npx @tauri-apps/cli@2 icon src-tauri/icons/icon.png -o src-tauri/icons/' from paperboy-app/ (regenerates standard set + emits Windows Store tile set incl. Square150x150Logo.png AND fixes 16x16-only icon.ico to multi-size 16/32/48/64/128/256); copy paperboy-logo.svg → paperboy-app/src-tauri/icons/icon.svg; append 'icons/icon.svg' + 'icons/Square150x150Logo.png' to bundle.icon in tauri.conf.json. No other changes."
     },
     {
       "id": "5.8",
