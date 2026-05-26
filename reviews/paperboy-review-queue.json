@@ -1467,9 +1467,9 @@
       "dashboard_group": "Phase 7 — Site backend & polish",
       "dashboard_ref": "paperboy-spec-tasks.json#7.3",
       "status": "active",
-      "phase": "review",
-      "next_role": "reviewer",
-      "next_agent": "claude",
+      "phase": "reply",
+      "next_role": "builder",
+      "next_agent": "cursor",
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
@@ -1477,17 +1477,18 @@
       },
       "turn": 1,
       "max_turns": 4,
-      "handoff_token": "7.3-0001",
+      "handoff_token": "7.3-1779785518",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T08:46:54+00:00",
+      "last_updated": "2026-05-26T08:51:58+00:00",
       "artifacts": {
         "review": "reviews/7.3/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "in_review"
+      "review_status": "waiting_for_builder",
+      "notes": "7.3 send_to_builder turn 1: new scripts/e2e-smoke.mjs (11 routes × 2 viewports = 22 page-loads) + package.json smoke/smoke:mobile scripts + playwright devDep. Validates 7.1 mailtos, 6.5 sideload OL, 3.8 install snippets, CTA hrefs. No app/components/lib/public edits."
     },
     {
       "id": "8.1",

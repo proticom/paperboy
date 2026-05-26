@@ -498,7 +498,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "7.3 send_to_builder turn 1: new scripts/e2e-smoke.mjs (11 routes × 2 viewports = 22 page-loads) + package.json smoke/smoke:mobile scripts + playwright devDep. Validates 7.1 mailtos, 6.5 sideload OL, 3.8 install snippets, CTA hrefs. No app/components/lib/public edits."
         }
       ]
     },
