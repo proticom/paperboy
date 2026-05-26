@@ -1007,9 +1007,9 @@
       "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
       "dashboard_ref": "paperboy-spec-tasks.json#5.1",
       "status": "active",
-      "phase": "review",
-      "next_role": "reviewer",
-      "next_agent": "claude",
+      "phase": "reply",
+      "next_role": "builder",
+      "next_agent": "cursor",
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
@@ -1017,17 +1017,18 @@
       },
       "turn": 1,
       "max_turns": 4,
-      "handoff_token": "5.1-0001",
+      "handoff_token": "5.1-1779777657",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T06:36:59+00:00",
+      "last_updated": "2026-05-26T06:40:57+00:00",
       "artifacts": {
         "review": "reviews/5.1/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "in_review"
+      "review_status": "waiting_for_builder",
+      "notes": "5.1 turn 1: tauri.conf.json currently has bundle.targets=\"app\" (string, macOS-only .app). Change to array [\"dmg\",\"nsis\",\"deb\",\"appimage\"]. Surgical single-field flip; mac signing/Linux metadata/icons/CI scoped to 5.2/5.4/5.7/5.6 respectively."
     },
     {
       "id": "5.2",

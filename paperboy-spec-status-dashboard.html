@@ -665,7 +665,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "5.1 turn 1: tauri.conf.json currently has bundle.targets=\"app\" (string, macOS-only .app). Change to array [\"dmg\",\"nsis\",\"deb\",\"appimage\"]. Surgical single-field flip; mac signing/Linux metadata/icons/CI scoped to 5.2/5.4/5.7/5.6 respectively."
         },
         {
           "id": "5.2",
