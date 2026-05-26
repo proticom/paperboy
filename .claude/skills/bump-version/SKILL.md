@@ -5,7 +5,7 @@ description: Bump every workspace package in the paperboy monorepo to the same v
 
 # Bump version across the monorepo
 
-Two scripts cooperate to keep version numbers aligned across `paperboy-converter`, `paperboy-cli`, `paperboy-app`, `paperboy-ext`, `paperboy-widget`, and the Tauri Cargo manifest:
+Two scripts cooperate to keep version numbers aligned across `paperboy-converter`, `paperboy-ai`, `paperboy-cli`, `paperboy-app`, `paperboy-ext`, `paperboy-widget`, and the Tauri Cargo manifest:
 
 - `scripts/bump-version.mjs <version>` — rewrites the version field in every package.json + manifest.json + tauri.conf.json + Cargo.toml.
 - `paperboy-converter/scripts/sync-all.mjs` — rebuilds the converter, `npm pack`s the new tarball, copies it into `paperboy-site/`, and runs `npm install` there.
