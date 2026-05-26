@@ -298,7 +298,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "4.10 turn 1: Export submenu not yet implemented. Send to builder with full spec — Rust adds Export submenu under File with export_html/export_pdf items; JS adds menu-export-html/-pdf listeners — HTML export wraps previewEl.innerHTML + saveDialog + existing save_file invoke; PDF export flips to preview and calls window.print() for macOS WebView Save as PDF."
         },
         {
           "id": "4.11",
