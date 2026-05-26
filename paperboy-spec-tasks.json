@@ -5,10 +5,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-25",
     "total_atomic_tasks": 56,
-    "completed": 25,
+    "completed": 26,
     "partial": 0,
     "in_progress": 1,
-    "todo": 26,
+    "todo": 25,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -194,19 +194,19 @@
         {
           "id": "3.7",
           "title": "Switch site from vendored tarball to registry converter",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "Unblocked — converter v0.2.2 live on npm. Replace paperboy-site `proticom-paperboy-converter-0.2.1.tgz` with `\"@proticom/paperboy-converter\": \"^0.2.2\"` in package.json; delete the .tgz; update the sync-widget skill to stop assuming a vendored tarball.",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review",
-          "notes": "Unblocked — converter v0.2.2 live on npm. Replace paperboy-site `proticom-paperboy-converter-0.2.1.tgz` with `\"@proticom/paperboy-converter\": \"^0.2.2\"` in package.json; delete the .tgz; update the sync-widget skill to stop assuming a vendored tarball."
+          "review_status": "review_passed",
+          "notes": "All 5 findings fixed: site uses ^0.2.2 registry (lockfile resolves to registry URL); both stale converter .tgz removed; sync-all.mjs is Option A (build-only); bump-version + release-cut docs scrubbed in both .claude and .agents skill trees; site tsc/build + monorepo build/test all green."
         },
         {
           "id": "3.8",
           "title": "Flip site install copy to live npm/jsDelivr snippets",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "Unblocked — publishes live. Flip the 'in final review' copy in `lib/distribution.ts` (cascades to a4 widget jsDelivr + a5 CLI install) so the install snippets read as live.",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started",
+          "review_status": "in_review",
           "notes": "Unblocked — publishes live. Flip the 'in final review' copy in `lib/distribution.ts` (cascades to a4 widget jsDelivr + a5 CLI install) so the install snippets read as live."
         }
       ]
@@ -215,7 +215,7 @@
       "id": "phase-4",
       "title": "Phase 4 — Desktop app feature completeness",
       "status": "in_progress",
-      "progress": "6/13",
+      "progress": "7/13",
       "tasks": [
         {
           "id": "4.1",

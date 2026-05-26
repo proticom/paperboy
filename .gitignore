@@ -55,3 +55,6 @@ project-status-dashboard.data.json
 *.json.lock
 .claude/scheduled_tasks.lock
 reviews/.builder-loop*
+
+# Claude Code sub-agent worktrees (embedded git repos, per-agent ephemeral)
+.claude/worktrees/

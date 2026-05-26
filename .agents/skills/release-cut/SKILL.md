@@ -1,6 +1,6 @@
 ---
 name: release-cut
-description: Ship a new release end-to-end — bump all packages, sync the converter tarball, commit, push, tag, and watch the npm OIDC publish run. Use when you've decided to ship a new version. Asks for the version number up front; nothing else is interactive.
+description: Ship a new release end-to-end — bump all packages, rebuild the converter, commit, push, tag, and watch the npm OIDC publish run. Use when you've decided to ship a new version. Asks for the version number up front; nothing else is interactive.
 disable-model-invocation: true
 ---
 
@@ -20,7 +20,7 @@ Run from the monorepo root (`/Volumes/Dev/projects/paperboy/`).
 
 1. **Ask the user for the version.** Format `X.Y.Z` (no `v` prefix). If they don't supply one, infer the next patch from the current `paperboy-converter/package.json` version.
 
-2. **Bump + sync.** This is the `/bump-version` skill, inlined:
+2. **Bump + rebuild converter.** This is the `/bump-version` skill, inlined:
    ```bash
    node scripts/bump-version.mjs --check          # sanity
    node scripts/bump-version.mjs <version>
@@ -33,21 +33,23 @@ Run from the monorepo root (`/Volumes/Dev/projects/paperboy/`).
    npm --workspace=@proticom/paperboy-cli run build
    npm --workspace=@proticom/paperboy-ext run build
    npm --workspace=@proticom/paperboy-widget run build
-   (cd paperboy-site && npm run build)
+   (cd paperboy-site && npm install --legacy-peer-deps && npm run build)
    ```
+   Ensure `paperboy-site/package.json` has `@proticom/paperboy-converter` set to a caret that includes `<version>` (e.g. `^0.2.3`).
 
-4. **Commit (monorepo).** Include every file the bump + sync touched plus the new vendored tarball under `paperboy-site/` (which lives in its own repo — see step 5).
+4. **Commit (monorepo).** Include every file the bump + sync touched.
    ```bash
    git add -A
    git commit -m "release: v<version>"
    ```
 
-5. **Site repo: commit + push.** `paperboy-site` is a separate Git repo nested at `./paperboy-site/`.
+5. **Site repo: commit + push (if lockfile changed).** `paperboy-site` is a separate Git repo nested at `./paperboy-site/`. After npm publish, the site picks up the new converter from the registry on `npm install` — no vendored `.tgz`.
    ```bash
-   git -C paperboy-site add proticom-paperboy-converter-<version>.tgz package.json package-lock.json
+   git -C paperboy-site add package.json package-lock.json
    git -C paperboy-site commit -m "chore: bump converter to v<version>"
    git -C paperboy-site push origin master
    ```
+   Skip this step if the site repo has no converter-related changes.
 
 6. **Push monorepo + tag.** The tag triggers the npm publish workflow.
    ```bash
@@ -70,11 +72,12 @@ Run from the monorepo root (`/Volumes/Dev/projects/paperboy/`).
 9. **Report.**
    - New version live on npm: yes / no
    - Monorepo commit SHA + tag
-   - Site repo commit SHA
+   - Site repo commit SHA (if any)
    - Vercel: `paperboy-site` will auto-redeploy from its push; if the user wants to watch it, suggest `/deploy-watch`.
 
 ## What NOT to do
 
 - Don't skip step 3. A failed consumer build that ships to a tag forces a follow-up `0.X.Y+1` to undo it.
-- Don't tag before the site push — if the npm publish succeeds but the site is on the old tarball, the site is briefly inconsistent.
+- Don't tag before npm publish succeeds — the site consumes the converter from the registry, so it needs the new version on npm first (or a caret that already resolves once publish completes).
 - Don't force-push tags. If the publish workflow failed and you need a retry, cut a new patch version instead.
+- Don't vendor a converter `.tgz` into `paperboy-site/`.
