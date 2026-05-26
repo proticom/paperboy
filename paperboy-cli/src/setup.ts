@@ -1,6 +1,12 @@
 import { execSync } from "node:child_process";
 import { confirm, input, password, select } from "@inquirer/prompts";
-import { fetchOpenRouterModels } from "./ai.js";
+import {
+  fetchOpenRouterModels,
+  listProvidersForSetup,
+  PROVIDERS,
+  type ProviderId,
+  type ProviderInfo,
+} from "@proticom/paperboy-ai";
 import {
   CONFIG_PATH,
   hasSecretTool,
@@ -11,12 +17,6 @@ import {
   writeApiKeyToSecretTool,
   writeApiKeyToWindowsCredentialManager,
 } from "./config.js";
-import {
-  listProvidersForSetup,
-  PROVIDERS,
-  type ProviderId,
-  type ProviderInfo,
-} from "./providers.js";
 
 function commandExists(command: string): boolean {
   try {

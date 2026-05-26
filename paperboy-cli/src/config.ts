@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import dotenv from "dotenv";
-import { PROVIDERS, type ProviderId } from "./providers.js";
+import { PROVIDERS, type ProviderId } from "@proticom/paperboy-ai";
 
 // Kept as the canonical AI mode label across config files. New provider ids
 // (openai, anthropic, xai) join the older ones; existing configs that use

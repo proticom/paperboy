@@ -1,0 +1,1609 @@
+{
+  "meta": {
+    "version": "1.2",
+    "default_roles": {
+      "builder": "cursor",
+      "reviewer": "claude",
+      "decider": "claude"
+    },
+    "agents": {
+      "cursor": {
+        "can_build": true,
+        "can_review": true,
+        "can_decide": true
+      },
+      "codex": {
+        "can_build": true,
+        "can_review": true,
+        "can_decide": true
+      },
+      "grok": {
+        "can_build": true,
+        "can_review": true,
+        "can_decide": true
+      },
+      "claude": {
+        "can_build": true,
+        "can_review": true,
+        "can_decide": true
+      },
+      "human": {
+        "can_build": false,
+        "can_review": false,
+        "can_decide": true
+      }
+    },
+    "max_turns_default": 4,
+    "last_updated": "2026-05-25T02:35:27+00:00"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Fix CLI package and command names on a5 and help pages",
+      "dashboard_group": "Phase 1 — Site truth & content fixes",
+      "dashboard_ref": "paperboy-spec-tasks.json#1.1",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "1.1-1779677092",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:44:52+00:00",
+      "artifacts": {
+        "review": "reviews/1.1/claude-review-turn-1.md",
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "1.2",
+      "title": "Resolve distribution copy contradictions via lib/distribution.ts",
+      "dashboard_group": "Phase 1 — Site truth & content fixes",
+      "dashboard_ref": "paperboy-spec-tasks.json#1.2",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "1.2-1779677185",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:46:25+00:00",
+      "artifacts": {
+        "review": "reviews/1.2/claude-review-turn-1.md",
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "1.3",
+      "title": "Remove brand.support.docs (no /docs route for v1)",
+      "dashboard_group": "Phase 1 — Site truth & content fixes",
+      "dashboard_ref": "paperboy-spec-tasks.json#1.3",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "1.3-1779677216",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:46:56+00:00",
+      "artifacts": {
+        "review": "reviews/1.3/claude-review-turn-1.md",
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "1.4",
+      "title": "Fix root layout metadata (four tools, not three)",
+      "dashboard_group": "Phase 1 — Site truth & content fixes",
+      "dashboard_ref": "paperboy-spec-tasks.json#1.4",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "1.4-1779677248",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:47:28+00:00",
+      "artifacts": {
+        "review": "reviews/1.4/claude-review-turn-1.md",
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "1.5",
+      "title": "Add public/llms.txt for AI/GEO crawlers",
+      "dashboard_group": "Phase 1 — Site truth & content fixes",
+      "dashboard_ref": "paperboy-spec-tasks.json#1.5",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "1.5-1779677277",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:47:57+00:00",
+      "artifacts": {
+        "review": "reviews/1.5/claude-review-turn-1.md",
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "1.6",
+      "title": "Add per-page metadata layouts for all 11 routes",
+      "dashboard_group": "Phase 1 — Site truth & content fixes",
+      "dashboard_ref": "paperboy-spec-tasks.json#1.6",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "1.6-1779719114",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T14:25:14+00:00",
+      "artifacts": {
+        "review": "reviews/1.6/claude-review-turn-2.md",
+        "reply": "reviews/1.6/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "1.7",
+      "title": "Fix privacy policy for weather fetch and localStorage edition",
+      "dashboard_group": "Phase 1 — Site truth & content fixes",
+      "dashboard_ref": "paperboy-spec-tasks.json#1.7",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "1.7-1779719385",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T14:29:45+00:00",
+      "artifacts": {
+        "review": "reviews/1.7/claude-review-turn-2.md",
+        "reply": "reviews/1.7/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "1.8",
+      "title": "Delete dead code and unused Next public assets",
+      "dashboard_group": "Phase 1 — Site truth & content fixes",
+      "dashboard_ref": "paperboy-spec-tasks.json#1.8",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "1.8-1779719424",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T14:30:24+00:00",
+      "artifacts": {
+        "review": "reviews/1.8/claude-review-turn-1.md",
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "1.9",
+      "title": "Update paperboy-site README route list",
+      "dashboard_group": "Phase 1 — Site truth & content fixes",
+      "dashboard_ref": "paperboy-spec-tasks.json#1.9",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "1.9-1779719450",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T14:30:50+00:00",
+      "artifacts": {
+        "review": "reviews/1.9/claude-review-turn-1.md",
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "2.1",
+      "title": "Add .github/workflows/ci.yml (build + test on PR)",
+      "dashboard_group": "Phase 2 — CI safety net",
+      "dashboard_ref": "paperboy-spec-tasks.json#2.1",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "2.1-1779719764",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T14:36:04+00:00",
+      "artifacts": {
+        "review": "reviews/2.1/claude-review-turn-2.md",
+        "reply": "reviews/2.1/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "2.2",
+      "title": "Fix publish workflow lockfile paths to root package-lock.json",
+      "dashboard_group": "Phase 2 — CI safety net",
+      "dashboard_ref": "paperboy-spec-tasks.json#2.2",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "2.2-1779720040",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T14:40:40+00:00",
+      "artifacts": {
+        "review": "reviews/2.2/claude-review-turn-2.md",
+        "reply": "reviews/2.2/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "2.3",
+      "title": "Add typecheck step to CI for converter, CLI, site",
+      "dashboard_group": "Phase 2 — CI safety net",
+      "dashboard_ref": "paperboy-spec-tasks.json#2.3",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "2.3-1779720339",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T14:45:39+00:00",
+      "artifacts": {
+        "review": "reviews/2.3/claude-review-turn-2.md",
+        "reply": "reviews/2.3/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "2.4",
+      "title": "Add site repo CI with mobile-renderer on render paths",
+      "dashboard_group": "Phase 2 — CI safety net",
+      "dashboard_ref": "paperboy-spec-tasks.json#2.4",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "2.4-1779720845",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T14:54:05+00:00",
+      "artifacts": {
+        "review": "reviews/2.4/claude-review-turn-2.md",
+        "reply": "reviews/2.4/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "3.1",
+      "title": "Complete CLI package.json metadata for npm publish",
+      "dashboard_group": "Phase 3 — Publish npm packages",
+      "dashboard_ref": "paperboy-spec-tasks.json#3.1",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "3.1-1779721109",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T14:58:29+00:00",
+      "artifacts": {
+        "review": "reviews/3.1/claude-review-turn-2.md",
+        "reply": "reviews/3.1/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "3.2",
+      "title": "Add publish-paperboy-widget.yml workflow and prepublishOnly",
+      "dashboard_group": "Phase 3 — Publish npm packages",
+      "dashboard_ref": "paperboy-spec-tasks.json#3.2",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "3.2-1779721352",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T15:02:32+00:00",
+      "artifacts": {
+        "review": "reviews/3.2/claude-review-turn-2.md",
+        "reply": "reviews/3.2/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "3.3",
+      "title": "Document npm Trusted Publisher setup skill",
+      "dashboard_group": "Phase 3 — Publish npm packages",
+      "dashboard_ref": "paperboy-spec-tasks.json#3.3",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "3.3-1779721678",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T15:07:58+00:00",
+      "artifacts": {
+        "review": "reviews/3.3/claude-review-turn-2.md",
+        "reply": "reviews/3.3/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "3.4",
+      "title": "Cut converter v0.2.2 tag and verify npm publish",
+      "dashboard_group": "Phase 3 — Publish npm packages",
+      "dashboard_ref": "paperboy-spec-tasks.json#3.4",
+      "status": "needs_human",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "3.4-1779721758",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T15:09:18+00:00",
+      "artifacts": {
+        "review": "reviews/3.4/claude-review-turn-1.md",
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "needs_human"
+    },
+    {
+      "id": "3.5",
+      "title": "Pin CLI converter dep and cut cli-v0.2.2 tag",
+      "dashboard_group": "Phase 3 — Publish npm packages",
+      "dashboard_ref": "paperboy-spec-tasks.json#3.5",
+      "status": "deferred",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "3.6",
+      "title": "Cut widget-v0.2.2 tag and verify npm publish",
+      "dashboard_group": "Phase 3 — Publish npm packages",
+      "dashboard_ref": "paperboy-spec-tasks.json#3.6",
+      "status": "deferred",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "3.7",
+      "title": "Switch site from vendored tarball to registry converter",
+      "dashboard_group": "Phase 3 — Publish npm packages",
+      "dashboard_ref": "paperboy-spec-tasks.json#3.7",
+      "status": "deferred",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "3.8",
+      "title": "Flip site install copy to live npm/jsDelivr snippets",
+      "dashboard_group": "Phase 3 — Publish npm packages",
+      "dashboard_ref": "paperboy-spec-tasks.json#3.8",
+      "status": "deferred",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "4.1",
+      "title": "Extract @proticom/paperboy-ai shared package from CLI",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.1",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "4.1-1779755443",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T00:30:43+00:00",
+      "artifacts": {
+        "review": "reviews/4.1/claude-review-turn-2.md",
+        "reply": "reviews/4.1/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "4.2",
+      "title": "Wire desktop AI image description during conversion",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.2",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "4.2-1779755977",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T00:39:37+00:00",
+      "artifacts": {
+        "review": "reviews/4.2/claude-review-turn-2.md",
+        "reply": "reviews/4.2/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "4.3",
+      "title": "Clean dead Rust commands; wire list_configured_providers",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.3",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "4.3-1779756448",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T00:47:28+00:00",
+      "artifacts": {
+        "review": "reviews/4.3/claude-review-turn-2.md",
+        "reply": "reviews/4.3/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "4.4",
+      "title": "Add tauri-plugin-window-state persistence",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.4",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "4.4-1779756912",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T00:55:12+00:00",
+      "artifacts": {
+        "review": "reviews/4.4/claude-review-turn-2.md",
+        "reply": "reviews/4.4/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "4.5",
+      "title": "Add recent files menu (last 10, tauri-plugin-store)",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.5",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "4.5-1779757538",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T01:05:38+00:00",
+      "artifacts": {
+        "review": "reviews/4.5/claude-review-turn-2.md",
+        "reply": "reviews/4.5/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed"
+    },
+    {
+      "id": "4.6",
+      "title": "Add in-window drag-and-drop file import",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.6",
+      "status": "active",
+      "phase": "review",
+      "next_role": "reviewer",
+      "next_agent": "claude",
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 2,
+      "max_turns": 4,
+      "handoff_token": "4.6-1779757743",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T01:09:03+00:00",
+      "artifacts": {
+        "review": "reviews/4.6/claude-review-turn-1.md",
+        "reply": "reviews/4.6/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "waiting_for_reviewer"
+    },
+    {
+      "id": "4.7",
+      "title": "Expand file associations for converter formats",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.7",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "4.8",
+      "title": "Replace alert() with toast notifications",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.8",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "4.9",
+      "title": "Add Find/Replace overlay (Cmd+F)",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.9",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "4.10",
+      "title": "Add Export submenu (HTML and PDF)",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.10",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "4.11",
+      "title": "Add status bar (word count, cursor position)",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.11",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "4.12",
+      "title": "Wire or remove unused headingId editor action",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.12",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "4.13",
+      "title": "Add desktop smoke tests for import flows",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.13",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "5.1",
+      "title": "Change tauri bundle targets to dmg/nsis/deb/appimage",
+      "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
+      "dashboard_ref": "paperboy-spec-tasks.json#5.1",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "5.2",
+      "title": "Add macOS signing and notarization config",
+      "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
+      "dashboard_ref": "paperboy-spec-tasks.json#5.2",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "5.3",
+      "title": "Document Windows code-signing cert options",
+      "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
+      "dashboard_ref": "paperboy-spec-tasks.json#5.3",
+      "status": "deferred",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "5.4",
+      "title": "Add Linux maintainer and AppImage/deb config",
+      "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
+      "dashboard_ref": "paperboy-spec-tasks.json#5.4",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "5.5",
+      "title": "Add tauri-plugin-updater and latest.json endpoint",
+      "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
+      "dashboard_ref": "paperboy-spec-tasks.json#5.5",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "5.6",
+      "title": "Write release-desktop.yml CI workflow",
+      "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
+      "dashboard_ref": "paperboy-spec-tasks.json#5.6",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "5.7",
+      "title": "Add missing platform icon sizes",
+      "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
+      "dashboard_ref": "paperboy-spec-tasks.json#5.7",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "5.8",
+      "title": "Cut app-v0.2.2 tag and verify release pipeline",
+      "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
+      "dashboard_ref": "paperboy-spec-tasks.json#5.8",
+      "status": "deferred",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "5.9",
+      "title": "Wire site a2 page to live GitHub Release downloads",
+      "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
+      "dashboard_ref": "paperboy-spec-tasks.json#5.9",
+      "status": "deferred",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "6.1",
+      "title": "Update paperboy-ext README (remove content.js refs)",
+      "dashboard_group": "Phase 6 — Extension sideload release",
+      "dashboard_ref": "paperboy-spec-tasks.json#6.1",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "6.2",
+      "title": "Add homepage_url to extension manifest",
+      "dashboard_group": "Phase 6 — Extension sideload release",
+      "dashboard_ref": "paperboy-spec-tasks.json#6.2",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "6.3",
+      "title": "Write release-ext.yml CI workflow",
+      "dashboard_group": "Phase 6 — Extension sideload release",
+      "dashboard_ref": "paperboy-spec-tasks.json#6.3",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "6.4",
+      "title": "Cut ext-v0.2.2 tag and verify release zip",
+      "dashboard_group": "Phase 6 — Extension sideload release",
+      "dashboard_ref": "paperboy-spec-tasks.json#6.4",
+      "status": "deferred",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "6.5",
+      "title": "Update site a3 page with sideload walkthrough",
+      "dashboard_group": "Phase 6 — Extension sideload release",
+      "dashboard_ref": "paperboy-spec-tasks.json#6.5",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "7.1",
+      "title": "Wire Ask The Editor contact (API or mailto)",
+      "dashboard_group": "Phase 7 — Site backend & polish",
+      "dashboard_ref": "paperboy-spec-tasks.json#7.1",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "7.2",
+      "title": "Add dynamic OG images per route",
+      "dashboard_group": "Phase 7 — Site backend & polish",
+      "dashboard_ref": "paperboy-spec-tasks.json#7.2",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "7.3",
+      "title": "End-to-end smoke pass on all routes",
+      "dashboard_group": "Phase 7 — Site backend & polish",
+      "dashboard_ref": "paperboy-spec-tasks.json#7.3",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "8.1",
+      "title": "Add converter tests for docx, pdf, epub, xlsx",
+      "dashboard_group": "Phase 8 — Cross-cutting hardening",
+      "dashboard_ref": "paperboy-spec-tasks.json#8.1",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "8.2",
+      "title": "Add CLI crawl command tests",
+      "dashboard_group": "Phase 8 — Cross-cutting hardening",
+      "dashboard_ref": "paperboy-spec-tasks.json#8.2",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "8.3",
+      "title": "Add widget integration tests",
+      "dashboard_group": "Phase 8 — Cross-cutting hardening",
+      "dashboard_ref": "paperboy-spec-tasks.json#8.3",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "8.4",
+      "title": "Update release-cut skill for five tag types",
+      "dashboard_group": "Phase 8 — Cross-cutting hardening",
+      "dashboard_ref": "paperboy-spec-tasks.json#8.4",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    },
+    {
+      "id": "8.5",
+      "title": "Add CHANGELOG.md files to each package",
+      "dashboard_group": "Phase 8 — Cross-cutting hardening",
+      "dashboard_ref": "paperboy-spec-tasks.json#8.5",
+      "status": "pending",
+      "phase": null,
+      "next_role": null,
+      "next_agent": null,
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 0,
+      "max_turns": 4,
+      "handoff_token": null,
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-25T02:35:27+00:00",
+      "artifacts": {
+        "review": null,
+        "reply": null,
+        "decision": null
+      },
+      "review_status": "not_started"
+    }
+  ]
+}

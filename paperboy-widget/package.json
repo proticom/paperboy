@@ -2,14 +2,18 @@
   "name": "@proticom/paperboy-widget",
   "version": "0.2.1",
   "description": "Embeddable web/markdown toggle widget — converts any page to Markdown with one click.",
+  "homepage": "https://github.com/proticom/paperboy/tree/main/paperboy-widget#readme",
   "main": "dist/paperboy-widget.min.js",
   "type": "commonjs",
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "node build.js",
     "build:watch": "node build.js --watch",
+    "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

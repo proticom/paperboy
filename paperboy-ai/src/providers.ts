@@ -3,8 +3,8 @@
 // key in OS keychain / dotenv / process env), and a human-readable label.
 //
 // Adding a new provider means: (1) extend `providers` below, (2) handle
-// it in src/ai.ts's describeImageWithAi switch, (3) extend the setup
-// flow in src/setup.ts so the user can configure it.
+// it in src/ai.ts's describeImageWithAi switch, (3) extend the host setup
+// flow so the user can configure it.
 
 export type ProviderId =
   | "disabled"

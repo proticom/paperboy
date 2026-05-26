@@ -446,6 +446,11 @@ option,
   border-left: 1px solid var(--border-color);
 }
 
+body.drag-over .content-area {
+  outline: 2px dashed var(--accent, currentColor);
+  outline-offset: -8px;
+}
+
 .editor-pane {
   background: var(--editor-bg);
 }

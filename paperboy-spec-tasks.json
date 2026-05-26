@@ -1,0 +1,530 @@
+{
+  "meta": {
+    "project": "Paperboy — Production Readiness",
+    "spec": ".cursor/plans/paperboy_production_readiness_02f05849.plan.md",
+    "dashboard_version": "1.1.0",
+    "last_updated": "2026-05-25",
+    "total_atomic_tasks": 56,
+    "completed": 21,
+    "partial": 0,
+    "in_progress": 2,
+    "todo": 25,
+    "deferred": 8,
+    "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
+    "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
+  },
+  "groups": [
+    {
+      "id": "phase-1",
+      "title": "Phase 1 — Site truth & content fixes",
+      "status": "done",
+      "progress": "9/9",
+      "tasks": [
+        {
+          "id": "1.1",
+          "title": "Fix CLI package and command names on a5 and help pages",
+          "status": "done",
+          "evidence": "PASS — CLI pkg/cmd already correct via lib/distribution.ts (@proticom/paperboy-cli, paperboy-cli); 0 wrong refs repo-wide; 'final review / install from source' caveat shown on a5 + help. [reviews/1.1/claude-review-turn-1.md]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "1.2",
+          "title": "Resolve distribution copy contradictions via lib/distribution.ts",
+          "status": "done",
+          "evidence": "PASS — ship-status contradictions resolved; single source lib/distribution.ts consumed by page/a2/a3. Optional nit logged: help/page.tsx hardcodes 2 (consistent) status sentences. [reviews/1.2/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "1.3",
+          "title": "Remove brand.support.docs (no /docs route for v1)",
+          "status": "done",
+          "evidence": "PASS — BrandConfig requires support.docs, so it can't be deleted; repointed /docs -> /help (real route). No dangling /docs; tsc clean. See reviews/1.3/claude-correction-note.md.",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "1.4",
+          "title": "Fix root layout metadata (four tools, not three)",
+          "status": "done",
+          "evidence": "PASS — 'Three sharp tools' gone; count reads 'four' everywhere (page-metadata.ts, page.tsx, help); 0 'three' refs. [reviews/1.4/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "1.5",
+          "title": "Add public/llms.txt for AI/GEO crawlers",
+          "status": "done",
+          "evidence": "PASS — public/llms.txt is valid (H1 + blockquote + sectioned links); every linked route resolves; naming consistent with four-tools / scoped pkgs. [reviews/1.5/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "1.6",
+          "title": "Add per-page metadata layouts for all 11 routes",
+          "status": "done",
+          "evidence": "PASS (turn 2) — builder added default app/opengraph-image.tsx + metadataBase; title/desc/canonical per-route across 11 routes; tsc clean. Investigation also surfaced the BrandConfig.docs required-field fix. [reviews/1.6/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "1.7",
+          "title": "Fix privacy policy for weather fetch and localStorage edition",
+          "status": "done",
+          "evidence": "PASS (turn 2) — privacy copy now discloses the automatic Open-Meteo request + IP on page load (vs opt-in geolocation) AND both localStorage keys (edition + paperboy-convert-output); behavior files unchanged; tsc clean. [reviews/1.7/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "1.8",
+          "title": "Delete dead code and unused Next public assets",
+          "status": "done",
+          "evidence": "PASS — dead code removed (ClassifiedAd, BackPageAbout* exports, 5 default Next svgs); 0 dangling refs; tsc clean. [reviews/1.8/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "1.9",
+          "title": "Update paperboy-site README route list",
+          "status": "done",
+          "evidence": "PASS — README route tree matches real routes; no /classifieds. [reviews/1.9/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        }
+      ]
+    },
+    {
+      "id": "phase-2",
+      "title": "Phase 2 — CI safety net",
+      "status": "done",
+      "progress": "4/4",
+      "tasks": [
+        {
+          "id": "2.1",
+          "title": "Add .github/workflows/ci.yml (build + test on PR)",
+          "status": "done",
+          "evidence": "PASS (turn 2) — .github/workflows/ci.yml (PR + push main, Node 24, root lockfile cache). Ran build+test --workspaces --if-present locally: exit 0 (cli 19, widget 12, converter 9 tests). [reviews/2.1/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "2.2",
+          "title": "Fix publish workflow lockfile paths to root package-lock.json",
+          "status": "done",
+          "evidence": "PASS (turn 2) — both publish workflows now cache + npm ci at the ROOT lockfile; build/test/publish stay per-package; 0 residual per-package lockfile refs. [reviews/2.2/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "2.3",
+          "title": "Add typecheck step to CI for converter, CLI, site",
+          "status": "done",
+          "evidence": "PASS (turn 2) — monorepo ci.yml typecheck step (converter+cli, exit 0) + NEW paperboy-site CI workflow with a typecheck script (site tsc --noEmit exit 0). [reviews/2.3/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "2.4",
+          "title": "Add site repo CI with mobile-renderer on render paths",
+          "status": "done",
+          "evidence": "PASS (turn 2) — site mobile-render.yml path-filtered gate + headless Playwright check (blank/overflow/runaway-pill/console + screenshot artifact). Builder corrected my selector bug: check .pbw-toggle-pill (50%-of-parent), not the outer .pbw-toggle. [reviews/2.4/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        }
+      ]
+    },
+    {
+      "id": "phase-3",
+      "title": "Phase 3 — Publish npm packages",
+      "status": "in_progress",
+      "progress": "3/8",
+      "tasks": [
+        {
+          "id": "3.1",
+          "title": "Complete CLI package.json metadata for npm publish",
+          "status": "done",
+          "evidence": "PASS (turn 2) — CLI package.json metadata complete (license MIT, homepage, repository, keywords, expanded desc) + LICENSE added; npm pack ships README + LICENSE. [reviews/3.1/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "3.2",
+          "title": "Add publish-paperboy-widget.yml workflow and prepublishOnly",
+          "status": "done",
+          "evidence": "PASS (turn 2) — publish-paperboy-widget.yml (widget-v* trigger, root install, OIDC) + prepublishOnly + homepage + LICENSE + files; npm pack ships README + LICENSE. [reviews/3.2/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "3.3",
+          "title": "Document npm Trusted Publisher setup skill",
+          "status": "done",
+          "evidence": "PASS — .claude/skills/npm-trusted-publisher/SKILL.md documents OIDC setup for all 3 pkgs (pkg<->workflow<->tag map, first-publish caveat, registry-url gotcha, npm view verify). OUTSTANDING USER PREREQ: the actual npm.com Trusted Publisher config (gates 3.4-3.6). [reviews/3.3/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "3.4",
+          "title": "Cut converter v0.2.2 tag and verify npm publish",
+          "status": "in_progress",
+          "evidence": "NEEDS HUMAN (live release). RUNBOOK: 1) do npm Trusted Publisher setup (.claude/skills/npm-trusted-publisher/SKILL.md); 2) bump all pkgs to 0.2.2 (bump-version skill) + commit; 3) git tag v0.2.2 && git push origin v0.2.2; 4) watch publish-paperboy-converter.yml to green; 5) GATE: npm view @proticom/paperboy-converter@0.2.2 shows 0.2.2. Then resume orchestrator. [reviews/3.4/claude-review-turn-1.md]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "needs_human"
+        },
+        {
+          "id": "3.5",
+          "title": "Pin CLI converter dep and cut cli-v0.2.2 tag",
+          "status": "deferred",
+          "evidence": "DEFERRED (operational) — cli publish: dep switch to ^0.2.2 + cut cli-v0.2.2 tag; gated on 3.4 converter publish + npm setup.",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "3.6",
+          "title": "Cut widget-v0.2.2 tag and verify npm publish",
+          "status": "deferred",
+          "evidence": "DEFERRED (operational) — widget publish: cut widget-v0.2.2 tag; gated on npm Trusted Publisher setup.",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "3.7",
+          "title": "Switch site from vendored tarball to registry converter",
+          "status": "deferred",
+          "evidence": "DEFERRED (gated) — replace site vendored .tgz with @proticom/paperboy-converter ^0.2.2; needs converter published (3.4).",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "3.8",
+          "title": "Flip site install copy to live npm/jsDelivr snippets",
+          "status": "deferred",
+          "evidence": "DEFERRED (gated) — flip site install snippets to live; needs the npm publishes (3.4-3.6).",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        }
+      ]
+    },
+    {
+      "id": "phase-4",
+      "title": "Phase 4 — Desktop app feature completeness",
+      "status": "in_progress",
+      "progress": "5/13",
+      "tasks": [
+        {
+          "id": "4.1",
+          "title": "Extract @proticom/paperboy-ai shared package from CLI",
+          "status": "done",
+          "evidence": "PASS — @proticom/paperboy-ai created; ai.ts decoupled (aiConfig+caller apiKey, import-type OcrWordPosition from converter); zero paperboy-cli import in paperboy-ai/src; CLI rewired + old ai/providers.ts deleted. build/typecheck green; tests converter 9, ai 5, cli 19, widget 12. [reviews/4.1/claude-review-turn-2.md]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "4.2",
+          "title": "Wire desktop AI image description during conversion",
+          "status": "done",
+          "evidence": "PASS (turn 2) — converter.js wires convertOptions.image.describeImage (provider!=disabled) into convertToMarkdown; app deps @proticom/paperboy-ai; settings.js exposes getAiSettings+resolveApiKey(keychain); bridge.js threads invoke into both call sites. BLOCKER fixed: paperboy-ai imageBytes is Uint8Array + isomorphic bytesToBase64 (guarded Buffer/btoa) — browser bundle rebuilds with only a guarded Buffer ref; no-Buffer base64 unit test added. build/typecheck green; tests ai 6, cli 19, widget 12; CLI still passes. [reviews/4.2/claude-review-turn-2.md]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "4.3",
+          "title": "Clean dead Rust commands; wire list_configured_providers",
+          "status": "done",
+          "evidence": "PASS (turn 2) — verified all 3 turn-1 findings fixed in repo: open_file/save_file_as defs+handler entries deleted from main.rs (+ orphan to_path helper & DialogExt import); list_configured_providers now LIVE — provider <select> emptied in index.html and built at runtime from settings.js inline PROVIDERS, key-backed providers marked \"— configured\"; no @proticom/paperboy-ai bare import (unbundled ES module respected). cargo check exit 0, build/typecheck/test --workspaces green (31 tests), app converter bundle rebuilds. [reviews/4.3/claude-review-turn-2.md]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "4.4",
+          "title": "Add tauri-plugin-window-state persistence",
+          "status": "done",
+          "evidence": "PASSED (turn 2): both findings fixed. tauri-plugin-window-state in Cargo.toml + lock v2.4.1, registered in main.rs with StateFlags SIZE|POSITION|MAXIMIZED, window-state:default granted in capabilities (windows cover main). View mode now persists via localStorage in bridge.js (VIEW_MODE_KEY, load/persist mirroring showFullPath), restored on cold launch through theme.js setViewMode; all view changes funnel through onViewModeChange→persist. build:converter/build/test gates exit 0 (31 tests). [reviews/4.4/claude-review-turn-2.md]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "4.5",
+          "title": "Add recent files menu (last 10, tauri-plugin-store)",
+          "status": "done",
+          "evidence": "PASSED (turn 2): both findings fixed. tauri-plugin-store in Cargo.toml + lock v2.4.3, registered in main.rs, store:default granted (valid in gen schema); store recent-files.json key recentFiles string[]. File>Open Recent submenu (last 10, dedup, most-recent-first, Clear Recent + No Recent Files placeholder) in build_open_recent_submenu, rebuilt via app.set_menu in push_recent_file (retain/insert0/truncate10) and at setup. bridge.js records via push_recent_file after successful load in loadFileIntoCurrentTab (try/catch); menu-open-recent reopens through same funnel; all 4 open entry points funnel there. cargo check / build:converter / build / test gates exit 0 (31 tests). [reviews/4.5/claude-review-turn-2.md]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "4.6",
+          "title": "Add in-window drag-and-drop file import",
+          "status": "in_progress",
+          "evidence": "SENT TO BUILDER (turn 1) — not started: no webview drag-drop handler, no drop zone/affordance, tauri.conf dragDropEnabled null (v2 default true). Add setupFileDrop() in bridge.js init using the webview onDragDropEvent (Tauri v2 native drop = absolute paths); funnel each dropped path through loadFileIntoCurrentTab (reuses open pipeline + 4.5 recent-files); new tab/maybeProceed guard for dirty current tab; drag-over affordance toggled on enter/over, cleared on leave/cancel/drop. [reviews/4.6/claude-review-turn-1.md]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "waiting_for_reviewer"
+        },
+        {
+          "id": "4.7",
+          "title": "Expand file associations for converter formats",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "4.8",
+          "title": "Replace alert() with toast notifications",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "4.9",
+          "title": "Add Find/Replace overlay (Cmd+F)",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "4.10",
+          "title": "Add Export submenu (HTML and PDF)",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "4.11",
+          "title": "Add status bar (word count, cursor position)",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "4.12",
+          "title": "Wire or remove unused headingId editor action",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "4.13",
+          "title": "Add desktop smoke tests for import flows",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        }
+      ]
+    },
+    {
+      "id": "phase-5",
+      "title": "Phase 5 — Desktop distribution (mac/win/linux)",
+      "status": "todo",
+      "progress": "0/9",
+      "tasks": [
+        {
+          "id": "5.1",
+          "title": "Change tauri bundle targets to dmg/nsis/deb/appimage",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "5.2",
+          "title": "Add macOS signing and notarization config",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "5.3",
+          "title": "Document Windows code-signing cert options",
+          "status": "deferred",
+          "evidence": "DEFERRED (manual) — acquire Windows code-signing cert + add GitHub secret; user procurement.",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "5.4",
+          "title": "Add Linux maintainer and AppImage/deb config",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "5.5",
+          "title": "Add tauri-plugin-updater and latest.json endpoint",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "5.6",
+          "title": "Write release-desktop.yml CI workflow",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "5.7",
+          "title": "Add missing platform icon sizes",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "5.8",
+          "title": "Cut app-v0.2.2 tag and verify release pipeline",
+          "status": "deferred",
+          "evidence": "DEFERRED (operational) — cut app-v0.2.2 tag + end-to-end installer test; live release.",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "5.9",
+          "title": "Wire site a2 page to live GitHub Release downloads",
+          "status": "deferred",
+          "evidence": "DEFERRED (gated) — flip site a2 distribution to live GitHub Release assets; needs desktop release.",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        }
+      ]
+    },
+    {
+      "id": "phase-6",
+      "title": "Phase 6 — Extension sideload release",
+      "status": "todo",
+      "progress": "0/5",
+      "tasks": [
+        {
+          "id": "6.1",
+          "title": "Update paperboy-ext README (remove content.js refs)",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "6.2",
+          "title": "Add homepage_url to extension manifest",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "6.3",
+          "title": "Write release-ext.yml CI workflow",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "6.4",
+          "title": "Cut ext-v0.2.2 tag and verify release zip",
+          "status": "deferred",
+          "evidence": "DEFERRED (operational) — cut ext-v0.2.2 tag; live release.",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "6.5",
+          "title": "Update site a3 page with sideload walkthrough",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        }
+      ]
+    },
+    {
+      "id": "phase-7",
+      "title": "Phase 7 — Site backend & polish",
+      "status": "todo",
+      "progress": "0/3",
+      "tasks": [
+        {
+          "id": "7.1",
+          "title": "Wire Ask The Editor contact (API or mailto)",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "7.2",
+          "title": "Add dynamic OG images per route",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "7.3",
+          "title": "End-to-end smoke pass on all routes",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        }
+      ]
+    },
+    {
+      "id": "phase-8",
+      "title": "Phase 8 — Cross-cutting hardening",
+      "status": "todo",
+      "progress": "0/5",
+      "tasks": [
+        {
+          "id": "8.1",
+          "title": "Add converter tests for docx, pdf, epub, xlsx",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "8.2",
+          "title": "Add CLI crawl command tests",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "8.3",
+          "title": "Add widget integration tests",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "8.4",
+          "title": "Update release-cut skill for five tag types",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "8.5",
+          "title": "Add CHANGELOG.md files to each package",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        }
+      ]
+    }
+  ]
+}

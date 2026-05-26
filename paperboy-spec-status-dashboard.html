@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paperboy — Production Readiness Dashboard</title>
+  <style>
+    :root {
+      --pa-gold: #D6A84F;
+      --pa-mint: #4ADE80;
+      --pa-bg: #0a0a0a;
+      --pa-surface: #111111;
+      --pa-border: #222222;
+      --text: #e5e5e5;
+      --text-muted: #888;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--pa-bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+      line-height: 1.5;
+    }
+    .sticky-top {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--pa-bg);
+    }
+    .header {
+      background: linear-gradient(90deg, #111, #1a1a1a);
+      border-bottom: 1px solid var(--pa-border);
+      padding: 20px 32px 16px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 600;
+      color: var(--pa-gold);
+    }
+    .header .subtitle {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-top: 2px;
+    }
+    .summary-section {
+      margin-top: 14px;
+    }
+    .summary-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .summary {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .stat {
+      background: var(--pa-surface);
+      border: 1px solid var(--pa-border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      min-width: 72px;
+      text-align: center;
+    }
+    .stat .number {
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .stat .label {
+      font-size: 9px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-top: 2px;
+    }
+    .stat-total .number { color: var(--text); }
+    .stat-done .number, .stat-passed .number { color: var(--pa-mint); }
+    .stat-partial .number, .stat-waiting .number { color: var(--pa-gold); }
+    .stat-progress .number, .stat-review .number { color: #fde047; }
+    .stat-todo .number, .stat-not-started .number { color: #aaa; }
+    .stat-failed .number { color: #f87171; }
+    .stat-deferred .number, .stat-human .number { color: #93c5fd; }
+    .progress-sticky {
+      border-bottom: 1px solid var(--pa-border);
+      padding: 12px 32px;
+      background: #141414;
+    }
+    .progress-panel {
+      max-width: 1680px;
+      margin: 0 auto;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 12px 16px;
+    }
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .progress-track {
+      background: #222;
+      height: 14px;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid #333;
+      display: flex;
+    }
+    .progress-segment {
+      height: 100%;
+      transition: width 0.35s ease;
+      min-width: 0;
+    }
+    .progress-meta {
+      margin-top: 6px;
+      font-size: 11px;
+      color: #888;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+    .container {
+      max-width: 1680px;
+      margin: 0 auto;
+      padding: 24px 32px;
+    }
+    .legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      font-size: 12px;
+      align-items: center;
+    }
+    .legend-block {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .legend-block-title {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .legend-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .group {
+      background: var(--pa-surface);
+      border: 1px solid var(--pa-border);
+      border-radius: 10px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .group-header {
+      background: #1a1a1a;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--pa-border);
+      cursor: pointer;
+      user-select: none;
+    }
+    .group-header:hover { background: #222; }
+    .group-title { font-weight: 600; font-size: 15px; }
+    .group-progress { font-size: 12px; color: var(--text-muted); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      background: #1f1f1f;
+      text-align: left;
+      padding: 8px 12px;
+      font-weight: 600;
+      font-size: 11px;
+      color: #aaa;
+      border-bottom: 1px solid var(--pa-border);
+    }
+    td {
+      padding: 8px 12px;
+      vertical-align: top;
+      border-bottom: 1px solid #1f1f1f;
+    }
+    tr:last-child td { border-bottom: none; }
+    .task-id {
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      color: #777;
+      white-space: nowrap;
+      width: 58px;
+    }
+    .task-title { font-size: 13px; line-height: 1.35; }
+    .evidence { font-size: 11.5px; color: #888; font-style: italic; margin-top: 3px; }
+    .guidance {
+      font-size: 12px;
+      background: #161616;
+      padding: 6px 9px;
+      border-radius: 4px;
+      border-left: 3px solid #D6A84F;
+      color: #ccc;
+      line-height: 1.4;
+    }
+    .status {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      display: inline-block;
+      text-align: center;
+      min-width: 76px;
+    }
+    .status-done { background: rgba(74, 222, 128, 0.18); color: #4ADE80; border: 1px solid #4ADE80; }
+    .status-partial { background: rgba(214, 168, 79, 0.18); color: #facc15; border: 1px solid #D6A84F; }
+    .status-todo { background: rgba(120, 120, 120, 0.18); color: #aaa; border: 1px solid #555; }
+    .status-deferred { background: rgba(47, 107, 255, 0.15); color: #93c5fd; border: 1px solid #3b82f6; }
+    .status-in-progress { background: rgba(251, 191, 36, 0.18); color: #fde047; border: 1px solid #facc15; }
+    .status-failed { background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid #f87171; }
+    .footer {
+      text-align: center;
+      color: #555;
+      font-size: 12px;
+      margin-top: 32px;
+      padding-bottom: 40px;
+    }
+    .collapsible { max-height: 3000px; overflow: hidden; transition: max-height 0.3s ease; }
+    .group.collapsed .collapsible { max-height: 0; }
+    .loading { padding: 40px; text-align: center; color: #666; }
+    .col-hint {
+      font-weight: 400;
+      color: #666;
+      font-size: 10px;
+      display: block;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="sticky-top">
+    <div class="header">
+      <h1 id="project-title">Paperboy — Production Readiness</h1>
+      <div class="subtitle" id="project-subtitle">Loading spec metadata…</div>
+
+      <div class="summary-section">
+        <div class="summary-label" id="review-summary-label">Review pipeline</div>
+        <div class="summary" id="review-summary-stats"></div>
+      </div>
+      <div class="summary-section" style="margin-top: 10px;">
+        <div class="summary-label" id="build-summary-label">Implementation status</div>
+        <div class="summary" id="build-summary-stats"></div>
+      </div>
+      <div id="last-updated" style="margin-top: 8px; font-size: 11px; color: #666;"></div>
+    </div>
+
+    <div class="progress-sticky">
+      <div class="progress-panel">
+        <div class="progress-header">
+          <span><strong>Review progress</strong> <span style="color:#888; font-size:11px;">— auto-refreshes every 5s</span></span>
+          <span id="progress-text" style="font-family: ui-monospace, monospace; font-size: 12px;">0 / 0 reviewed</span>
+        </div>
+        <div class="progress-track" id="progress-track"></div>
+        <div class="progress-meta">
+          <div id="progress-breakdown"></div>
+          <div id="refresh-indicator" style="color:#555;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="legend">
+      <div class="legend-block">
+        <div class="legend-block-title">Review status (peer review orchestrator)</div>
+        <div class="legend-row" id="review-legend"></div>
+      </div>
+      <div class="legend-block">
+        <div class="legend-block-title">Implementation status (code landed &amp; verified in repo)</div>
+        <div class="legend-row">
+          <span class="legend-item"><span class="status status-done">DONE</span> Verified complete</span>
+          <span class="legend-item"><span class="status status-partial">PARTIAL</span> Core exists, gaps remain</span>
+          <span class="legend-item"><span class="status status-in-progress">IN PROGRESS</span> Active work</span>
+          <span class="legend-item"><span class="status status-todo">TODO</span> Not started</span>
+          <span class="legend-item"><span class="status status-deferred">DEFERRED</span> Out of scope</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="dashboard-content">
+      <div class="loading">Loading dashboard from paperboy-spec-tasks.json…</div>
+    </div>
+
+    <div class="footer">
+      Source of truth: <code>paperboy-spec-tasks.json</code> — live when served via <code>python -m http.server</code>; embedded snapshot when opened as a file.<br>
+      After task JSON changes: <code>node reviews/scripts/sync-dashboard-embed.mjs</code><br>
+      <strong>Implementation</strong> = code verified in the repo. <strong>Review</strong> = builder/reviewer/decider pipeline (can pass before implementation is marked done).
+    </div>
+  </div>
+
+<script type="application/json" id="embedded-data">
+{
+  "meta": {
+    "project": "Paperboy — Production Readiness",
+    "spec": ".cursor/plans/paperboy_production_readiness_02f05849.plan.md",
+    "dashboard_version": "1.1.0",
+    "last_updated": "2026-05-25",
+    "total_atomic_tasks": 56,
+    "completed": 20,
+    "partial": 0,
+    "in_progress": 2,
+    "todo": 26,
+    "deferred": 8,
+    "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
+    "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
+  },
+  "groups": [
+    {
+      "id": "phase-1",
+      "title": "Phase 1 — Site truth & content fixes",
+      "status": "done",
+      "progress": "9/9",
+      "tasks": [
+        {
+          "id": "1.1",
+          "title": "Fix CLI package and command names on a5 and help pages",
+          "status": "done",
+          "evidence": "PASS — CLI pkg/cmd already correct via lib/distribution.ts (@proticom/paperboy-cli, paperboy-cli); 0 wrong refs repo-wide; 'final review / install from source' caveat shown on a5 + help. [reviews/1.1/claude-review-turn-1.md]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "1.2",
+          "title": "Resolve distribution copy contradictions via lib/distribution.ts",
+          "status": "done",
+          "evidence": "PASS — ship-status contradictions resolved; single source lib/distribution.ts consumed by page/a2/a3. Optional nit logged: help/page.tsx hardcodes 2 (consistent) status sentences. [reviews/1.2/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "1.3",
+          "title": "Remove brand.support.docs (no /docs route for v1)",
+          "status": "done",
+          "evidence": "PASS — BrandConfig requires support.docs, so it can't be deleted; repointed /docs -> /help (real route). No dangling /docs; tsc clean. See reviews/1.3/claude-correction-note.md.",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "1.4",
+          "title": "Fix root layout metadata (four tools, not three)",
+          "status": "done",
+          "evidence": "PASS — 'Three sharp tools' gone; count reads 'four' everywhere (page-metadata.ts, page.tsx, help); 0 'three' refs. [reviews/1.4/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "1.5",
+          "title": "Add public/llms.txt for AI/GEO crawlers",
+          "status": "done",
+          "evidence": "PASS — public/llms.txt is valid (H1 + blockquote + sectioned links); every linked route resolves; naming consistent with four-tools / scoped pkgs. [reviews/1.5/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "1.6",
+          "title": "Add per-page metadata layouts for all 11 routes",
+          "status": "done",
+          "evidence": "PASS (turn 2) — builder added default app/opengraph-image.tsx + metadataBase; title/desc/canonical per-route across 11 routes; tsc clean. Investigation also surfaced the BrandConfig.docs required-field fix. [reviews/1.6/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "1.7",
+          "title": "Fix privacy policy for weather fetch and localStorage edition",
+          "status": "done",
+          "evidence": "PASS (turn 2) — privacy copy now discloses the automatic Open-Meteo request + IP on page load (vs opt-in geolocation) AND both localStorage keys (edition + paperboy-convert-output); behavior files unchanged; tsc clean. [reviews/1.7/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "1.8",
+          "title": "Delete dead code and unused Next public assets",
+          "status": "done",
+          "evidence": "PASS — dead code removed (ClassifiedAd, BackPageAbout* exports, 5 default Next svgs); 0 dangling refs; tsc clean. [reviews/1.8/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "1.9",
+          "title": "Update paperboy-site README route list",
+          "status": "done",
+          "evidence": "PASS — README route tree matches real routes; no /classifieds. [reviews/1.9/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        }
+      ]
+    },
+    {
+      "id": "phase-2",
+      "title": "Phase 2 — CI safety net",
+      "status": "done",
+      "progress": "4/4",
+      "tasks": [
+        {
+          "id": "2.1",
+          "title": "Add .github/workflows/ci.yml (build + test on PR)",
+          "status": "done",
+          "evidence": "PASS (turn 2) — .github/workflows/ci.yml (PR + push main, Node 24, root lockfile cache). Ran build+test --workspaces --if-present locally: exit 0 (cli 19, widget 12, converter 9 tests). [reviews/2.1/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "2.2",
+          "title": "Fix publish workflow lockfile paths to root package-lock.json",
+          "status": "done",
+          "evidence": "PASS (turn 2) — both publish workflows now cache + npm ci at the ROOT lockfile; build/test/publish stay per-package; 0 residual per-package lockfile refs. [reviews/2.2/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "2.3",
+          "title": "Add typecheck step to CI for converter, CLI, site",
+          "status": "done",
+          "evidence": "PASS (turn 2) — monorepo ci.yml typecheck step (converter+cli, exit 0) + NEW paperboy-site CI workflow with a typecheck script (site tsc --noEmit exit 0). [reviews/2.3/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "2.4",
+          "title": "Add site repo CI with mobile-renderer on render paths",
+          "status": "done",
+          "evidence": "PASS (turn 2) — site mobile-render.yml path-filtered gate + headless Playwright check (blank/overflow/runaway-pill/console + screenshot artifact). Builder corrected my selector bug: check .pbw-toggle-pill (50%-of-parent), not the outer .pbw-toggle. [reviews/2.4/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        }
+      ]
+    },
+    {
+      "id": "phase-3",
+      "title": "Phase 3 — Publish npm packages",
+      "status": "in_progress",
+      "progress": "3/8",
+      "tasks": [
+        {
+          "id": "3.1",
+          "title": "Complete CLI package.json metadata for npm publish",
+          "status": "done",
+          "evidence": "PASS (turn 2) — CLI package.json metadata complete (license MIT, homepage, repository, keywords, expanded desc) + LICENSE added; npm pack ships README + LICENSE. [reviews/3.1/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "3.2",
+          "title": "Add publish-paperboy-widget.yml workflow and prepublishOnly",
+          "status": "done",
+          "evidence": "PASS (turn 2) — publish-paperboy-widget.yml (widget-v* trigger, root install, OIDC) + prepublishOnly + homepage + LICENSE + files; npm pack ships README + LICENSE. [reviews/3.2/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "3.3",
+          "title": "Document npm Trusted Publisher setup skill",
+          "status": "done",
+          "evidence": "PASS — .claude/skills/npm-trusted-publisher/SKILL.md documents OIDC setup for all 3 pkgs (pkg<->workflow<->tag map, first-publish caveat, registry-url gotcha, npm view verify). OUTSTANDING USER PREREQ: the actual npm.com Trusted Publisher config (gates 3.4-3.6). [reviews/3.3/]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "3.4",
+          "title": "Cut converter v0.2.2 tag and verify npm publish",
+          "status": "in_progress",
+          "evidence": "NEEDS HUMAN (live release). RUNBOOK: 1) do npm Trusted Publisher setup (.claude/skills/npm-trusted-publisher/SKILL.md); 2) bump all pkgs to 0.2.2 (bump-version skill) + commit; 3) git tag v0.2.2 && git push origin v0.2.2; 4) watch publish-paperboy-converter.yml to green; 5) GATE: npm view @proticom/paperboy-converter@0.2.2 shows 0.2.2. Then resume orchestrator. [reviews/3.4/claude-review-turn-1.md]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "needs_human"
+        },
+        {
+          "id": "3.5",
+          "title": "Pin CLI converter dep and cut cli-v0.2.2 tag",
+          "status": "deferred",
+          "evidence": "DEFERRED (operational) — cli publish: dep switch to ^0.2.2 + cut cli-v0.2.2 tag; gated on 3.4 converter publish + npm setup.",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "3.6",
+          "title": "Cut widget-v0.2.2 tag and verify npm publish",
+          "status": "deferred",
+          "evidence": "DEFERRED (operational) — widget publish: cut widget-v0.2.2 tag; gated on npm Trusted Publisher setup.",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "3.7",
+          "title": "Switch site from vendored tarball to registry converter",
+          "status": "deferred",
+          "evidence": "DEFERRED (gated) — replace site vendored .tgz with @proticom/paperboy-converter ^0.2.2; needs converter published (3.4).",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "3.8",
+          "title": "Flip site install copy to live npm/jsDelivr snippets",
+          "status": "deferred",
+          "evidence": "DEFERRED (gated) — flip site install snippets to live; needs the npm publishes (3.4-3.6).",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        }
+      ]
+    },
+    {
+      "id": "phase-4",
+      "title": "Phase 4 — Desktop app feature completeness",
+      "status": "in_progress",
+      "progress": "4/13",
+      "tasks": [
+        {
+          "id": "4.1",
+          "title": "Extract @proticom/paperboy-ai shared package from CLI",
+          "status": "done",
+          "evidence": "PASS — @proticom/paperboy-ai created; ai.ts decoupled (aiConfig+caller apiKey, import-type OcrWordPosition from converter); zero paperboy-cli import in paperboy-ai/src; CLI rewired + old ai/providers.ts deleted. build/typecheck green; tests converter 9, ai 5, cli 19, widget 12. [reviews/4.1/claude-review-turn-2.md]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "4.2",
+          "title": "Wire desktop AI image description during conversion",
+          "status": "done",
+          "evidence": "PASS (turn 2) — converter.js wires convertOptions.image.describeImage (provider!=disabled) into convertToMarkdown; app deps @proticom/paperboy-ai; settings.js exposes getAiSettings+resolveApiKey(keychain); bridge.js threads invoke into both call sites. BLOCKER fixed: paperboy-ai imageBytes is Uint8Array + isomorphic bytesToBase64 (guarded Buffer/btoa) — browser bundle rebuilds with only a guarded Buffer ref; no-Buffer base64 unit test added. build/typecheck green; tests ai 6, cli 19, widget 12; CLI still passes. [reviews/4.2/claude-review-turn-2.md]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "4.3",
+          "title": "Clean dead Rust commands; wire list_configured_providers",
+          "status": "done",
+          "evidence": "PASS (turn 2) — verified all 3 turn-1 findings fixed in repo: open_file/save_file_as defs+handler entries deleted from main.rs (+ orphan to_path helper & DialogExt import); list_configured_providers now LIVE — provider <select> emptied in index.html and built at runtime from settings.js inline PROVIDERS, key-backed providers marked \"— configured\"; no @proticom/paperboy-ai bare import (unbundled ES module respected). cargo check exit 0, build/typecheck/test --workspaces green (31 tests), app converter bundle rebuilds. [reviews/4.3/claude-review-turn-2.md]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "4.4",
+          "title": "Add tauri-plugin-window-state persistence",
+          "status": "done",
+          "evidence": "PASSED (turn 2): both findings fixed. tauri-plugin-window-state in Cargo.toml + lock v2.4.1, registered in main.rs with StateFlags SIZE|POSITION|MAXIMIZED, window-state:default granted in capabilities (windows cover main). View mode now persists via localStorage in bridge.js (VIEW_MODE_KEY, load/persist mirroring showFullPath), restored on cold launch through theme.js setViewMode; all view changes funnel through onViewModeChange→persist. build:converter/build/test gates exit 0 (31 tests). [reviews/4.4/claude-review-turn-2.md]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "4.5",
+          "title": "Add recent files menu (last 10, tauri-plugin-store)",
+          "status": "done",
+          "evidence": "PASSED (turn 2): both findings fixed. tauri-plugin-store in Cargo.toml + lock v2.4.3, registered in main.rs, store:default granted (valid in gen schema); store recent-files.json key recentFiles string[]. File>Open Recent submenu (last 10, dedup, most-recent-first, Clear Recent + No Recent Files placeholder) in build_open_recent_submenu, rebuilt via app.set_menu in push_recent_file (retain/insert0/truncate10) and at setup. bridge.js records via push_recent_file after successful load in loadFileIntoCurrentTab (try/catch); menu-open-recent reopens through same funnel; all 4 open entry points funnel there. cargo check / build:converter / build / test gates exit 0 (31 tests). [reviews/4.5/claude-review-turn-2.md]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "review_passed"
+        },
+        {
+          "id": "4.6",
+          "title": "Add in-window drag-and-drop file import",
+          "status": "in_progress",
+          "evidence": "SENT TO BUILDER (turn 1) — not started: no webview drag-drop handler, no drop zone/affordance, tauri.conf dragDropEnabled null (v2 default true). Add setupFileDrop() in bridge.js init using the webview onDragDropEvent (Tauri v2 native drop = absolute paths); funnel each dropped path through loadFileIntoCurrentTab (reuses open pipeline + 4.5 recent-files); new tab/maybeProceed guard for dirty current tab; drag-over affordance toggled on enter/over, cleared on leave/cancel/drop. [reviews/4.6/claude-review-turn-1.md]",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "waiting_for_builder"
+        },
+        {
+          "id": "4.7",
+          "title": "Expand file associations for converter formats",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "4.8",
+          "title": "Replace alert() with toast notifications",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "4.9",
+          "title": "Add Find/Replace overlay (Cmd+F)",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "4.10",
+          "title": "Add Export submenu (HTML and PDF)",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "4.11",
+          "title": "Add status bar (word count, cursor position)",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "4.12",
+          "title": "Wire or remove unused headingId editor action",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "4.13",
+          "title": "Add desktop smoke tests for import flows",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        }
+      ]
+    },
+    {
+      "id": "phase-5",
+      "title": "Phase 5 — Desktop distribution (mac/win/linux)",
+      "status": "todo",
+      "progress": "0/9",
+      "tasks": [
+        {
+          "id": "5.1",
+          "title": "Change tauri bundle targets to dmg/nsis/deb/appimage",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "5.2",
+          "title": "Add macOS signing and notarization config",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "5.3",
+          "title": "Document Windows code-signing cert options",
+          "status": "deferred",
+          "evidence": "DEFERRED (manual) — acquire Windows code-signing cert + add GitHub secret; user procurement.",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "5.4",
+          "title": "Add Linux maintainer and AppImage/deb config",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "5.5",
+          "title": "Add tauri-plugin-updater and latest.json endpoint",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "5.6",
+          "title": "Write release-desktop.yml CI workflow",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "5.7",
+          "title": "Add missing platform icon sizes",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "5.8",
+          "title": "Cut app-v0.2.2 tag and verify release pipeline",
+          "status": "deferred",
+          "evidence": "DEFERRED (operational) — cut app-v0.2.2 tag + end-to-end installer test; live release.",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "5.9",
+          "title": "Wire site a2 page to live GitHub Release downloads",
+          "status": "deferred",
+          "evidence": "DEFERRED (gated) — flip site a2 distribution to live GitHub Release assets; needs desktop release.",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        }
+      ]
+    },
+    {
+      "id": "phase-6",
+      "title": "Phase 6 — Extension sideload release",
+      "status": "todo",
+      "progress": "0/5",
+      "tasks": [
+        {
+          "id": "6.1",
+          "title": "Update paperboy-ext README (remove content.js refs)",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "6.2",
+          "title": "Add homepage_url to extension manifest",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "6.3",
+          "title": "Write release-ext.yml CI workflow",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "6.4",
+          "title": "Cut ext-v0.2.2 tag and verify release zip",
+          "status": "deferred",
+          "evidence": "DEFERRED (operational) — cut ext-v0.2.2 tag; live release.",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "6.5",
+          "title": "Update site a3 page with sideload walkthrough",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        }
+      ]
+    },
+    {
+      "id": "phase-7",
+      "title": "Phase 7 — Site backend & polish",
+      "status": "todo",
+      "progress": "0/3",
+      "tasks": [
+        {
+          "id": "7.1",
+          "title": "Wire Ask The Editor contact (API or mailto)",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "7.2",
+          "title": "Add dynamic OG images per route",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "7.3",
+          "title": "End-to-end smoke pass on all routes",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        }
+      ]
+    },
+    {
+      "id": "phase-8",
+      "title": "Phase 8 — Cross-cutting hardening",
+      "status": "todo",
+      "progress": "0/5",
+      "tasks": [
+        {
+          "id": "8.1",
+          "title": "Add converter tests for docx, pdf, epub, xlsx",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "8.2",
+          "title": "Add CLI crawl command tests",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "8.3",
+          "title": "Add widget integration tests",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "8.4",
+          "title": "Update release-cut skill for five tag types",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        },
+        {
+          "id": "8.5",
+          "title": "Add CHANGELOG.md files to each package",
+          "status": "todo",
+          "evidence": "",
+          "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
+          "review_status": "not_started"
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script>
+const REFRESH_MS = 5000;
+const PROJECT_TITLE = 'Paperboy — Production Readiness';
+
+const BUILD_ORDER = ['done', 'partial', 'in_progress', 'todo', 'deferred'];
+const BUILD_LABELS = {
+  done: 'Done',
+  partial: 'Partial',
+  in_progress: 'In progress',
+  todo: 'Todo',
+  deferred: 'Deferred'
+};
+const BUILD_COLORS = {
+  done: '#4ADE80',
+  partial: '#D6A84F',
+  in_progress: '#facc15',
+  todo: '#555',
+  deferred: '#3b82f6'
+};
+const BUILD_STAT_CLASS = {
+  done: 'stat-done',
+  partial: 'stat-partial',
+  in_progress: 'stat-progress',
+  todo: 'stat-todo',
+  deferred: 'stat-deferred'
+};
+
+const REVIEW_ORDER = [
+  'review_passed',
+  'in_review',
+  'waiting_for_reviewer',
+  'waiting_for_builder',
+  'review_failed',
+  'needs_human',
+  'blocked',
+  'not_started'
+];
+const REVIEW_LABELS = {
+  review_passed: 'Passed',
+  in_review: 'In review',
+  waiting_for_reviewer: 'Awaiting reviewer',
+  waiting_for_builder: 'Awaiting builder',
+  review_failed: 'Failed',
+  needs_human: 'Needs human',
+  blocked: 'Blocked',
+  not_started: 'Not started'
+};
+const REVIEW_COLORS = {
+  review_passed: '#4ADE80',
+  in_review: '#facc15',
+  waiting_for_reviewer: '#D6A84F',
+  waiting_for_builder: '#D6A84F',
+  review_failed: '#f87171',
+  needs_human: '#3b82f6',
+  blocked: '#6366f1',
+  not_started: '#555'
+};
+const REVIEW_STAT_CLASS = {
+  review_passed: 'stat-passed',
+  in_review: 'stat-review',
+  waiting_for_reviewer: 'stat-waiting',
+  waiting_for_builder: 'stat-waiting',
+  review_failed: 'stat-failed',
+  needs_human: 'stat-human',
+  blocked: 'stat-deferred',
+  not_started: 'stat-not-started'
+};
+
+function collectTasks(data) {
+  const tasks = [];
+  (data.groups || []).forEach(group => {
+    (group.tasks || []).forEach(task => tasks.push(task));
+  });
+  return tasks;
+}
+
+function countByKey(tasks, key, order, fallback = 'not_started') {
+  const counts = {};
+  order.forEach(k => { counts[k] = 0; });
+  tasks.forEach(task => {
+    const raw = task[key] || fallback;
+    if (counts.hasOwnProperty(raw)) counts[raw]++;
+    else counts[fallback] = (counts[fallback] || 0) + 1;
+  });
+  return counts;
+}
+
+function renderStatCards(containerId, counts, order, labels, statClasses, total) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  let html = `<div class="stat stat-total"><div class="number">${total}</div><div class="label">Total</div></div>`;
+  order.forEach(key => {
+    const n = counts[key] || 0;
+    const cls = statClasses[key] || '';
+    const label = labels[key] || key;
+    html += `<div class="stat ${cls}"><div class="number">${n}</div><div class="label">${label}</div></div>`;
+  });
+  el.innerHTML = html;
+}
+
+function renderStackedBar(trackId, counts, order, colors, total) {
+  const track = document.getElementById(trackId);
+  if (!track) return;
+  track.innerHTML = '';
+  order.forEach(state => {
+    const count = counts[state] || 0;
+    if (count === 0) return;
+    const pct = total > 0 ? (count / total) * 100 : 0;
+    const segment = document.createElement('div');
+    segment.className = 'progress-segment';
+    segment.style.width = pct + '%';
+    segment.style.background = colors[state] || '#555';
+    segment.title = `${state}: ${count}`;
+    track.appendChild(segment);
+  });
+}
+
+function formatReviewLabel(status) {
+  return (REVIEW_LABELS[status] || status.replace(/_/g, ' ')).toUpperCase();
+}
+
+function formatBuildLabel(status) {
+  return (status || 'todo').replace(/_/g, ' ').toUpperCase();
+}
+
+function groupImplStatus(tasks) {
+  const total = tasks.length;
+  if (total === 0) return 'todo';
+  const done = tasks.filter(t => t.status === 'done').length;
+  if (done === total) return 'done';
+  const active = tasks.filter(t => ['done', 'partial', 'in_progress'].includes(t.status || 'todo')).length;
+  if (active > 0) return 'in_progress';
+  return 'todo';
+}
+
+function renderDashboard(data) {
+  const tasks = collectTasks(data);
+  const total = tasks.length;
+
+  const titleEl = document.getElementById('project-title');
+  const subtitleEl = document.getElementById('project-subtitle');
+  if (titleEl) titleEl.textContent = PROJECT_TITLE;
+  if (subtitleEl) {
+    const spec = data.meta?.spec || 'paperboy production readiness plan';
+    subtitleEl.textContent = `Spec: ${spec} · ${total} atomic tasks`;
+  }
+
+  const reviewLabel = document.getElementById('review-summary-label');
+  const buildLabel = document.getElementById('build-summary-label');
+  if (reviewLabel) reviewLabel.textContent = `Review pipeline (${total} tasks)`;
+  if (buildLabel) buildLabel.textContent = `Implementation status (${total} tasks)`;
+
+  const buildCounts = countByKey(tasks, 'status', BUILD_ORDER, 'todo');
+  const reviewCounts = countByKey(tasks, 'review_status', REVIEW_ORDER, 'not_started');
+
+  renderStatCards('review-summary-stats', reviewCounts, REVIEW_ORDER, REVIEW_LABELS, REVIEW_STAT_CLASS, total);
+  renderStatCards('build-summary-stats', buildCounts, BUILD_ORDER, BUILD_LABELS, BUILD_STAT_CLASS, total);
+
+  const updatedEl = document.getElementById('last-updated');
+  if (updatedEl) {
+    updatedEl.textContent = `Last updated (JSON): ${data.meta?.last_updated || 'unknown'} · Live refresh: ${new Date().toLocaleTimeString()}`;
+  }
+
+  const passed = reviewCounts.review_passed || 0;
+  const progressText = document.getElementById('progress-text');
+  if (progressText) {
+    const pct = total > 0 ? Math.round((passed / total) * 100) : 0;
+    progressText.textContent = `${passed} / ${total} review passed (${pct}%)`;
+  }
+
+  renderStackedBar('progress-track', reviewCounts, REVIEW_ORDER, REVIEW_COLORS, total);
+
+  const breakdown = document.getElementById('progress-breakdown');
+  if (breakdown) {
+    breakdown.innerHTML = REVIEW_ORDER
+      .map(state => {
+        const count = reviewCounts[state] || 0;
+        if (count === 0) return '';
+        return `<span>${REVIEW_LABELS[state] || state}: ${count}</span>`;
+      })
+      .filter(Boolean)
+      .join(' · ');
+  }
+
+  const reviewLegend = document.getElementById('review-legend');
+  if (reviewLegend) {
+    reviewLegend.innerHTML = REVIEW_ORDER
+      .filter(state => (reviewCounts[state] || 0) > 0)
+      .map(state => {
+        const reviewClass = {
+          review_passed: 'status-done',
+          in_review: 'status-in-progress',
+          waiting_for_reviewer: 'status-partial',
+          waiting_for_builder: 'status-partial',
+          review_failed: 'status-failed',
+          needs_human: 'status-deferred',
+          blocked: 'status-deferred',
+          not_started: 'status-todo'
+        }[state] || 'status-todo';
+        return `<span class="legend-item"><span class="status ${reviewClass}">${formatReviewLabel(state)}</span></span>`;
+      })
+      .join('');
+  }
+
+  const container = document.getElementById('dashboard-content');
+  container.innerHTML = '';
+
+  (data.groups || []).forEach(group => {
+    const groupTasks = group.tasks || [];
+    const groupImplDone = groupTasks.filter(t => t.status === 'done').length;
+    const groupReviewPassed = groupTasks.filter(t => t.review_status === 'review_passed').length;
+    const groupTotal = groupTasks.length;
+    const groupStatus = groupImplStatus(groupTasks);
+    const groupStatusClass = {
+      done: 'status-done',
+      partial: 'status-partial',
+      in_progress: 'status-in-progress',
+      todo: 'status-todo',
+      deferred: 'status-deferred'
+    }[groupStatus] || 'status-todo';
+    const groupEl = document.createElement('div');
+    groupEl.className = 'group';
+
+    let html = `
+      <div class="group-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <div>
+          <span class="group-title">${group.title}</span>
+          <span class="status ${groupStatusClass}" style="margin-left:8px; font-size:9px;">${formatBuildLabel(groupStatus)}</span>
+          <span class="group-progress">${groupImplDone}/${groupTotal} impl · ${groupReviewPassed}/${groupTotal} review passed</span>
+        </div>
+        <div style="color:#666">▶</div>
+      </div>
+      <div class="collapsible">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:58px">ID</th>
+              <th style="min-width:240px">Task</th>
+              <th style="width:120px">Implementation<span class="col-hint">repo verified</span></th>
+              <th style="width:120px">Review<span class="col-hint">peer review</span></th>
+              <th>Evidence</th>
+              <th style="width:300px">Reviewer guidance</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    groupTasks.forEach(task => {
+      const buildStatus = task.status || 'todo';
+      const buildClass = {
+        done: 'status-done',
+        partial: 'status-partial',
+        in_progress: 'status-in-progress',
+        todo: 'status-todo',
+        deferred: 'status-deferred'
+      }[buildStatus] || 'status-todo';
+
+      const review = task.review_status || 'not_started';
+      const reviewClass = {
+        review_passed: 'status-done',
+        in_review: 'status-in-progress',
+        waiting_for_reviewer: 'status-partial',
+        waiting_for_builder: 'status-partial',
+        review_failed: 'status-failed',
+        needs_human: 'status-deferred',
+        blocked: 'status-deferred',
+        not_started: 'status-todo'
+      }[review] || 'status-todo';
+
+      const guidance = task.reviewer_guidance || 'Read files in Evidence. Run tests and CLI. Compare to spec section.';
+
+      html += `
+        <tr>
+          <td class="task-id">${task.id}</td>
+          <td><div class="task-title">${task.title}</div></td>
+          <td><span class="status ${buildClass}">${formatBuildLabel(buildStatus)}</span></td>
+          <td><span class="status ${reviewClass}">${formatReviewLabel(review)}</span></td>
+          <td><div class="evidence">${task.evidence || ''}</div></td>
+          <td><div class="guidance">${guidance}</div></td>
+        </tr>
+      `;
+    });
+
+    html += '</tbody></table></div>';
+    groupEl.innerHTML = html;
+    container.appendChild(groupEl);
+  });
+}
+
+async function loadDashboardData() {
+  try {
+    if (location.protocol === 'http:' || location.protocol === 'https:') {
+      const res = await fetch(`paperboy-spec-tasks.json?_=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) {
+        return { data: await res.json(), source: 'paperboy-spec-tasks.json (live)' };
+      }
+    }
+  } catch (_) {}
+
+  const embeddedEl = document.getElementById('embedded-data');
+  if (embeddedEl?.textContent?.trim()) {
+    return { data: JSON.parse(embeddedEl.textContent), source: 'embedded snapshot' };
+  }
+  throw new Error('No live JSON and no embedded snapshot');
+}
+
+async function loadAndRenderDashboard(isRefresh = false) {
+  const container = document.getElementById('dashboard-content');
+  const indicator = document.getElementById('refresh-indicator');
+
+  if (!isRefresh) {
+    container.innerHTML = '<div class="loading">Loading dashboard from paperboy-spec-tasks.json…</div>';
+  }
+
+  try {
+    const { data, source } = await loadDashboardData();
+    renderDashboard(data);
+    if (indicator) {
+      indicator.textContent = `${source} · next refresh in ${REFRESH_MS / 1000}s`;
+    }
+  } catch (err) {
+    if (!isRefresh) {
+      container.innerHTML = `
+        <div style="background:#2a1515; border:1px solid #f87171; padding:16px; border-radius:8px;">
+          <strong>Could not load paperboy-spec-tasks.json</strong><br>
+          Error: ${err.message}<br><br>
+          Serve this folder: <code>python -m http.server</code> then open <code>http://localhost:8000/paperboy-spec-status-dashboard.html</code>
+        </div>
+      `;
+    }
+    if (indicator) indicator.textContent = 'Load failed: ' + err.message;
+    console.error('Dashboard load failed:', err);
+  }
+}
+
+loadAndRenderDashboard(false);
+setInterval(() => loadAndRenderDashboard(true), REFRESH_MS);
+console.log('%c[Paperboy] Dashboard — auto-refresh every 5s', 'color:#D6A84F');
+</script>
+</body>
+</html>

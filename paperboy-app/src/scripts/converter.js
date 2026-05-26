@@ -3,6 +3,8 @@ import {
   shouldReadInputAsText,
   SUPPORTED_EXTENSIONS,
 } from "@proticom/paperboy-converter";
+import { describeImageWithAi } from "@proticom/paperboy-ai";
+import { getAiSettings, resolveApiKey } from "./settings.js";
 
 const MARKDOWN_EXTENSIONS = new Set(["md", "markdown", "mdx"]);
 const IMAGE_EXTENSIONS = [
@@ -35,7 +37,7 @@ export function shouldKeepOriginalPath(filePath) {
   return MARKDOWN_EXTENSIONS.has(getExtension(filePath));
 }
 
-export async function convertImportedFile({ path, text, base64 }) {
+export async function convertImportedFile({ path, text, base64, invoke }) {
   const extension = getExtension(path);
   if (!SUPPORTED_EXTENSIONS.includes(extension)) {
     return {
@@ -49,7 +51,24 @@ export async function convertImportedFile({ path, text, base64 }) {
     ? normalizeLineEndings(text || "")
     : base64ToUint8Array(base64);
 
-  return convertToMarkdown(path, input);
+  const convertOptions = {};
+  const ai = getAiSettings();
+  if (ai.provider && ai.provider !== "disabled") {
+    const apiKey = (await resolveApiKey(invoke, ai.provider)) ?? "";
+    convertOptions.image = {
+      describeImage: (params) =>
+        describeImageWithAi({
+          aiConfig: { mode: ai.provider, baseUrl: ai.baseUrl, model: ai.model },
+          apiKey,
+          imageBytes: params.fileBytes,
+          imageMimeType: params.imageMimeType,
+          ocrText: params.ocrText,
+          words: params.words,
+        }),
+    };
+  }
+
+  return convertToMarkdown(path, input, convertOptions);
 }
 
 function getExtension(filePath) {

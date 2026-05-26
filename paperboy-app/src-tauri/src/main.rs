@@ -1,6 +1,7 @@
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use keyring::Entry;
 use serde::Serialize;
+use serde_json::{json, Value as JsonValue};
 use std::{fs, path::PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -9,6 +10,9 @@ use std::sync::atomic::{AtomicU32, Ordering};
 // visible in both. Account names match the CLI's per-provider env var names:
 //   PAPERBOY_OPENROUTER_API_KEY, PAPERBOY_OPENAI_API_KEY, etc.
 const KEYRING_SERVICE: &str = "paperboy-cli";
+const RECENT_STORE_PATH: &str = "recent-files.json";
+const RECENT_FILES_KEY: &str = "recentFiles";
+const MAX_RECENT_FILES: usize = 10;
 
 // Providers that take an API key. Kept in sync with paperboy-cli/src/providers.ts
 // (openrouter, openai, anthropic, xai). Ollama and local-endpoint don't need
@@ -28,6 +32,8 @@ fn provider_entry(provider: &str) -> Result<Entry, String> {
     .ok_or_else(|| format!("Unknown provider: {provider}"))?;
   Entry::new(KEYRING_SERVICE, envvar).map_err(|err| err.to_string())
 }
+use tauri_plugin_store::StoreExt;
+use tauri_plugin_window_state::StateFlags;
 use tauri::{
   menu::{
     AboutMetadataBuilder, CheckMenuItem, CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder,
@@ -35,7 +41,6 @@ use tauri::{
   },
   AppHandle, Emitter, Manager, Wry,
 };
-use tauri_plugin_dialog::DialogExt;
 use tauri_utils::TitleBarStyle;
 
 static WINDOW_COUNTER: AtomicU32 = AtomicU32::new(1);
@@ -62,14 +67,6 @@ struct BinaryFilePayload {
 }
 
 #[tauri::command]
-fn open_file(app: AppHandle) -> Result<Option<FilePayload>, String> {
-  let Some(path) = app.dialog().file().add_filter("Markdown", &["md", "markdown"]).blocking_pick_file().and_then(to_path) else {
-    return Ok(None);
-  };
-  Ok(Some(read_payload(path)?))
-}
-
-#[tauri::command]
 fn read_file(path: String) -> Result<FilePayload, String> {
   read_payload(PathBuf::from(path))
 }
@@ -86,15 +83,6 @@ fn read_file_bytes(path: String) -> Result<BinaryFilePayload, String> {
 #[tauri::command]
 fn save_file(path: String, content: String) -> Result<(), String> {
   fs::write(path, content).map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn save_file_as(app: AppHandle, content: String) -> Result<Option<FilePayload>, String> {
-  let Some(path) = app.dialog().file().add_filter("Markdown", &["md", "markdown"]).set_file_name("untitled.md").blocking_save_file().and_then(to_path) else {
-    return Ok(None);
-  };
-  fs::write(&path, content).map_err(|err| err.to_string())?;
-  Ok(Some(read_payload(path)?))
 }
 
 #[tauri::command]
@@ -185,13 +173,6 @@ fn read_payload(path: PathBuf) -> Result<FilePayload, String> {
   })
 }
 
-fn to_path(file: tauri_plugin_dialog::FilePath) -> Option<PathBuf> {
-  match file {
-    tauri_plugin_dialog::FilePath::Path(path) => Some(path),
-    _ => None,
-  }
-}
-
 fn emit(app: &AppHandle, event: &str) {
   for (_, window) in app.webview_windows() {
     if window.is_focused().unwrap_or(false) {
@@ -202,6 +183,57 @@ fn emit(app: &AppHandle, event: &str) {
   if let Some(window) = app.get_webview_window("main") {
     let _ = window.emit(event, ());
   }
+}
+
+fn emit_with_payload<T: Serialize + Clone>(app: &AppHandle, event: &str, payload: T) {
+  for (_, window) in app.webview_windows() {
+    if window.is_focused().unwrap_or(false) {
+      let _ = window.emit(event, payload.clone());
+      return;
+    }
+  }
+  if let Some(window) = app.get_webview_window("main") {
+    let _ = window.emit(event, payload);
+  }
+}
+
+fn load_recent_files(app: &AppHandle) -> Result<Vec<String>, String> {
+  let store = app.store(RECENT_STORE_PATH).map_err(|err| err.to_string())?;
+  match store.get(RECENT_FILES_KEY) {
+    Some(JsonValue::Array(items)) => Ok(items
+      .iter()
+      .filter_map(|value| value.as_str().map(str::to_string))
+      .collect()),
+    _ => Ok(Vec::new()),
+  }
+}
+
+fn save_recent_files(app: &AppHandle, files: &[String]) -> Result<(), String> {
+  let store = app.store(RECENT_STORE_PATH).map_err(|err| err.to_string())?;
+  store.set(RECENT_FILES_KEY, json!(files));
+  Ok(())
+}
+
+fn clear_recent_files(app: &AppHandle) -> Result<(), String> {
+  save_recent_files(app, &[])
+}
+
+fn rebuild_menu(app: &AppHandle) -> Result<(), String> {
+  let full_path_item = app.state::<CheckMenuItem<Wry>>();
+  let recent = load_recent_files(app)?;
+  let next_menu = menu(app, &full_path_item, &recent).map_err(|err| err.to_string())?;
+  app.set_menu(next_menu).map_err(|err| err.to_string())?;
+  Ok(())
+}
+
+#[tauri::command]
+fn push_recent_file(app: AppHandle, path: String) -> Result<(), String> {
+  let mut files = load_recent_files(&app)?;
+  files.retain(|existing| existing != &path);
+  files.insert(0, path);
+  files.truncate(MAX_RECENT_FILES);
+  save_recent_files(&app, &files)?;
+  rebuild_menu(&app)
 }
 
 /// Atomically drain the file paths buffered by `RunEvent::Opened`. Safe to
@@ -225,7 +257,39 @@ fn about_metadata() -> tauri::menu::AboutMetadata<'static> {
     .build()
 }
 
-fn menu(app: &AppHandle, full_path_item: &CheckMenuItem<Wry>) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+fn build_open_recent_submenu(
+  app: &AppHandle,
+  recent: &[String],
+) -> tauri::Result<tauri::menu::Submenu<Wry>> {
+  let mut builder = SubmenuBuilder::new(app, "Open Recent");
+  if recent.is_empty() {
+    builder = builder.item(
+      &MenuItemBuilder::with_id("recent_empty", "(No Recent Files)")
+        .enabled(false)
+        .build(app)?,
+    );
+  } else {
+    for (index, path) in recent.iter().enumerate() {
+      let label = PathBuf::from(path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(str::to_string)
+        .unwrap_or_else(|| path.clone());
+      let id = format!("recent::{index}");
+      builder = builder.item(&MenuItemBuilder::with_id(&id, &label).build(app)?);
+    }
+  }
+  builder
+    .separator()
+    .item(&MenuItemBuilder::with_id("recent_clear", "Clear Recent").build(app)?)
+    .build()
+}
+
+fn menu(
+  app: &AppHandle,
+  full_path_item: &CheckMenuItem<Wry>,
+  recent: &[String],
+) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
   let about = about_metadata();
   #[cfg(target_os = "macos")]
   let app_menu = SubmenuBuilder::new(app, "Paperboy")
@@ -241,6 +305,7 @@ fn menu(app: &AppHandle, full_path_item: &CheckMenuItem<Wry>) -> tauri::Result<t
     .separator()
     .quit()
     .build()?;
+  let open_recent = build_open_recent_submenu(app, recent)?;
   let file = SubmenuBuilder::new(app, "File")
     .item(&MenuItemBuilder::with_id("new", "New Tab").accelerator("CmdOrCtrl+N").build(app)?)
     .item(&MenuItemBuilder::with_id("new_window", "New Window").accelerator("CmdOrCtrl+Shift+N").build(app)?)
@@ -248,6 +313,7 @@ fn menu(app: &AppHandle, full_path_item: &CheckMenuItem<Wry>) -> tauri::Result<t
     .item(&MenuItemBuilder::with_id("open", "Open…").accelerator("CmdOrCtrl+O").build(app)?)
     .item(&MenuItemBuilder::with_id("open_tab", "Open in New Tab…").build(app)?)
     .item(&MenuItemBuilder::with_id("open_window", "Open in New Window…").build(app)?)
+    .item(&open_recent)
     .separator()
     .item(&MenuItemBuilder::with_id("save", "Save").accelerator("CmdOrCtrl+S").build(app)?)
     .item(&MenuItemBuilder::with_id("save_as", "Save As…").accelerator("CmdOrCtrl+Shift+S").build(app)?)
@@ -286,26 +352,32 @@ fn menu(app: &AppHandle, full_path_item: &CheckMenuItem<Wry>) -> tauri::Result<t
 fn main() {
   tauri::Builder::default()
     .plugin(tauri_plugin_dialog::init())
+    .plugin(
+      tauri_plugin_window_state::Builder::default()
+        .with_state_flags(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED)
+        .build(),
+    )
+    .plugin(tauri_plugin_store::Builder::default().build())
     .invoke_handler(tauri::generate_handler![
-      open_file,
       read_file,
       read_file_bytes,
       save_file,
-      save_file_as,
       create_window,
       set_full_path_menu_checked,
       get_api_key,
       set_api_key,
       delete_api_key,
       list_configured_providers,
-      take_pending_open_paths
+      take_pending_open_paths,
+      push_recent_file
     ])
     .setup(|app| {
       app.manage(PendingOpen::default());
       let full_path_item =
         CheckMenuItemBuilder::with_id("view_full_path", "Show Full Path in Footer").checked(false).build(app.handle())?;
       app.manage(full_path_item.clone());
-      app.set_menu(menu(app.handle(), &full_path_item)?)?;
+      let recent = load_recent_files(app.handle()).unwrap_or_default();
+      app.set_menu(menu(app.handle(), &full_path_item, &recent)?)?;
       Ok(())
     })
     .on_menu_event(|app, event| match event.id().as_ref() {
@@ -322,6 +394,22 @@ fn main() {
       "view_split" => emit(app, "menu-view-split"),
       "view_full_path" => emit(app, "menu-view-full-path"),
       "settings" => emit(app, "menu-settings"),
+      "recent_clear" => {
+        if clear_recent_files(app).is_ok() {
+          let _ = rebuild_menu(app);
+        }
+      }
+      id if id.starts_with("recent::") => {
+        if let Some(index_str) = id.strip_prefix("recent::") {
+          if let Ok(index) = index_str.parse::<usize>() {
+            if let Ok(files) = load_recent_files(app) {
+              if let Some(path) = files.get(index) {
+                emit_with_payload(app, "menu-open-recent", path.clone());
+              }
+            }
+          }
+        }
+      }
       _ => {}
     })
     .build(tauri::generate_context!())

@@ -75,6 +75,25 @@ function saveSettings(settings) {
   }
 }
 
+export function getAiSettings() {
+  const settings = loadSettings();
+  return {
+    provider: settings.provider || "disabled",
+    baseUrl: settings.baseUrl || "",
+    model: settings.model || "",
+  };
+}
+
+export async function resolveApiKey(invoke, provider) {
+  const info = PROVIDERS[provider];
+  if (!info?.needsKey || !invoke) return null;
+  try {
+    return (await invoke("get_api_key", { provider })) || null;
+  } catch {
+    return null;
+  }
+}
+
 export function initSettings({ invoke }) {
   const dialog = document.querySelector("[data-settings-dialog]");
   if (!dialog) return { open() {} };
@@ -95,6 +114,30 @@ export function initSettings({ invoke }) {
   const doneBtn = dialog.querySelector("[data-settings-done]");
 
   let settings = loadSettings();
+
+  async function populateProviderOptions() {
+    let configured = [];
+    if (invoke) {
+      try {
+        configured = (await invoke("list_configured_providers")) || [];
+      } catch {
+        configured = [];
+      }
+    }
+    const configuredSet = new Set(configured);
+    providerSelect.innerHTML = "";
+    for (const id of Object.keys(PROVIDERS)) {
+      const info = PROVIDERS[id];
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = configuredSet.has(id) ? `${info.label} — configured` : info.label;
+      if (configuredSet.has(id)) opt.dataset.configured = "true";
+      providerSelect.appendChild(opt);
+    }
+    providerSelect.value = settings.provider || "disabled";
+  }
+
+  void populateProviderOptions();
 
   function setStatus(message, kind = "info") {
     if (!statusEl) return;
@@ -208,7 +251,8 @@ export function initSettings({ invoke }) {
   });
 
   return {
-    open() {
+    async open() {
+      await populateProviderOptions();
       settings = loadSettings();
       providerSelect.value = settings.provider;
       renderProviderUi();

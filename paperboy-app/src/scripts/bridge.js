@@ -33,10 +33,33 @@ function persistShowFullPathPreference(value) {
   } catch {}
 }
 
+const VIEW_MODE_KEY = "paperboy-app-view-mode";
+
+function loadViewModePreference() {
+  try {
+    const mode = localStorage.getItem(VIEW_MODE_KEY);
+    return mode === "editor" || mode === "preview" || mode === "split" ? mode : "editor";
+  } catch {
+    return "editor";
+  }
+}
+
+function persistViewModePreference(mode) {
+  try {
+    localStorage.setItem(VIEW_MODE_KEY, mode);
+  } catch {}
+}
+
+const initialViewMode = loadViewModePreference();
+const contentAreaEl = document.querySelector(".content-area");
+if (contentAreaEl) {
+  contentAreaEl.dataset.viewMode = initialViewMode;
+}
+
 // Per-tab fields live in the tabs array and get snapshot/restored when switching.
 // "state" always reflects the currently active tab.
 // showFullPath is app-wide (all tabs, all windows) via localStorage + native menu sync.
-const state = { currentFile: null, sourceFile: null, content: "", savedContent: "", isDirty: false, showFullPath: loadShowFullPathPreference(), viewMode: "editor", theme: document.documentElement.dataset.theme || "system" };
+const state = { currentFile: null, sourceFile: null, content: "", savedContent: "", isDirty: false, showFullPath: loadShowFullPathPreference(), viewMode: initialViewMode, theme: document.documentElement.dataset.theme || "system" };
 
 let nextTabId = 1;
 const tabs = [];
@@ -67,6 +90,7 @@ const refreshEditorLayout = debounce(() => {
 const ui = initUiState({
   onViewModeChange(mode) {
     state.viewMode = mode;
+    persistViewModePreference(mode);
     editor.invalidateScrollLayout();
     if (mode !== "editor") {
       renderPreview();
@@ -95,6 +119,7 @@ checkInitialFile();
 // Cold-launch "Open With"/double-click: RunEvent::Opened already fired and
 // buffered the path Rust-side before this script ran. Drain it now.
 void drainPendingOpens();
+void setupFileDrop();
 void syncNativeMenuShowFullPath();
 window.addEventListener("storage", (event) => {
   if (event.key !== FULL_PATH_KEY || event.newValue === null) return;
@@ -282,6 +307,11 @@ async function setupMenuListeners() {
     "menu-view-editor": () => ui.setViewMode("editor"),
     "menu-view-split": () => ui.setViewMode("split"),
     "menu-settings": () => settings.open(),
+    "menu-open-recent": (event) => {
+      const path = typeof event?.payload === "string" ? event.payload : null;
+      if (!path) return;
+      void maybeProceed(() => loadFileIntoCurrentTab(path));
+    },
     // Emitted by Rust on RunEvent::Opened — macOS "Open With → Paperboy",
     // double-click in Finder, or drag onto the Dock icon. The actual paths
     // are buffered Rust-side (a cold launch fires this before listeners
@@ -355,14 +385,14 @@ async function loadFileIntoCurrentTab(path) {
     if (shouldReadAsText(path)) {
       const textFile = await invoke("read_file", { path });
       if (!textFile) return;
-      result = await convertImportedFile({ path: textFile.path, text: textFile.content });
+      result = await convertImportedFile({ path: textFile.path, text: textFile.content, invoke });
       if (shouldKeepOriginalPath(textFile.path)) {
         targetPath = textFile.path;
       }
     } else {
       const binaryFile = await invoke("read_file_bytes", { path });
       if (!binaryFile) return;
-      result = await convertImportedFile({ path: binaryFile.path, base64: binaryFile.base64 });
+      result = await convertImportedFile({ path: binaryFile.path, base64: binaryFile.base64, invoke });
     }
 
     setDocument(targetPath, result.markdown, false, nativeMarkdown ? null : path);
@@ -376,6 +406,13 @@ async function loadFileIntoCurrentTab(path) {
         : `Imported and converted ${fileName}`,
       "success"
     );
+    if (invoke) {
+      try {
+        await invoke("push_recent_file", { path });
+      } catch (e) {
+        console.warn("Failed to update recent files list", e);
+      }
+    }
   } catch (error) {
     console.error("Failed to import file", error);
     showToast("Paperboy could not import this file.", "error");
@@ -519,6 +556,34 @@ function lockScroll(source, action) {
 }
 
 // --------------- Window drag ---------------
+
+async function setupFileDrop() {
+  const dropRoot = document.body;
+  const webview = tauri.webviewWindow?.getCurrentWebviewWindow?.() || currentWindow;
+  if (!webview?.onDragDropEvent) return;
+
+  await webview.onDragDropEvent(async ({ payload }) => {
+    if (payload.type === "over" || payload.type === "enter") {
+      dropRoot.classList.add("drag-over");
+    } else if (payload.type === "leave" || payload.type === "cancel") {
+      dropRoot.classList.remove("drag-over");
+    } else if (payload.type === "drop") {
+      dropRoot.classList.remove("drag-over");
+      let isFirst = true;
+      for (const path of payload.paths || []) {
+        if (typeof path !== "string" || !path) continue;
+        if (isFirst && state.isDirty) {
+          isFirst = false;
+          await maybeProceed(() => loadFileIntoCurrentTab(path));
+          continue;
+        }
+        isFirst = false;
+        if (state.currentFile || state.isDirty) createTab();
+        await loadFileIntoCurrentTab(path);
+      }
+    }
+  });
+}
 
 function setupWindowDrag() {
   const startDrag = async (event) => {

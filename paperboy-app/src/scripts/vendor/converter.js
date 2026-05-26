@@ -98032,6 +98032,392 @@ async function convertToMarkdown(filename, data, options) {
   return handler4(filename, data, options);
 }
 
+// ../paperboy-ai/dist/providers.js
+var PROVIDERS = {
+  disabled: {
+    id: "disabled",
+    label: "Deterministic only (no AI)",
+    envVar: null,
+    defaultModel: "",
+    defaultBaseUrl: "",
+    needsKey: false,
+    supportsVision: false
+  },
+  openrouter: {
+    id: "openrouter",
+    label: "OpenRouter (cloud, BYO key)",
+    envVar: "PAPERBOY_OPENROUTER_API_KEY",
+    defaultModel: "openai/gpt-5-mini",
+    defaultBaseUrl: "https://openrouter.ai/api/v1",
+    needsKey: true,
+    supportsVision: true,
+    signupUrl: "https://openrouter.ai/keys"
+  },
+  openai: {
+    id: "openai",
+    label: "OpenAI direct (api.openai.com, BYO key)",
+    envVar: "PAPERBOY_OPENAI_API_KEY",
+    defaultModel: "gpt-4o-mini",
+    defaultBaseUrl: "https://api.openai.com/v1",
+    needsKey: true,
+    supportsVision: true,
+    signupUrl: "https://platform.openai.com/api-keys"
+  },
+  anthropic: {
+    id: "anthropic",
+    label: "Anthropic direct (api.anthropic.com, BYO key)",
+    envVar: "PAPERBOY_ANTHROPIC_API_KEY",
+    defaultModel: "claude-haiku-4-5-20251001",
+    defaultBaseUrl: "https://api.anthropic.com/v1",
+    needsKey: true,
+    supportsVision: true,
+    signupUrl: "https://console.anthropic.com/settings/keys"
+  },
+  xai: {
+    id: "xai",
+    label: "xAI Grok (api.x.ai, BYO key)",
+    envVar: "PAPERBOY_XAI_API_KEY",
+    defaultModel: "grok-2-vision",
+    defaultBaseUrl: "https://api.x.ai/v1",
+    needsKey: true,
+    supportsVision: true,
+    signupUrl: "https://console.x.ai/"
+  },
+  ollama: {
+    id: "ollama",
+    label: "Ollama (local, no key)",
+    envVar: null,
+    defaultModel: "llama3.2:3b",
+    defaultBaseUrl: "http://localhost:11434",
+    needsKey: false,
+    supportsVision: false
+  },
+  "local-endpoint": {
+    id: "local-endpoint",
+    label: "Local OpenAI-compatible endpoint (LM Studio, llama.cpp, vLLM, \u2026)",
+    envVar: null,
+    defaultModel: "local-model",
+    defaultBaseUrl: "http://localhost:1234/v1",
+    needsKey: false,
+    supportsVision: false
+  }
+};
+
+// ../paperboy-ai/dist/ai.js
+function bytesToBase64(bytes) {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(bytes).toString("base64");
+  }
+  let binary = "";
+  for (let i2 = 0; i2 < bytes.length; i2 += 1) {
+    binary += String.fromCharCode(bytes[i2]);
+  }
+  return btoa(binary);
+}
+function parseMessageContent(raw) {
+  if (typeof raw === "string")
+    return raw.trim();
+  if (Array.isArray(raw)) {
+    return raw.map((item) => {
+      if (!item || typeof item !== "object")
+        return "";
+      const text = item.text;
+      return typeof text === "string" ? text : "";
+    }).join("\n").trim();
+  }
+  return "";
+}
+function buildDescribePrompt(ocrText, words) {
+  const excerpt = ocrText.trim().slice(0, 3e3);
+  const topWords = words.slice(0, 40).map((word) => word.text).join(", ");
+  return [
+    "Describe this image for a markdown import.",
+    "Return 2-4 short sentences.",
+    "Be factual and cautious. Do not invent exact text that is not visible.",
+    "",
+    `OCR text excerpt: ${excerpt || "(none)"}`,
+    `Detected words sample: ${topWords || "(none)"}`
+  ].join("\n");
+}
+async function describeViaOpenAiCompatible({ baseUrl, apiKey, model, imageBytes, imageMimeType, ocrText, words, providerLabel, authHeader }) {
+  const prompt = buildDescribePrompt(ocrText, words);
+  const imageDataUrl = `data:${imageMimeType};base64,${bytesToBase64(imageBytes)}`;
+  const headers = {
+    "Content-Type": "application/json",
+    ...authHeader ?? {}
+  };
+  if (apiKey && !authHeader) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+  const url = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      model,
+      temperature: 0.2,
+      max_tokens: 220,
+      messages: [
+        {
+          role: "system",
+          content: "You write concise image descriptions for markdown conversions. Be precise and avoid hallucination."
+        },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: imageDataUrl } }
+          ]
+        }
+      ]
+    })
+  });
+  if (!response.ok) {
+    throw new Error(`${providerLabel} request failed (${response.status}).`);
+  }
+  const json = await response.json();
+  const text = parseMessageContent(json.choices?.[0]?.message?.content);
+  return text.length > 0 ? text : null;
+}
+async function describeWithOpenRouter(params) {
+  const provider = PROVIDERS.openrouter;
+  if (!params.apiKey)
+    throw new Error("No API key found for OpenRouter.");
+  return describeViaOpenAiCompatible({
+    baseUrl: params.aiConfig.baseUrl || provider.defaultBaseUrl,
+    apiKey: params.apiKey,
+    model: params.aiConfig.model || provider.defaultModel,
+    imageBytes: params.imageBytes,
+    imageMimeType: params.imageMimeType,
+    ocrText: params.ocrText,
+    words: params.words,
+    providerLabel: "OpenRouter"
+  });
+}
+async function describeWithOpenAi(params) {
+  const provider = PROVIDERS.openai;
+  if (!params.apiKey)
+    throw new Error("No API key found for OpenAI.");
+  return describeViaOpenAiCompatible({
+    baseUrl: params.aiConfig.baseUrl || provider.defaultBaseUrl,
+    apiKey: params.apiKey,
+    model: params.aiConfig.model || provider.defaultModel,
+    imageBytes: params.imageBytes,
+    imageMimeType: params.imageMimeType,
+    ocrText: params.ocrText,
+    words: params.words,
+    providerLabel: "OpenAI"
+  });
+}
+async function describeWithXai(params) {
+  const provider = PROVIDERS.xai;
+  if (!params.apiKey)
+    throw new Error("No API key found for xAI.");
+  return describeViaOpenAiCompatible({
+    baseUrl: params.aiConfig.baseUrl || provider.defaultBaseUrl,
+    apiKey: params.apiKey,
+    model: params.aiConfig.model || provider.defaultModel,
+    imageBytes: params.imageBytes,
+    imageMimeType: params.imageMimeType,
+    ocrText: params.ocrText,
+    words: params.words,
+    providerLabel: "xAI"
+  });
+}
+async function describeWithAnthropic(params) {
+  const provider = PROVIDERS.anthropic;
+  if (!params.apiKey)
+    throw new Error("No API key found for Anthropic.");
+  const baseUrl = params.aiConfig.baseUrl || provider.defaultBaseUrl;
+  const model = params.aiConfig.model || provider.defaultModel;
+  const prompt = buildDescribePrompt(params.ocrText, params.words);
+  const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": params.apiKey,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 220,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: params.imageMimeType,
+                data: bytesToBase64(params.imageBytes)
+              }
+            }
+          ]
+        }
+      ]
+    })
+  });
+  if (!response.ok) {
+    throw new Error(`Anthropic request failed (${response.status}).`);
+  }
+  const json = await response.json();
+  const text = (json.content ?? []).filter((block) => block.type === "text" && typeof block.text === "string").map((block) => block.text).join("\n").trim();
+  return text.length > 0 ? text : null;
+}
+async function describeWithOllama(params) {
+  const baseUrl = params.aiConfig.baseUrl || "http://localhost:11434";
+  const model = params.aiConfig.model || "llama3.2:3b";
+  const prompt = buildDescribePrompt(params.ocrText, params.words);
+  const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      prompt,
+      stream: false
+    })
+  });
+  if (!response.ok) {
+    throw new Error(`Ollama request failed (${response.status}).`);
+  }
+  const json = await response.json();
+  const text = (json.response ?? "").trim();
+  return text.length > 0 ? text : null;
+}
+async function describeWithLocalEndpoint(params) {
+  const baseUrl = params.aiConfig.baseUrl || "http://localhost:1234";
+  const model = params.aiConfig.model;
+  if (!model) {
+    throw new Error("No model configured for local endpoint.");
+  }
+  const prompt = buildDescribePrompt(params.ocrText, params.words);
+  const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      temperature: 0.2,
+      max_tokens: 220,
+      messages: [
+        {
+          role: "system",
+          content: "You write concise image descriptions for markdown conversions. Be precise and avoid hallucination."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ]
+    })
+  });
+  if (!response.ok) {
+    throw new Error(`Local endpoint request failed (${response.status}).`);
+  }
+  const json = await response.json();
+  const text = parseMessageContent(json.choices?.[0]?.message?.content);
+  return text.length > 0 ? text : null;
+}
+async function describeImageWithAi(params) {
+  switch (params.aiConfig.mode) {
+    case "disabled":
+      return null;
+    case "openrouter":
+      return describeWithOpenRouter(params);
+    case "openai":
+      return describeWithOpenAi(params);
+    case "anthropic":
+      return describeWithAnthropic(params);
+    case "xai":
+      return describeWithXai(params);
+    case "ollama":
+      return describeWithOllama(params);
+    case "local-endpoint":
+      return describeWithLocalEndpoint(params);
+    default:
+      return null;
+  }
+}
+
+// src/scripts/settings.js
+var PROVIDERS2 = {
+  disabled: { label: "Disabled (deterministic only)", needsKey: false, hasEndpoint: false },
+  openrouter: {
+    label: "OpenRouter",
+    needsKey: true,
+    hasEndpoint: false,
+    defaultBaseUrl: "https://openrouter.ai/api/v1",
+    defaultModel: "openai/gpt-5-mini",
+    signupUrl: "https://openrouter.ai/keys"
+  },
+  openai: {
+    label: "OpenAI",
+    needsKey: true,
+    hasEndpoint: false,
+    defaultBaseUrl: "https://api.openai.com/v1",
+    defaultModel: "gpt-4o-mini",
+    signupUrl: "https://platform.openai.com/api-keys"
+  },
+  anthropic: {
+    label: "Anthropic",
+    needsKey: true,
+    hasEndpoint: false,
+    defaultBaseUrl: "https://api.anthropic.com/v1",
+    defaultModel: "claude-haiku-4-5-20251001",
+    signupUrl: "https://console.anthropic.com/settings/keys"
+  },
+  xai: {
+    label: "xAI / Grok",
+    needsKey: true,
+    hasEndpoint: false,
+    defaultBaseUrl: "https://api.x.ai/v1",
+    defaultModel: "grok-2-vision",
+    signupUrl: "https://console.x.ai/"
+  },
+  ollama: {
+    label: "Ollama (local)",
+    needsKey: false,
+    hasEndpoint: true,
+    defaultBaseUrl: "http://localhost:11434",
+    defaultModel: "llama3.2:3b"
+  },
+  "local-endpoint": {
+    label: "Local OpenAI-compatible endpoint",
+    needsKey: false,
+    hasEndpoint: true,
+    defaultBaseUrl: "http://localhost:1234/v1",
+    defaultModel: "local-model"
+  }
+};
+var SETTINGS_KEY = "paperboy-app-ai-settings";
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return { provider: "disabled", baseUrl: "", model: "" };
+    return JSON.parse(raw);
+  } catch {
+    return { provider: "disabled", baseUrl: "", model: "" };
+  }
+}
+function getAiSettings() {
+  const settings = loadSettings();
+  return {
+    provider: settings.provider || "disabled",
+    baseUrl: settings.baseUrl || "",
+    model: settings.model || ""
+  };
+}
+async function resolveApiKey(invoke, provider) {
+  const info2 = PROVIDERS2[provider];
+  if (!info2?.needsKey || !invoke) return null;
+  try {
+    return await invoke("get_api_key", { provider }) || null;
+  } catch {
+    return null;
+  }
+}
+
 // src/scripts/converter.js
 var MARKDOWN_EXTENSIONS = /* @__PURE__ */ new Set(["md", "markdown", "mdx"]);
 var IMAGE_EXTENSIONS = [
@@ -98060,7 +98446,7 @@ function shouldReadAsText(filePath) {
 function shouldKeepOriginalPath(filePath) {
   return MARKDOWN_EXTENSIONS.has(getExtension2(filePath));
 }
-async function convertImportedFile({ path, text, base64 }) {
+async function convertImportedFile({ path, text, base64, invoke }) {
   const extension = getExtension2(path);
   if (!SUPPORTED_EXTENSIONS.includes(extension)) {
     return {
@@ -98070,7 +98456,22 @@ async function convertImportedFile({ path, text, base64 }) {
     };
   }
   const input = shouldReadAsText(path) ? normalizeLineEndings2(text || "") : base64ToUint8Array(base64);
-  return convertToMarkdown(path, input);
+  const convertOptions = {};
+  const ai2 = getAiSettings();
+  if (ai2.provider && ai2.provider !== "disabled") {
+    const apiKey = await resolveApiKey(invoke, ai2.provider) ?? "";
+    convertOptions.image = {
+      describeImage: (params) => describeImageWithAi({
+        aiConfig: { mode: ai2.provider, baseUrl: ai2.baseUrl, model: ai2.model },
+        apiKey,
+        imageBytes: params.fileBytes,
+        imageMimeType: params.imageMimeType,
+        ocrText: params.ocrText,
+        words: params.words
+      })
+    };
+  }
+  return convertToMarkdown(path, input, convertOptions);
 }
 function getExtension2(filePath) {
   const fileName = filePath.split(/[\\/]/).pop() || "";

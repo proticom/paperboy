@@ -3,8 +3,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
-import { describeImageWithAi } from "./ai.js";
-import { loadConfig, loadDotenvFromConfigDirectory } from "./config.js";
+import { describeImageWithAi, getProvider } from "@proticom/paperboy-ai";
+import { getApiKey, loadConfig, loadDotenvFromConfigDirectory } from "./config.js";
 import { convertFileToMarkdown, type ConvertOptions } from "./converter.js";
 import { crawlSite } from "./crawl.js";
 import { printDoctorReport, runDoctor } from "./doctor.js";
@@ -87,11 +87,14 @@ program
       const shouldDescribe =
         options.describeImage || config.defaults.describeImagesWithAi;
       if (shouldDescribe && config.ai.mode !== "disabled") {
+        const provider = getProvider(config.ai.mode);
+        const apiKey = getApiKey(provider.envVar ?? "");
         convertOptions.image = {
           ...convertOptions.image,
           describeImage: async (params) =>
             describeImageWithAi({
-              config,
+              aiConfig: config.ai,
+              apiKey,
               imageBytes: params.fileBytes,
               imageMimeType: params.imageMimeType,
               ocrText: params.ocrText,
