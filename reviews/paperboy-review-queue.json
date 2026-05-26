@@ -1035,29 +1035,29 @@
       "title": "Add macOS signing and notarization config",
       "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
       "dashboard_ref": "paperboy-spec-tasks.json#5.2",
-      "status": "active",
-      "phase": "reply",
-      "next_role": "builder",
-      "next_agent": "cursor",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 1,
+      "turn": 2,
       "max_turns": 4,
-      "handoff_token": "5.2-1779778357",
+      "handoff_token": "5.2-1779778748",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T06:52:37+00:00",
+      "last_updated": "2026-05-26T06:59:08+00:00",
       "artifacts": {
-        "review": "reviews/5.2/claude-review-turn-1.md",
-        "reply": null,
+        "review": "reviews/5.2/claude-review-turn-2.md",
+        "reply": "reviews/5.2/cursor-reply-turn-1.md",
         "decision": null
       },
-      "review_status": "waiting_for_builder",
-      "notes": "5.2 turn 1: add bundle.macOS block (signingIdentity:null env-var driven; entitlements:'Entitlements.plist'; minimumSystemVersion:'10.13') + create paperboy-app/src-tauri/Entitlements.plist with 8 hardened-runtime keys. Surgical: 2 files. No CI / no skill edits (5.6 wires those). /tauri-sign skill stays as operational runbook."
+      "review_status": "review_passed",
+      "notes": "5.2 turn 2 verified: bundle.macOS block (6 keys: signingIdentity:null env-driven, entitlements, minimumSystemVersion:10.13, etc.) + Entitlements.plist (plutil OK, 8 hardened-runtime keys, no app-sandbox trap) match turn-1 prompt verbatim. 5.1 targets intact, cargo check clean, 52/52 tests, all builds green. Surgical two-file change, no .claude/.github/Rust edits."
     },
     {
       "id": "5.3",
@@ -1092,28 +1092,28 @@
       "title": "Add Linux maintainer and AppImage/deb config",
       "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
       "dashboard_ref": "paperboy-spec-tasks.json#5.4",
-      "status": "pending",
-      "phase": null,
-      "next_role": null,
-      "next_agent": null,
+      "status": "active",
+      "phase": "review",
+      "next_role": "reviewer",
+      "next_agent": "claude",
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 0,
+      "turn": 1,
       "max_turns": 4,
-      "handoff_token": null,
+      "handoff_token": "5.4-0001",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
+      "last_updated": "2026-05-26T06:59:08+00:00",
       "artifacts": {
-        "review": null,
+        "review": "reviews/5.4/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "in_review"
     },
     {
       "id": "5.5",

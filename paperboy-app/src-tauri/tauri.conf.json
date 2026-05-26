@@ -120,6 +120,14 @@
         "rank": "Alternate",
         "mimeType": "image/*"
       }
-    ]
+    ],
+    "macOS": {
+      "signingIdentity": null,
+      "providerShortName": null,
+      "entitlements": "Entitlements.plist",
+      "minimumSystemVersion": "10.13",
+      "frameworks": [],
+      "exceptionDomain": null
+    }
   }
 }

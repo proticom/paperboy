@@ -5,10 +5,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-25",
     "total_atomic_tasks": 56,
-    "completed": 34,
+    "completed": 35,
     "partial": 0,
     "in_progress": 1,
-    "todo": 17,
+    "todo": 16,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -334,7 +334,7 @@
       "id": "phase-5",
       "title": "Phase 5 — Desktop distribution (mac/win/linux)",
       "status": "in_progress",
-      "progress": "0/9",
+      "progress": "1/9",
       "tasks": [
         {
           "id": "5.1",
@@ -348,11 +348,11 @@
         {
           "id": "5.2",
           "title": "Add macOS signing and notarization config",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "waiting_for_builder",
-          "notes": "5.2 turn 1: add bundle.macOS block (signingIdentity:null env-var driven; entitlements:'Entitlements.plist'; minimumSystemVersion:'10.13') + create paperboy-app/src-tauri/Entitlements.plist with 8 hardened-runtime keys. Surgical: 2 files. No CI / no skill edits (5.6 wires those). /tauri-sign skill stays as operational runbook."
+          "review_status": "review_passed",
+          "notes": "5.2 turn 2 verified: bundle.macOS block (6 keys: signingIdentity:null env-driven, entitlements, minimumSystemVersion:10.13, etc.) + Entitlements.plist (plutil OK, 8 hardened-runtime keys, no app-sandbox trap) match turn-1 prompt verbatim. 5.1 targets intact, cargo check clean, 52/52 tests, all builds green. Surgical two-file change, no .claude/.github/Rust edits."
         },
         {
           "id": "5.3",
@@ -365,10 +365,10 @@
         {
           "id": "5.4",
           "title": "Add Linux maintainer and AppImage/deb config",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         },
         {
           "id": "5.5",
