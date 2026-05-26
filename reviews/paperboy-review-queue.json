@@ -1409,9 +1409,9 @@
       "dashboard_group": "Phase 7 — Site backend & polish",
       "dashboard_ref": "paperboy-spec-tasks.json#7.1",
       "status": "active",
-      "phase": "review",
-      "next_role": "reviewer",
-      "next_agent": "claude",
+      "phase": "reply",
+      "next_role": "builder",
+      "next_agent": "cursor",
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
@@ -1419,17 +1419,18 @@
       },
       "turn": 1,
       "max_turns": 4,
-      "handoff_token": "7.1-0001",
-      "claimed_by": null,
-      "claimed_at": null,
-      "claimed_token": null,
-      "last_updated": "2026-05-26T08:24:50+00:00",
+      "handoff_token": "7.1-1779784141",
+      "claimed_by": "cursor",
+      "claimed_at": "2026-05-26T08:29:12+00:00",
+      "claimed_token": "7.1-1779784141",
+      "last_updated": "2026-05-26T08:29:12+00:00",
       "artifacts": {
         "review": "reviews/7.1/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "in_review"
+      "review_status": "waiting_for_builder",
+      "notes": "7.1 send_to_builder turn 1: route Ask The Editor + Footer 'Contact Editor' to mailto:support@paperboy.run (spec's Option B fallback — no Resend/KV provisioning needed today). Two-file edit (AskTheEditor.tsx body + Footer.tsx button→Link). Site-repo-only."
     },
     {
       "id": "7.2",
