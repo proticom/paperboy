@@ -551,7 +551,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "Turn 1 contract for 8.5 (FINAL Phase 8 task): create 6 CHANGELOG.md files (one per published/release package: converter, cli, widget, ai, app, ext) following Keep a Changelog 1.1.0. Spec named only 5 packages — paperboy-ai is added for same reason as 8.4. Entries mined from git log, past-tense, no fabrication, Keep-a-Changelog category subsections. Per-package versions: converter 0.2.2 down through 0.1.x; cli 0.2.6 through 0.1.x; widget/ai/app/ext 0.2.2 (ai has no 0.1.x history). 0.2.2 changelogs should mention Phase 8 test additions where applicable. No package.json / src / workflow edits. Future auto-generation from commit messages is out of scope."
         }
       ]
     }
