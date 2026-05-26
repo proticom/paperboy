@@ -428,7 +428,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "6.1 turn 1: docs-only edit to paperboy-ext/README.md. (1) remove content.js from file-tree (line 73, file doesn't exist); (2) remove content.js File-roles bullet (lines 88-89), amend background.js bullet to mention chrome.scripting.executeScript injection (capture verified at background.js:529,556), amend sidepanel.js bullet to mention chrome.storage.local (used at sidepanel.js:58,66,68); (3) delete Permissions cleanup item (line 100) — storage IS used. Renumber Remaining work 1-4. No other file touched."
         },
         {
           "id": "6.2",
