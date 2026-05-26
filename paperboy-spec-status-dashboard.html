@@ -328,10 +328,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-26",
     "total_atomic_tasks": 56,
-    "completed": 43,
+    "completed": 44,
     "partial": 0,
     "in_progress": 1,
-    "todo": 8,
+    "todo": 7,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -743,7 +743,7 @@
       "id": "phase-6",
       "title": "Phase 6 — Extension sideload release",
       "status": "in_progress",
-      "progress": "3/5",
+      "progress": "4/5",
       "tasks": [
         {
           "id": "6.1",
@@ -794,25 +794,25 @@
     {
       "id": "phase-7",
       "title": "Phase 7 — Site backend & polish",
-      "status": "todo",
+      "status": "in_progress",
       "progress": "0/3",
       "tasks": [
         {
           "id": "7.1",
           "title": "Wire Ask The Editor contact (API or mailto)",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "waiting_for_builder",
-          "notes": "7.1 send_to_builder turn 1: route Ask The Editor + Footer 'Contact Editor' to mailto:support@paperboy.run (spec's Option B fallback — no Resend/KV provisioning needed today). Two-file edit (AskTheEditor.tsx body + Footer.tsx button→Link). Site-repo-only."
+          "review_status": "review_passed",
+          "notes": "Mailto fallback wired in 2 files (AskTheEditor.tsx + Footer.tsx); both CTAs use mailto:support@paperboy.run with URL-encoded subjects; tsc clean; npm run build 18 routes; no new API route, no new deps."
         },
         {
           "id": "7.2",
           "title": "Add dynamic OG images per route",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         },
         {
           "id": "7.3",
