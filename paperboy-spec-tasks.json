@@ -516,7 +516,7 @@
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
           "review_status": "waiting_for_builder",
-          "notes": "Contract sent to cursor for 8.1: add 4 binary fixtures (docx/pdf/epub/xlsx ≤ 30 KB total) + 4 it() cases in tests/converter.test.ts using substring assertions. No src/ edits, no new deps."
+          "notes": "Turn 2: fixtures+tests correct (13 green) but docx handler patch breaks paperboy-app browser bundle — esbuild platform=browser cannot resolve 'node:buffer' (verified by running paperboy-app/scripts/build-converter.mjs locally). Fix: replace { buffer: Buffer.from(bytes) } with { arrayBuffer: toArrayBuffer(bytes), buffer: bytes }, restore toArrayBuffer import, drop node:buffer import. JSZip accepts Uint8Array directly. See reviews/8.1/claude-review-turn-2.md."
         },
         {
           "id": "8.2",
