@@ -328,10 +328,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-26",
     "total_atomic_tasks": 56,
-    "completed": 36,
+    "completed": 37,
     "partial": 0,
     "in_progress": 1,
-    "todo": 15,
+    "todo": 14,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -657,7 +657,7 @@
       "id": "phase-5",
       "title": "Phase 5 — Desktop distribution (mac/win/linux)",
       "status": "in_progress",
-      "progress": "2/9",
+      "progress": "3/9",
       "tasks": [
         {
           "id": "5.1",
@@ -697,18 +697,19 @@
         {
           "id": "5.5",
           "title": "Add tauri-plugin-updater and latest.json endpoint",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "review_passed",
+          "notes": "5.5 turn 2 review_passed: verified Cargo.toml line 15 (tauri-plugin-updater = \"2\"), main.rs line 367 (.plugin(tauri_plugin_updater::Builder::new().build())), tauri.conf.json .plugins.updater (per-platform endpoint, pubkey empty placeholder, dialog false, windows.installMode passive), capabilities/default.json updater:default. cargo check 1.38s clean; tests + builds green; 5.1/5.2/5.4 preserved."
         },
         {
           "id": "5.6",
           "title": "Write release-desktop.yml CI workflow",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         },
         {
           "id": "5.7",

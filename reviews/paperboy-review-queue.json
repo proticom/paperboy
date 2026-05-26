@@ -1121,37 +1121,8 @@
       "title": "Add tauri-plugin-updater and latest.json endpoint",
       "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
       "dashboard_ref": "paperboy-spec-tasks.json#5.5",
-      "status": "active",
-      "phase": "reply",
-      "next_role": "builder",
-      "next_agent": "cursor",
-      "roles": {
-        "builder": "cursor",
-        "reviewer": "claude",
-        "decider": "claude"
-      },
-      "turn": 1,
-      "max_turns": 4,
-      "handoff_token": "5.5-1779779728",
-      "claimed_by": null,
-      "claimed_at": null,
-      "claimed_token": null,
-      "last_updated": "2026-05-26T07:15:28+00:00",
-      "artifacts": {
-        "review": "reviews/5.5/claude-review-turn-1.md",
-        "reply": null,
-        "decision": null
-      },
-      "review_status": "waiting_for_builder",
-      "notes": "5.5 turn 1: spec routed to builder. Four-file change: Cargo.toml (add tauri-plugin-updater = 2), main.rs (one .plugin(tauri_plugin_updater::Builder::new().build()) line), tauri.conf.json (new plugins.updater block with per-platform endpoint pattern + empty pubkey placeholder + dialog:false + windows.installMode:passive), capabilities/default.json (add updater:default). Linux excluded via 404-no-op per plan line 167."
-    },
-    {
-      "id": "5.6",
-      "title": "Write release-desktop.yml CI workflow",
-      "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
-      "dashboard_ref": "paperboy-spec-tasks.json#5.6",
-      "status": "pending",
-      "phase": null,
+      "status": "review_passed",
+      "phase": "decision",
       "next_role": null,
       "next_agent": null,
       "roles": {
@@ -1159,19 +1130,48 @@
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 0,
+      "turn": 2,
       "max_turns": 4,
-      "handoff_token": null,
+      "handoff_token": "5.5-1779780116",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
+      "last_updated": "2026-05-26T07:21:56+00:00",
       "artifacts": {
-        "review": null,
+        "review": "reviews/5.5/claude-review-turn-2.md",
+        "reply": "reviews/5.5/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed",
+      "notes": "5.5 turn 2 review_passed: verified Cargo.toml line 15 (tauri-plugin-updater = \"2\"), main.rs line 367 (.plugin(tauri_plugin_updater::Builder::new().build())), tauri.conf.json .plugins.updater (per-platform endpoint, pubkey empty placeholder, dialog false, windows.installMode passive), capabilities/default.json updater:default. cargo check 1.38s clean; tests + builds green; 5.1/5.2/5.4 preserved."
+    },
+    {
+      "id": "5.6",
+      "title": "Write release-desktop.yml CI workflow",
+      "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
+      "dashboard_ref": "paperboy-spec-tasks.json#5.6",
+      "status": "active",
+      "phase": "review",
+      "next_role": "reviewer",
+      "next_agent": "claude",
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "5.6-0001",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T07:21:56+00:00",
+      "artifacts": {
+        "review": "reviews/5.6/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "in_review"
     },
     {
       "id": "5.7",

@@ -364,6 +364,7 @@ fn main() {
         .build(),
     )
     .plugin(tauri_plugin_store::Builder::default().build())
+    .plugin(tauri_plugin_updater::Builder::new().build())
     .invoke_handler(tauri::generate_handler![
       read_file,
       read_file_bytes,

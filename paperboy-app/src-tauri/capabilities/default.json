@@ -9,6 +9,7 @@
     "core:window:allow-start-resize-dragging",
     "dialog:default",
     "store:default",
+    "updater:default",
     "window-state:default"
   ]
 }

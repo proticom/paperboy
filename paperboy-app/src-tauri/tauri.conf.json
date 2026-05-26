@@ -164,5 +164,18 @@
         "release": "1"
       }
     }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://paperboy.run/updates/{{target}}-{{arch}}/{{current_version}}"
+      ],
+      "pubkey": "",
+      "dialog": false,
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }
