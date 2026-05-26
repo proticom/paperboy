@@ -377,7 +377,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "5.5 turn 1: spec routed to builder. Four-file change: Cargo.toml (add tauri-plugin-updater = 2), main.rs (one .plugin(tauri_plugin_updater::Builder::new().build()) line), tauri.conf.json (new plugins.updater block with per-platform endpoint pattern + empty pubkey placeholder + dialog:false + windows.installMode:passive), capabilities/default.json (add updater:default). Linux excluded via 404-no-op per plan line 167."
         },
         {
           "id": "5.6",
