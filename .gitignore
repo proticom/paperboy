@@ -50,3 +50,8 @@ next-env.d.ts
 # project-status-dashboard skill outputs
 project-status-dashboard.html
 project-status-dashboard.data.json
+
+# two-agent-review-orchestrator transient locks + builder-loop runtime files
+*.json.lock
+.claude/scheduled_tasks.lock
+reviews/.builder-loop*

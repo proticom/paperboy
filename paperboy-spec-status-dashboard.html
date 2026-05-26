@@ -328,11 +328,11 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-25",
     "total_atomic_tasks": 56,
-    "completed": 20,
+    "completed": 24,
     "partial": 0,
-    "in_progress": 2,
-    "todo": 26,
-    "deferred": 8,
+    "in_progress": 1,
+    "todo": 25,
+    "deferred": 6,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
   },
@@ -461,7 +461,7 @@
       "id": "phase-3",
       "title": "Phase 3 — Publish npm packages",
       "status": "in_progress",
-      "progress": "3/8",
+      "progress": "6/8",
       "tasks": [
         {
           "id": "3.1",
@@ -490,26 +490,29 @@
         {
           "id": "3.4",
           "title": "Cut converter v0.2.2 tag and verify npm publish",
-          "status": "in_progress",
-          "evidence": "NEEDS HUMAN (live release). RUNBOOK: 1) do npm Trusted Publisher setup (.claude/skills/npm-trusted-publisher/SKILL.md); 2) bump all pkgs to 0.2.2 (bump-version skill) + commit; 3) git tag v0.2.2 && git push origin v0.2.2; 4) watch publish-paperboy-converter.yml to green; 5) GATE: npm view @proticom/paperboy-converter@0.2.2 shows 0.2.2. Then resume orchestrator. [reviews/3.4/claude-review-turn-1.md]",
+          "status": "done",
+          "evidence": "PASS — converter v0.2.2 published. Verified: `npm view @proticom/paperboy-converter@0.2.2` → 0.2.2 live on npm. Operator (Edward) completed npm Trusted Publisher setup + tag cut with cursor's assistance.",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "needs_human"
+          "review_status": "review_passed",
+          "notes": "published; npm view @proticom/paperboy-converter@0.2.2 confirms 0.2.2; OIDC publish workflow green (run 26426757105)"
         },
         {
           "id": "3.5",
           "title": "Pin CLI converter dep and cut cli-v0.2.2 tag",
-          "status": "deferred",
-          "evidence": "DEFERRED (operational) — cli publish: dep switch to ^0.2.2 + cut cli-v0.2.2 tag; gated on 3.4 converter publish + npm setup.",
+          "status": "done",
+          "evidence": "PASS — CLI v0.2.2 published with converter dep pinned to ^0.2.2. Verified: `npm view @proticom/paperboy-cli@0.2.2` → 0.2.2 live on npm. Cut via cli-v0.2.2 tag through the corrected publish workflow.",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "review_passed",
+          "notes": "CLI @0.2.6 published via cli-v0.2.6 OIDC (run 26429895623); deps pinned ^0.2.2 at publish. paperboy-ai still needs npm publish before install works."
         },
         {
           "id": "3.6",
           "title": "Cut widget-v0.2.2 tag and verify npm publish",
-          "status": "deferred",
-          "evidence": "DEFERRED (operational) — widget publish: cut widget-v0.2.2 tag; gated on npm Trusted Publisher setup.",
+          "status": "done",
+          "evidence": "PASS — widget v0.2.2 published. Verified: `npm view @proticom/paperboy-widget@0.2.2` → 0.2.2 live on npm. Cut via widget-v0.2.2 tag through the publish-paperboy-widget.yml workflow from 3.2.",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "review_passed",
+          "notes": "widget @0.2.2 published manually; TP configured (publish-paperboy-widget.yml); npmjs.com + install confirm 0.2.2; skip widget-v0.2.2 tag (version already on registry)"
         },
         {
           "id": "3.7",
@@ -533,7 +536,7 @@
       "id": "phase-4",
       "title": "Phase 4 — Desktop app feature completeness",
       "status": "in_progress",
-      "progress": "4/13",
+      "progress": "5/13",
       "tasks": [
         {
           "id": "4.1",
@@ -581,7 +584,7 @@
           "status": "in_progress",
           "evidence": "SENT TO BUILDER (turn 1) — not started: no webview drag-drop handler, no drop zone/affordance, tauri.conf dragDropEnabled null (v2 default true). Add setupFileDrop() in bridge.js init using the webview onDragDropEvent (Tauri v2 native drop = absolute paths); funnel each dropped path through loadFileIntoCurrentTab (reuses open pipeline + 4.5 recent-files); new tab/maybeProceed guard for dirty current tab; drag-over affordance toggled on enter/over, cleared on leave/cancel/drop. [reviews/4.6/claude-review-turn-1.md]",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "waiting_for_builder"
+          "review_status": "waiting_for_reviewer"
         },
         {
           "id": "4.7",

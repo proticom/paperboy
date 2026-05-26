@@ -490,7 +490,7 @@
       "title": "Cut converter v0.2.2 tag and verify npm publish",
       "dashboard_group": "Phase 3 — Publish npm packages",
       "dashboard_ref": "paperboy-spec-tasks.json#3.4",
-      "status": "needs_human",
+      "status": "review_passed",
       "phase": "decision",
       "next_role": null,
       "next_agent": null,
@@ -505,21 +505,22 @@
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T15:09:18+00:00",
+      "last_updated": "2026-05-26T01:16:53+00:00",
       "artifacts": {
         "review": "reviews/3.4/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "needs_human"
+      "review_status": "review_passed",
+      "notes": "published; npm view @proticom/paperboy-converter@0.2.2 confirms 0.2.2; OIDC publish workflow green (run 26426757105)"
     },
     {
       "id": "3.5",
       "title": "Pin CLI converter dep and cut cli-v0.2.2 tag",
       "dashboard_group": "Phase 3 — Publish npm packages",
       "dashboard_ref": "paperboy-spec-tasks.json#3.5",
-      "status": "deferred",
-      "phase": null,
+      "status": "review_passed",
+      "phase": "decision",
       "next_role": null,
       "next_agent": null,
       "roles": {
@@ -533,21 +534,22 @@
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
+      "last_updated": "2026-05-26T03:06:36+00:00",
       "artifacts": {
         "review": null,
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "review_passed",
+      "notes": "CLI @0.2.6 published via cli-v0.2.6 OIDC (run 26429895623); deps pinned ^0.2.2 at publish. paperboy-ai still needs npm publish before install works."
     },
     {
       "id": "3.6",
       "title": "Cut widget-v0.2.2 tag and verify npm publish",
       "dashboard_group": "Phase 3 — Publish npm packages",
       "dashboard_ref": "paperboy-spec-tasks.json#3.6",
-      "status": "deferred",
-      "phase": null,
+      "status": "review_passed",
+      "phase": "decision",
       "next_role": null,
       "next_agent": null,
       "roles": {
@@ -561,13 +563,14 @@
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
+      "last_updated": "2026-05-26T04:03:34+00:00",
       "artifacts": {
         "review": null,
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "review_passed",
+      "notes": "widget @0.2.2 published manually; TP configured (publish-paperboy-widget.yml); npmjs.com + install confirm 0.2.2; skip widget-v0.2.2 tag (version already on registry)"
     },
     {
       "id": "3.7",
