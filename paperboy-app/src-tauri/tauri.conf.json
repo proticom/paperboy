@@ -30,6 +30,13 @@
   },
   "bundle": {
     "active": true,
+    "category": "Office",
+    "copyright": "Copyright (c) 2026 Proticom",
+    "shortDescription": "Convert the web into newspaper-print markdown.",
+    "longDescription": "Paperboy is a desktop markdown editor that converts web pages, PDFs, DOCX, EPUB, and images into clean, newspaper-style markdown. It ships as a Tauri 2 app for macOS, Windows, and Linux, with a side-by-side source/preview editor and one-click export to PDF, HTML, and DOCX.",
+    "publisher": "Proticom <maintainers@paperboy.run>",
+    "homepage": "https://paperboy.run",
+    "license": "MIT",
     "targets": ["dmg", "nsis", "deb", "appimage"],
     "icon": [
       "icons/32x32.png",
@@ -128,6 +135,34 @@
       "minimumSystemVersion": "10.13",
       "frameworks": [],
       "exceptionDomain": null
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0",
+          "libayatana-appindicator3-1 | libappindicator3-1",
+          "librsvg2-2",
+          "libsoup-3.0-0"
+        ],
+        "section": "text",
+        "priority": "optional"
+      },
+      "appimage": {
+        "bundleMediaFramework": true,
+        "files": {}
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3",
+          "libappindicator-gtk3",
+          "librsvg2",
+          "libsoup3"
+        ],
+        "epoch": 0,
+        "release": "1"
+      }
     }
   }
 }

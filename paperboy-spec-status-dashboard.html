@@ -326,12 +326,12 @@
     "project": "Paperboy — Production Readiness",
     "spec": ".cursor/plans/paperboy_production_readiness_02f05849.plan.md",
     "dashboard_version": "1.1.0",
-    "last_updated": "2026-05-25",
+    "last_updated": "2026-05-26",
     "total_atomic_tasks": 56,
-    "completed": 35,
+    "completed": 36,
     "partial": 0,
     "in_progress": 1,
-    "todo": 16,
+    "todo": 15,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -657,7 +657,7 @@
       "id": "phase-5",
       "title": "Phase 5 — Desktop distribution (mac/win/linux)",
       "status": "in_progress",
-      "progress": "1/9",
+      "progress": "2/9",
       "tasks": [
         {
           "id": "5.1",
@@ -688,18 +688,19 @@
         {
           "id": "5.4",
           "title": "Add Linux maintainer and AppImage/deb config",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "review_passed",
+          "notes": "5.4 review_passed: tauri.conf.json has all 7 bundle metadata keys (publisher with maintainers@paperboy.run for lintian) and bundle.linux block (deb 5 depends + section:text + priority:optional; appimage bundleMediaFramework:true; inert rpm). 5.1 targets + 5.2 macOS intact, cargo check clean, 52/52 tests, all workspaces build, scope guard empty, +35/-0 lines in one file."
         },
         {
           "id": "5.5",
           "title": "Add tauri-plugin-updater and latest.json endpoint",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         },
         {
           "id": "5.6",
