@@ -463,7 +463,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "Site-repo task. Spec-route: replace a3 distribution block with an ordered-list walkthrough (4 steps), filtered ext-v releases URL, and a 'Coming to the Chrome Web Store' tease. Edit exactly two files: paperboy-site/lib/distribution.ts and paperboy-site/app/a3/page.tsx."
         }
       ]
     },
