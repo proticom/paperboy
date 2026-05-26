@@ -948,37 +948,8 @@
       "title": "Wire or remove unused headingId editor action",
       "dashboard_group": "Phase 4 — Desktop app feature completeness",
       "dashboard_ref": "paperboy-spec-tasks.json#4.12",
-      "status": "active",
-      "phase": "reply",
-      "next_role": "builder",
-      "next_agent": "cursor",
-      "roles": {
-        "builder": "cursor",
-        "reviewer": "claude",
-        "decider": "claude"
-      },
-      "turn": 1,
-      "max_turns": 4,
-      "handoff_token": "4.12-1779776380",
-      "claimed_by": null,
-      "claimed_at": null,
-      "claimed_token": null,
-      "last_updated": "2026-05-26T06:19:40+00:00",
-      "artifacts": {
-        "review": "reviews/4.12/claude-review-turn-1.md",
-        "reply": null,
-        "decision": null
-      },
-      "review_status": "waiting_for_builder",
-      "notes": "4.12 turn 1: headingId action in editor.js is unreachable — no toolbar button, no key chord, no caller anywhere. Send to builder: delete the dispatch arm at L86 and the appendHeadingId function at L116-122. Leave every other action (footnote, link, etc.) intact. No HTML/CSS/bridge/Rust changes. Validation: grep headingId paperboy-app/src/scripts/editor.js -> 0 hits, full workspace build + 31 tests still green."
-    },
-    {
-      "id": "4.13",
-      "title": "Add desktop smoke tests for import flows",
-      "dashboard_group": "Phase 4 — Desktop app feature completeness",
-      "dashboard_ref": "paperboy-spec-tasks.json#4.13",
-      "status": "pending",
-      "phase": null,
+      "status": "review_passed",
+      "phase": "decision",
       "next_role": null,
       "next_agent": null,
       "roles": {
@@ -986,19 +957,48 @@
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 0,
+      "turn": 2,
       "max_turns": 4,
-      "handoff_token": null,
+      "handoff_token": "4.12-1779776729",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
+      "last_updated": "2026-05-26T06:25:29+00:00",
       "artifacts": {
-        "review": null,
+        "review": "reviews/4.12/claude-review-turn-2.md",
+        "reply": "reviews/4.12/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed",
+      "notes": "4.12 turn 2: cursor removed both headingId regions in editor.js exactly as specified (-9 lines, dispatch arm + appendHeadingId fn). Verified: 0 grep hits, every other formatAction arm reachable, node --check clean, all 5 workspace builds green, 31/31 tests pass."
+    },
+    {
+      "id": "4.13",
+      "title": "Add desktop smoke tests for import flows",
+      "dashboard_group": "Phase 4 — Desktop app feature completeness",
+      "dashboard_ref": "paperboy-spec-tasks.json#4.13",
+      "status": "active",
+      "phase": "review",
+      "next_role": "reviewer",
+      "next_agent": "claude",
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "4.13-0001",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T06:25:29+00:00",
+      "artifacts": {
+        "review": "reviews/4.13/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "in_review"
     },
     {
       "id": "5.1",

@@ -83,7 +83,6 @@ export function formatAction(textarea, actionType, options = {}) {
   if (actionType === "indent") return indentLines(textarea, options.amount);
   if (actionType === "link") return replaceRange(textarea, `[${selected || "link text"}](url)`, !selected, selected ? selected.length + 3 : 1, selected ? selected.length + 3 : 10);
   if (actionType === "image") return replaceRange(textarea, "![alt text](image-url)", true, 2, 10);
-  if (actionType === "headingId") return appendHeadingId(textarea);
   if (actionType === "footnote") return insertFootnote(textarea);
 }
 
@@ -111,14 +110,6 @@ function indentLines(textarea, amount) {
   const next = textarea.value.slice(lineStart, lineEnd).split("\n").map((line) => amount > 0 ? `${" ".repeat(amount)}${line}` : line.replace(new RegExp(`^ {1,${Math.abs(amount)}}`), "")).join("\n");
   textarea.value = `${textarea.value.slice(0, lineStart)}${next}${textarea.value.slice(lineEnd)}`;
   textarea.setSelectionRange(lineStart, lineStart + next.length);
-}
-
-function appendHeadingId(textarea) {
-  const [lineStart, lineEnd] = lineRange(textarea);
-  const line = textarea.value.slice(lineStart, lineEnd).replace(/\s*\{#custom-id\}$/, "");
-  const next = `${line} {#custom-id}`;
-  textarea.value = `${textarea.value.slice(0, lineStart)}${next}${textarea.value.slice(lineEnd)}`;
-  textarea.setSelectionRange(lineStart + next.length - 10, lineStart + next.length - 1);
 }
 
 function insertFootnote(textarea) {

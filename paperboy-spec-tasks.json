@@ -5,10 +5,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-25",
     "total_atomic_tasks": 56,
-    "completed": 31,
+    "completed": 32,
     "partial": 0,
     "in_progress": 1,
-    "todo": 20,
+    "todo": 19,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -215,7 +215,7 @@
       "id": "phase-4",
       "title": "Phase 4 — Desktop app feature completeness",
       "status": "in_progress",
-      "progress": "10/13",
+      "progress": "11/13",
       "tasks": [
         {
           "id": "4.1",
@@ -313,19 +313,19 @@
         {
           "id": "4.12",
           "title": "Wire or remove unused headingId editor action",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "waiting_for_builder",
-          "notes": "4.12 turn 1: headingId action in editor.js is unreachable — no toolbar button, no key chord, no caller anywhere. Send to builder: delete the dispatch arm at L86 and the appendHeadingId function at L116-122. Leave every other action (footnote, link, etc.) intact. No HTML/CSS/bridge/Rust changes. Validation: grep headingId paperboy-app/src/scripts/editor.js -> 0 hits, full workspace build + 31 tests still green."
+          "review_status": "review_passed",
+          "notes": "4.12 turn 2: cursor removed both headingId regions in editor.js exactly as specified (-9 lines, dispatch arm + appendHeadingId fn). Verified: 0 grep hits, every other formatAction arm reachable, node --check clean, all 5 workspace builds green, 31/31 tests pass."
         },
         {
           "id": "4.13",
           "title": "Add desktop smoke tests for import flows",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         }
       ]
     },
