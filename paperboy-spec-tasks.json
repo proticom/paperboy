@@ -446,7 +446,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "Spec route turn 1: create .github/workflows/release-ext.yml mirroring publish-paperboy-widget.yml (Node 24 + npm ci) with softprops/action-gh-release@v2 upload tail; trigger on ext-v* tags; package via npm run package:store in paperboy-ext/; upload paperboy-ext/dist/paperboy-extension-<version>.zip."
         },
         {
           "id": "6.4",
