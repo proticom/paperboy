@@ -70,7 +70,6 @@ paperboy-ext/
   package.json
   build.js
   background.js
-  content.js
   sidepanel.html
   sidepanel.js
   sidepanel.bundle.js
@@ -83,13 +82,10 @@ paperboy-ext/
 ### File roles (simple explanation)
 
 - `background.js`  
-  Handles extension-level events and requests data from the active tab.
-
-- `content.js`  
-  Runs inside the web page and captures HTML/title/url.
+  Handles extension-level events and captures page HTML/title/url by injecting a function into the active tab with `chrome.scripting.executeScript` (the modern replacement for a static content script).
 
 - `sidepanel.js`  
-  Converts HTML to Markdown, renders output, and handles copy/re-extract buttons.
+  Converts HTML to Markdown, renders output, persists side-panel prefs via `chrome.storage.local`, and handles copy/re-extract buttons.
 
 ---
 
@@ -97,15 +93,13 @@ paperboy-ext/
 
 These items are **not** finished or **not** polished yet. They are safe to pick up in any order unless noted.
 
-1. **Permissions cleanup** — `manifest.json` includes the `storage` permission, but the extension code does not use `chrome.storage`. Remove `storage` from the manifest after a quick grep confirms nothing needs it, so the permission prompt stays minimal.
+1. **Converter dependency** — Side panel code depends on `@proticom/paperboy-converter` via **`file:../paperboy-converter`** in this monorepo. Run `npm install` from `paperboy-ext/` after cloning; the converter package must be present alongside this folder. When the converter is published to npm, you can point the dependency at the registry version instead.
 
-2. **Converter dependency** — Side panel code depends on `@proticom/paperboy-converter` via **`file:../paperboy-converter`** in this monorepo. Run `npm install` from `paperboy-ext/` after cloning; the converter package must be present alongside this folder. When the converter is published to npm, you can point the dependency at the registry version instead.
+2. **Chrome Web Store** — Today the flow is **Load unpacked** only. A store release needs listing copy, screenshots, a privacy policy URL (clipboard + broad host access should be explained), versioning discipline, and a repeatable zip/build of the extension folder (without `node_modules`).
 
-3. **Chrome Web Store** — Today the flow is **Load unpacked** only. A store release needs listing copy, screenshots, a privacy policy URL (clipboard + broad host access should be explained), versioning discipline, and a repeatable zip/build of the extension folder (without `node_modules`).
+3. **Quality gates** — There are no automated tests yet. Useful additions would be small unit tests for the markdown shaping (title / Source / Byline) and/or a dry run of the message types between background, content script, and side panel.
 
-4. **Quality gates** — There are no automated tests yet. Useful additions would be small unit tests for the markdown shaping (title / Source / Byline) and/or a dry run of the message types between background, content script, and side panel.
-
-5. **Other browsers** — The UI is built around **Chrome’s Side Panel API**. Porting to Firefox or Safari would mean different UI surfaces (popup or sidebar) and different APIs; treat as a separate effort.
+4. **Other browsers** — The UI is built around **Chrome’s Side Panel API**. Porting to Firefox or Safari would mean different UI surfaces (popup or sidebar) and different APIs; treat as a separate effort.
 
 ---
 

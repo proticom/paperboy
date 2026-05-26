@@ -1264,37 +1264,8 @@
       "title": "Update paperboy-ext README (remove content.js refs)",
       "dashboard_group": "Phase 6 — Extension sideload release",
       "dashboard_ref": "paperboy-spec-tasks.json#6.1",
-      "status": "active",
-      "phase": "reply",
-      "next_role": "builder",
-      "next_agent": "cursor",
-      "roles": {
-        "builder": "cursor",
-        "reviewer": "claude",
-        "decider": "claude"
-      },
-      "turn": 1,
-      "max_turns": 4,
-      "handoff_token": "6.1-1779781801",
-      "claimed_by": null,
-      "claimed_at": null,
-      "claimed_token": null,
-      "last_updated": "2026-05-26T07:50:01+00:00",
-      "artifacts": {
-        "review": "reviews/6.1/claude-review-turn-1.md",
-        "reply": null,
-        "decision": null
-      },
-      "review_status": "waiting_for_builder",
-      "notes": "6.1 turn 1: docs-only edit to paperboy-ext/README.md. (1) remove content.js from file-tree (line 73, file doesn't exist); (2) remove content.js File-roles bullet (lines 88-89), amend background.js bullet to mention chrome.scripting.executeScript injection (capture verified at background.js:529,556), amend sidepanel.js bullet to mention chrome.storage.local (used at sidepanel.js:58,66,68); (3) delete Permissions cleanup item (line 100) — storage IS used. Renumber Remaining work 1-4. No other file touched."
-    },
-    {
-      "id": "6.2",
-      "title": "Add homepage_url to extension manifest",
-      "dashboard_group": "Phase 6 — Extension sideload release",
-      "dashboard_ref": "paperboy-spec-tasks.json#6.2",
-      "status": "pending",
-      "phase": null,
+      "status": "review_passed",
+      "phase": "decision",
       "next_role": null,
       "next_agent": null,
       "roles": {
@@ -1302,19 +1273,48 @@
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 0,
+      "turn": 2,
       "max_turns": 4,
-      "handoff_token": null,
+      "handoff_token": "6.1-1779782261",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
+      "last_updated": "2026-05-26T07:57:41+00:00",
       "artifacts": {
-        "review": null,
+        "review": "reviews/6.1/claude-review-turn-2.md",
+        "reply": "reviews/6.1/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed",
+      "notes": "Verified diff against turn-1 spec: content.js removed from file tree + File roles; background.js/sidepanel.js bullets amended to document executeScript injection + chrome.storage.local; Permissions cleanup item deleted, items renumbered 1-4. Validation greps 0/0/1/1, fences balanced, 52/52 workspace tests green, only README touched."
+    },
+    {
+      "id": "6.2",
+      "title": "Add homepage_url to extension manifest",
+      "dashboard_group": "Phase 6 — Extension sideload release",
+      "dashboard_ref": "paperboy-spec-tasks.json#6.2",
+      "status": "active",
+      "phase": "review",
+      "next_role": "reviewer",
+      "next_agent": "claude",
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "6.2-0001",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T07:57:41+00:00",
+      "artifacts": {
+        "review": "reviews/6.2/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "in_review"
     },
     {
       "id": "6.3",
