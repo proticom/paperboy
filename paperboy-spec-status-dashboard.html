@@ -328,10 +328,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-26",
     "total_atomic_tasks": 56,
-    "completed": 42,
+    "completed": 43,
     "partial": 0,
     "in_progress": 1,
-    "todo": 9,
+    "todo": 8,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -743,7 +743,7 @@
       "id": "phase-6",
       "title": "Phase 6 — Extension sideload release",
       "status": "in_progress",
-      "progress": "2/5",
+      "progress": "3/5",
       "tasks": [
         {
           "id": "6.1",
@@ -783,10 +783,11 @@
         {
           "id": "6.5",
           "title": "Update site a3 page with sideload walkthrough",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "review_passed",
+          "notes": "6.5 review_passed turn 2: a3 sideload walkthrough lands clean. Diff matches spec verbatim (intro + 4-step ol + storeTease + filtered ext-v* releases URL). No stale consumers of summary/ctaNote anywhere. npx tsc --noEmit clean; npm run build succeeds; /a3 prerendered static. Site-repo-only change on master."
         }
       ]
     },
@@ -799,10 +800,10 @@
         {
           "id": "7.1",
           "title": "Wire Ask The Editor contact (API or mailto)",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         },
         {
           "id": "7.2",

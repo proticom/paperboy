@@ -1379,37 +1379,8 @@
       "title": "Update site a3 page with sideload walkthrough",
       "dashboard_group": "Phase 6 — Extension sideload release",
       "dashboard_ref": "paperboy-spec-tasks.json#6.5",
-      "status": "active",
-      "phase": "reply",
-      "next_role": "builder",
-      "next_agent": "cursor",
-      "roles": {
-        "builder": "cursor",
-        "reviewer": "claude",
-        "decider": "claude"
-      },
-      "turn": 1,
-      "max_turns": 4,
-      "handoff_token": "6.5-1779783532",
-      "claimed_by": null,
-      "claimed_at": null,
-      "claimed_token": null,
-      "last_updated": "2026-05-26T08:18:52+00:00",
-      "artifacts": {
-        "review": "reviews/6.5/claude-review-turn-1.md",
-        "reply": null,
-        "decision": null
-      },
-      "review_status": "waiting_for_builder",
-      "notes": "Site-repo task. Spec-route: replace a3 distribution block with an ordered-list walkthrough (4 steps), filtered ext-v releases URL, and a 'Coming to the Chrome Web Store' tease. Edit exactly two files: paperboy-site/lib/distribution.ts and paperboy-site/app/a3/page.tsx."
-    },
-    {
-      "id": "7.1",
-      "title": "Wire Ask The Editor contact (API or mailto)",
-      "dashboard_group": "Phase 7 — Site backend & polish",
-      "dashboard_ref": "paperboy-spec-tasks.json#7.1",
-      "status": "pending",
-      "phase": null,
+      "status": "review_passed",
+      "phase": "decision",
       "next_role": null,
       "next_agent": null,
       "roles": {
@@ -1417,19 +1388,48 @@
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 0,
+      "turn": 2,
       "max_turns": 4,
-      "handoff_token": null,
+      "handoff_token": "6.5-1779783890",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
+      "last_updated": "2026-05-26T08:24:50+00:00",
       "artifacts": {
-        "review": null,
+        "review": "reviews/6.5/claude-review-turn-2.md",
+        "reply": "reviews/6.5/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed",
+      "notes": "6.5 review_passed turn 2: a3 sideload walkthrough lands clean. Diff matches spec verbatim (intro + 4-step ol + storeTease + filtered ext-v* releases URL). No stale consumers of summary/ctaNote anywhere. npx tsc --noEmit clean; npm run build succeeds; /a3 prerendered static. Site-repo-only change on master."
+    },
+    {
+      "id": "7.1",
+      "title": "Wire Ask The Editor contact (API or mailto)",
+      "dashboard_group": "Phase 7 — Site backend & polish",
+      "dashboard_ref": "paperboy-spec-tasks.json#7.1",
+      "status": "active",
+      "phase": "review",
+      "next_role": "reviewer",
+      "next_agent": "claude",
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "7.1-0001",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T08:24:50+00:00",
+      "artifacts": {
+        "review": "reviews/7.1/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "in_review"
     },
     {
       "id": "7.2",
