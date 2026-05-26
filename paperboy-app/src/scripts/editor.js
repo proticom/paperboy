@@ -2,7 +2,6 @@ import { createPretextScrollModel } from "./pretext-sync.js";
 
 export function initEditor(textarea, toolbar) {
   let onChange = () => {};
-  let onOpenFind = () => {};
   const emit = () => onChange(textarea.value);
   const scrollModel = createPretextScrollModel(textarea);
   const placeholders = {
@@ -18,11 +17,6 @@ export function initEditor(textarea, toolbar) {
     const key = event.key.toLowerCase();
     if (["s", "o", "n", "w"].includes(key)) return;
     const shift = event.shiftKey;
-    if (key === "f" && !shift) {
-      event.preventDefault();
-      onOpenFind();
-      return;
-    }
     const map = {
       b: () => formatAction(textarea, "wrap", { before: "**", after: "**", placeholder: "bold" }),
       i: () => formatAction(textarea, "wrap", { before: "*", after: "*", placeholder: "italic" }),
@@ -51,7 +45,6 @@ export function initEditor(textarea, toolbar) {
     getLineCount: () => textarea.value.split("\n").length,
     getTopSourceLine: () => scrollModel.getTopSourceLine(textarea.value, textarea.scrollTop),
     onChange(callback) { onChange = callback; },
-    onOpenFind(callback) { onOpenFind = callback; },
     focus() { textarea.focus(); },
     onScroll(callback) { textarea.addEventListener("scroll", callback); },
     invalidateScrollLayout() {

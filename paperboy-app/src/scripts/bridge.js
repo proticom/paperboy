@@ -717,8 +717,6 @@ function initFindOverlay({ editor, textarea, ui, getViewMode }) {
     recompute({ selectFirst: true });
   }
 
-  editor.onOpenFind(openOverlay);
-
   closeBtn?.addEventListener("click", closeOverlay);
   prevBtn?.addEventListener("click", () => nextMatch(true));
   nextBtn?.addEventListener("click", () => nextMatch(false));
@@ -767,7 +765,14 @@ function initFindOverlay({ editor, textarea, ui, getViewMode }) {
 
   document.addEventListener("keydown", (event) => {
     const mod = event.metaKey || event.ctrlKey;
-    if (!mod || event.key.toLowerCase() !== "g") return;
+    if (!mod) return;
+    const key = event.key.toLowerCase();
+    if (key === "f" && !event.shiftKey) {
+      event.preventDefault();
+      openOverlay();
+      return;
+    }
+    if (key !== "g") return;
     if (!findState.open && !findState.everOpened) return;
     if (!findInput.value) return;
     event.preventDefault();

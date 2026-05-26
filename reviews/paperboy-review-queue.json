@@ -862,27 +862,27 @@
       "dashboard_group": "Phase 4 — Desktop app feature completeness",
       "dashboard_ref": "paperboy-spec-tasks.json#4.9",
       "status": "active",
-      "phase": "reply",
-      "next_role": "builder",
-      "next_agent": "cursor",
+      "phase": "review",
+      "next_role": "reviewer",
+      "next_agent": "claude",
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 2,
+      "turn": 3,
       "max_turns": 4,
-      "handoff_token": "4.9-1779774595",
+      "handoff_token": "4.9-1779774674",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T05:49:55+00:00",
+      "last_updated": "2026-05-26T05:51:14+00:00",
       "artifacts": {
-        "review": "reviews/4.9/claude-review-turn-1.md",
-        "reply": "reviews/4.9/cursor-reply-turn-1.md",
+        "review": "reviews/4.9/claude-review-turn-2.md",
+        "reply": "reviews/4.9/cursor-reply-turn-2.md",
         "decision": null
       },
-      "review_status": "waiting_for_builder",
+      "review_status": "waiting_for_reviewer",
       "notes": "Cmd+F unreachable in preview-only view: intercept is on textarea, but textarea is display:none in preview, so no keydown fires. Move intercept up to the existing document-level keydown handler (alongside Cmd+G); openOverlay already handles preview->editor switch. All other turn-1 findings satisfied: regex-based Replace All is index-shift safe, no Tauri Find accel exists, builds + 31 tests green."
     },
     {

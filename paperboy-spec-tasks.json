@@ -289,7 +289,7 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "waiting_for_builder",
+          "review_status": "waiting_for_reviewer",
           "notes": "Cmd+F unreachable in preview-only view: intercept is on textarea, but textarea is display:none in preview, so no keydown fires. Move intercept up to the existing document-level keydown handler (alongside Cmd+G); openOverlay already handles preview->editor switch. All other turn-1 findings satisfied: regex-based Replace All is index-shift safe, no Tauri Find accel exists, builds + 31 tests green."
         },
         {
