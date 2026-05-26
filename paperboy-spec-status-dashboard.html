@@ -648,7 +648,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "4.13 turn 1: paperboy-app has zero test harness. Direct builder to add vitest+happy-dom smoke suite targeting convertImportedFile (the single chokepoint every desktop import funnels through) with 5-6 deterministic tests (md/html/csv/png-disabled/unsupported/png-AI-wiring) — no binary fixtures, no tauri-driver. True Tauri E2E deferred to plan 7.3 by explicit README note."
         }
       ]
     },

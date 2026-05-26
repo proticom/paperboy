@@ -978,9 +978,9 @@
       "dashboard_group": "Phase 4 — Desktop app feature completeness",
       "dashboard_ref": "paperboy-spec-tasks.json#4.13",
       "status": "active",
-      "phase": "review",
-      "next_role": "reviewer",
-      "next_agent": "claude",
+      "phase": "reply",
+      "next_role": "builder",
+      "next_agent": "cursor",
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
@@ -988,17 +988,18 @@
       },
       "turn": 1,
       "max_turns": 4,
-      "handoff_token": "4.13-0001",
+      "handoff_token": "4.13-1779776999",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T06:25:29+00:00",
+      "last_updated": "2026-05-26T06:29:59+00:00",
       "artifacts": {
         "review": "reviews/4.13/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "in_review"
+      "review_status": "waiting_for_builder",
+      "notes": "4.13 turn 1: paperboy-app has zero test harness. Direct builder to add vitest+happy-dom smoke suite targeting convertImportedFile (the single chokepoint every desktop import funnels through) with 5-6 deterministic tests (md/html/csv/png-disabled/unsupported/png-AI-wiring) — no binary fixtures, no tauri-driver. True Tauri E2E deferred to plan 7.3 by explicit README note."
     },
     {
       "id": "5.1",
