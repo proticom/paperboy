@@ -5,10 +5,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-26",
     "total_atomic_tasks": 56,
-    "completed": 48,
+    "completed": 49,
     "partial": 0,
     "in_progress": 1,
-    "todo": 3,
+    "todo": 2,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -507,7 +507,7 @@
       "id": "phase-8",
       "title": "Phase 8 — Cross-cutting hardening",
       "status": "in_progress",
-      "progress": "1/5",
+      "progress": "2/5",
       "tasks": [
         {
           "id": "8.1",
@@ -530,19 +530,19 @@
         {
           "id": "8.3",
           "title": "Add widget integration tests",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "waiting_for_builder",
-          "notes": "Turn 1 contract for 8.3: new file paperboy-widget/tests/widget.integration.test.js with 5 jsdom-driven integration tests against the BUILT dist/paperboy-widget.min.js bundle (not src/). Tests cover selector resolution, overlay vs inline rendering, copy-to-clipboard (navigator.clipboard stubbed), localStorage view persistence + restore-on-reload. Per-file '// @vitest-environment jsdom' pragma so existing turndown unit test stays in Node env. APPROVED devDep additions: 'jsdom': '^25.0.0' (spec explicitly names jsdom). Also updates scripts.test from 'vitest run' to 'npm run build && vitest run' to match converter/cli patterns. No src/ or vitest.config.js or build.js edits."
+          "review_status": "review_passed",
+          "notes": "8.3 closed. New paperboy-widget/tests/widget.integration.test.js (135 lines, 5 it() cases via // @vitest-environment jsdom pragma) testing the BUILT dist/paperboy-widget.min.js bundle. Covers selector resolution, overlay vs inline rendering, copy-to-clipboard (clipboard.writeText stubbed), localStorage view persistence + restore-on-reload. Package.json: + 'jsdom': '^25.0.0' devDep (approved by spec); scripts.test: 'vitest run' -> 'npm run build && vitest run' (matches converter/cli). npm test 17/17 green (12 turndown unit + 5 integration). No src/, vitest.config.js, build.js edits. Root package-lock.json updated for jsdom transitive deps."
         },
         {
           "id": "8.4",
           "title": "Update release-cut skill for five tag types",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         },
         {
           "id": "8.5",
