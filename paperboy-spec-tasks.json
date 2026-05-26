@@ -386,7 +386,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "5.6 turn 1: spec routed to builder. New .github/workflows/release-desktop.yml (~150 lines): 3-job topology (create-release draft -> build matrix -> publish-release), tauri-apps/tauri-action@v0, matrix macos-14+universal-apple-darwin / windows-2022 / ubuntu-22.04, soft-guards on WINDOWS_CERTIFICATE + TAURI_SIGNING_PRIVATE_KEY + PAPERBOY_SITE_PUSH_TOKEN, per-platform manifest writes for darwin-aarch64/darwin-x86_64/windows-x86_64 (no linux per plan), PR to paperboy-site when PAT present else artifact upload. Concurrency guard."
         },
         {
           "id": "5.7",

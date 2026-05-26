@@ -1151,9 +1151,9 @@
       "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
       "dashboard_ref": "paperboy-spec-tasks.json#5.6",
       "status": "active",
-      "phase": "review",
-      "next_role": "reviewer",
-      "next_agent": "claude",
+      "phase": "reply",
+      "next_role": "builder",
+      "next_agent": "cursor",
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
@@ -1161,17 +1161,18 @@
       },
       "turn": 1,
       "max_turns": 4,
-      "handoff_token": "5.6-0001",
+      "handoff_token": "5.6-1779780475",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T07:21:56+00:00",
+      "last_updated": "2026-05-26T07:27:55+00:00",
       "artifacts": {
         "review": "reviews/5.6/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "in_review"
+      "review_status": "waiting_for_builder",
+      "notes": "5.6 turn 1: spec routed to builder. New .github/workflows/release-desktop.yml (~150 lines): 3-job topology (create-release draft -> build matrix -> publish-release), tauri-apps/tauri-action@v0, matrix macos-14+universal-apple-darwin / windows-2022 / ubuntu-22.04, soft-guards on WINDOWS_CERTIFICATE + TAURI_SIGNING_PRIVATE_KEY + PAPERBOY_SITE_PUSH_TOKEN, per-platform manifest writes for darwin-aarch64/darwin-x86_64/windows-x86_64 (no linux per plan), PR to paperboy-site when PAT present else artifact upload. Concurrency guard."
     },
     {
       "id": "5.7",
