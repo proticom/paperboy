@@ -5,10 +5,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-25",
     "total_atomic_tasks": 56,
-    "completed": 33,
+    "completed": 34,
     "partial": 0,
     "in_progress": 1,
-    "todo": 18,
+    "todo": 17,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -214,8 +214,8 @@
     {
       "id": "phase-4",
       "title": "Phase 4 — Desktop app feature completeness",
-      "status": "in_progress",
-      "progress": "12/13",
+      "status": "done",
+      "progress": "13/13",
       "tasks": [
         {
           "id": "4.1",
@@ -333,25 +333,25 @@
     {
       "id": "phase-5",
       "title": "Phase 5 — Desktop distribution (mac/win/linux)",
-      "status": "todo",
+      "status": "in_progress",
       "progress": "0/9",
       "tasks": [
         {
           "id": "5.1",
           "title": "Change tauri bundle targets to dmg/nsis/deb/appimage",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "waiting_for_builder",
-          "notes": "5.1 turn 1: tauri.conf.json currently has bundle.targets=\"app\" (string, macOS-only .app). Change to array [\"dmg\",\"nsis\",\"deb\",\"appimage\"]. Surgical single-field flip; mac signing/Linux metadata/icons/CI scoped to 5.2/5.4/5.7/5.6 respectively."
+          "review_status": "review_passed",
+          "notes": "5.1 review_passed turn 2: bundle.targets = [\"dmg\",\"nsis\",\"deb\",\"appimage\"] (exact order); git diff --stat 1/1/1; jq+node array-equality OK; cargo check --offline clean; npm test workspaces 52/52; builds green. No scope creep into 5.2/5.4/5.6/5.7."
         },
         {
           "id": "5.2",
           "title": "Add macOS signing and notarization config",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         },
         {
           "id": "5.3",

@@ -1006,37 +1006,8 @@
       "title": "Change tauri bundle targets to dmg/nsis/deb/appimage",
       "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
       "dashboard_ref": "paperboy-spec-tasks.json#5.1",
-      "status": "active",
-      "phase": "reply",
-      "next_role": "builder",
-      "next_agent": "cursor",
-      "roles": {
-        "builder": "cursor",
-        "reviewer": "claude",
-        "decider": "claude"
-      },
-      "turn": 1,
-      "max_turns": 4,
-      "handoff_token": "5.1-1779777657",
-      "claimed_by": null,
-      "claimed_at": null,
-      "claimed_token": null,
-      "last_updated": "2026-05-26T06:40:57+00:00",
-      "artifacts": {
-        "review": "reviews/5.1/claude-review-turn-1.md",
-        "reply": null,
-        "decision": null
-      },
-      "review_status": "waiting_for_builder",
-      "notes": "5.1 turn 1: tauri.conf.json currently has bundle.targets=\"app\" (string, macOS-only .app). Change to array [\"dmg\",\"nsis\",\"deb\",\"appimage\"]. Surgical single-field flip; mac signing/Linux metadata/icons/CI scoped to 5.2/5.4/5.7/5.6 respectively."
-    },
-    {
-      "id": "5.2",
-      "title": "Add macOS signing and notarization config",
-      "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
-      "dashboard_ref": "paperboy-spec-tasks.json#5.2",
-      "status": "pending",
-      "phase": null,
+      "status": "review_passed",
+      "phase": "decision",
       "next_role": null,
       "next_agent": null,
       "roles": {
@@ -1044,19 +1015,48 @@
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 0,
+      "turn": 2,
       "max_turns": 4,
-      "handoff_token": null,
+      "handoff_token": "5.1-1779778092",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
+      "last_updated": "2026-05-26T06:48:12+00:00",
       "artifacts": {
-        "review": null,
+        "review": "reviews/5.1/claude-review-turn-2.md",
+        "reply": "reviews/5.1/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed",
+      "notes": "5.1 review_passed turn 2: bundle.targets = [\"dmg\",\"nsis\",\"deb\",\"appimage\"] (exact order); git diff --stat 1/1/1; jq+node array-equality OK; cargo check --offline clean; npm test workspaces 52/52; builds green. No scope creep into 5.2/5.4/5.6/5.7."
+    },
+    {
+      "id": "5.2",
+      "title": "Add macOS signing and notarization config",
+      "dashboard_group": "Phase 5 — Desktop distribution (mac/win/linux)",
+      "dashboard_ref": "paperboy-spec-tasks.json#5.2",
+      "status": "active",
+      "phase": "review",
+      "next_role": "reviewer",
+      "next_agent": "claude",
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "5.2-0001",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T06:48:12+00:00",
+      "artifacts": {
+        "review": "reviews/5.2/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "in_review"
     },
     {
       "id": "5.3",
