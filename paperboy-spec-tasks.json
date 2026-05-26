@@ -368,7 +368,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "5.4 turn 1: tauri.conf.json has no bundle.linux.* and seven top-level bundle metadata fields are null. Builder adds (1) seven bundle metadata keys (category:Office, copyright, shortDescription, longDescription, publisher='Proticom <maintainers@paperboy.run>' for deb Maintainer:, homepage, license:MIT) and (2) bundle.linux with deb.depends (5 packages incl. ayatana-appindicator OR-alt + libsoup-3.0-0 + librsvg2-2), deb.section:text, deb.priority:optional, appimage.bundleMediaFramework:true, inert rpm block for future-proofing. ONE file. No CI/Rust/icon/skill edits."
         },
         {
           "id": "5.5",
