@@ -1496,9 +1496,9 @@
       "dashboard_group": "Phase 8 — Cross-cutting hardening",
       "dashboard_ref": "paperboy-spec-tasks.json#8.1",
       "status": "active",
-      "phase": "review",
-      "next_role": "reviewer",
-      "next_agent": "claude",
+      "phase": "build",
+      "next_role": "builder",
+      "next_agent": "cursor",
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
@@ -1506,17 +1506,18 @@
       },
       "turn": 1,
       "max_turns": 4,
-      "handoff_token": "8.1-0001",
-      "claimed_by": null,
-      "claimed_at": null,
-      "claimed_token": null,
-      "last_updated": "2026-05-26T09:02:03+00:00",
+      "handoff_token": "8.1-1779786423",
+      "claimed_by": "cursor",
+      "claimed_at": "2026-05-26T09:07:14+00:00",
+      "claimed_token": "8.1-1779786423",
+      "last_updated": "2026-05-26T09:07:14+00:00",
       "artifacts": {
         "review": "reviews/8.1/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "in_review"
+      "review_status": "waiting_for_builder",
+      "notes": "Contract sent to cursor for 8.1: add 4 binary fixtures (docx/pdf/epub/xlsx ≤ 30 KB total) + 4 it() cases in tests/converter.test.ts using substring assertions. No src/ edits, no new deps."
     },
     {
       "id": "8.2",

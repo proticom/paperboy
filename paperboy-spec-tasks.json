@@ -5,10 +5,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-26",
     "total_atomic_tasks": 56,
-    "completed": 46,
+    "completed": 47,
     "partial": 0,
     "in_progress": 1,
-    "todo": 5,
+    "todo": 4,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -471,8 +471,8 @@
     {
       "id": "phase-7",
       "title": "Phase 7 — Site backend & polish",
-      "status": "in_progress",
-      "progress": "2/3",
+      "status": "done",
+      "progress": "3/3",
       "tasks": [
         {
           "id": "7.1",
@@ -506,7 +506,7 @@
     {
       "id": "phase-8",
       "title": "Phase 8 — Cross-cutting hardening",
-      "status": "todo",
+      "status": "in_progress",
       "progress": "0/5",
       "tasks": [
         {
@@ -515,7 +515,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "Contract sent to cursor for 8.1: add 4 binary fixtures (docx/pdf/epub/xlsx ≤ 30 KB total) + 4 it() cases in tests/converter.test.ts using substring assertions. No src/ edits, no new deps."
         },
         {
           "id": "8.2",
