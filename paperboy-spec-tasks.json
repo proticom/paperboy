@@ -316,7 +316,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "4.12 turn 1: headingId action in editor.js is unreachable — no toolbar button, no key chord, no caller anywhere. Send to builder: delete the dispatch arm at L86 and the appendHeadingId function at L116-122. Leave every other action (footnote, link, etc.) intact. No HTML/CSS/bridge/Rust changes. Validation: grep headingId paperboy-app/src/scripts/editor.js -> 0 hits, full workspace build + 31 tests still green."
         },
         {
           "id": "4.13",
