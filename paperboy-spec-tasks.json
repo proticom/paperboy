@@ -524,7 +524,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "Turn 1 contract for 8.2: new file paperboy-cli/tests/crawl.test.ts with 8 it() cases against crawlSite public API. HTTP via in-process http.createServer (no new deps). Covers: seed+links, maxPages, maxDepth, includePatterns, excludePatterns, mapOnly, sitemap.xml discovery, external-link skip. All output redirected to per-test temp dirs (must not pollute paperboy-cli/ working tree). No src/ or package.json edits."
         },
         {
           "id": "8.3",
