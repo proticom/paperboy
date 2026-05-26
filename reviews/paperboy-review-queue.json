@@ -1612,29 +1612,29 @@
       "title": "Add CHANGELOG.md files to each package",
       "dashboard_group": "Phase 8 — Cross-cutting hardening",
       "dashboard_ref": "paperboy-spec-tasks.json#8.5",
-      "status": "active",
-      "phase": "reply",
-      "next_role": "builder",
-      "next_agent": "cursor",
+      "status": "review_passed",
+      "phase": "decision",
+      "next_role": null,
+      "next_agent": null,
       "roles": {
         "builder": "cursor",
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 1,
+      "turn": 2,
       "max_turns": 4,
-      "handoff_token": "8.5-1779799989",
+      "handoff_token": "8.5-1779800219",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T12:53:09+00:00",
+      "last_updated": "2026-05-26T12:56:59+00:00",
       "artifacts": {
-        "review": "reviews/8.5/claude-review-turn-1.md",
-        "reply": null,
+        "review": "reviews/8.5/claude-review-turn-2.md",
+        "reply": "reviews/8.5/cursor-reply-turn-1.md",
         "decision": null
       },
-      "review_status": "waiting_for_builder",
-      "notes": "Turn 1 contract for 8.5 (FINAL Phase 8 task): create 6 CHANGELOG.md files (one per published/release package: converter, cli, widget, ai, app, ext) following Keep a Changelog 1.1.0. Spec named only 5 packages — paperboy-ai is added for same reason as 8.4. Entries mined from git log, past-tense, no fabrication, Keep-a-Changelog category subsections. Per-package versions: converter 0.2.2 down through 0.1.x; cli 0.2.6 through 0.1.x; widget/ai/app/ext 0.2.2 (ai has no 0.1.x history). 0.2.2 changelogs should mention Phase 8 test additions where applicable. No package.json / src / workflow edits. Future auto-generation from commit messages is out of scope."
+      "review_status": "review_passed",
+      "notes": "8.5 closed (FINAL Phase 8 task). 6 new CHANGELOG.md files (one per published/release package) following Keep a Changelog 1.1.0. Spec named only 5 (paperboy-ai added for same reason as 8.4). Versions: converter 0.2.2->0.1.0; cli 0.2.6->0.1.0; widget/app/ext 0.2.2->0.1.0; ai 0.2.2->0.2.0 (no 0.1.x history). Every entry traces back to a real commit (spot-checked sample). Past-tense, Keep-a-Changelog category subsections, no marketing hype. No package.json/src/workflow edits. Per-file 24-46 lines. Run now at 52/56 review_passed; remaining 4 (5.3, 5.8, 5.9, 6.4) are human-gated operational tasks awaiting Edward."
     }
   ]
 }
