@@ -61149,7 +61149,8 @@ ${content}
 async function convertDocx(filename, data, _options) {
   const bytes = toBytes(data);
   const result2 = await import_mammoth.default.convertToHtml({
-    arrayBuffer: toArrayBuffer(bytes)
+    arrayBuffer: toArrayBuffer(bytes),
+    buffer: bytes
   });
   return {
     markdown: createTurndownService().turndown(result2.value).trim(),

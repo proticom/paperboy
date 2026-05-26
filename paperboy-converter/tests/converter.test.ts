@@ -1,6 +1,12 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { convertToMarkdown } from "../src/index.js";
+
+function loadFixture(name: string): Uint8Array {
+  const url = new URL(`./fixtures/${name}`, import.meta.url);
+  return new Uint8Array(readFileSync(url));
+}
 
 describe("shared converter", () => {
   it("converts plain text files", async () => {
@@ -96,5 +102,48 @@ describe("shared converter", () => {
     expect(
       result.warnings.some((warning) => warning.includes("No readable text")),
     ).toBe(true);
+  });
+});
+
+describe("shared converter — binary handlers", () => {
+  it("converts docx files to markdown", async () => {
+    const bytes = loadFixture("sample.docx");
+    const result = await convertToMarkdown("sample.docx", bytes);
+
+    expect(result.title).toBe("sample");
+    expect(result.markdown).toContain("Hello");
+    expect(result.markdown).toContain("World");
+    expect(Array.isArray(result.warnings)).toBe(true);
+  });
+
+  it("converts pdf files to markdown", async () => {
+    const bytes = loadFixture("sample.pdf");
+    const result = await convertToMarkdown("sample.pdf", bytes);
+
+    expect(result.title).toBe("sample");
+    expect(result.markdown).toContain("Hello pdf world.");
+    expect(Array.isArray(result.warnings)).toBe(true);
+    expect(result.markdown).not.toMatch(/^## Page 1/m);
+  });
+
+  it("converts epub files to markdown", async () => {
+    const bytes = loadFixture("sample.epub");
+    const result = await convertToMarkdown("sample.epub", bytes);
+
+    expect(result.title).toBe("sample");
+    expect(result.markdown).toContain("Chapter 1");
+    expect(result.markdown).toContain("Hello epub world.");
+    expect(Array.isArray(result.warnings)).toBe(true);
+  });
+
+  it("converts xlsx files to markdown table", async () => {
+    const bytes = loadFixture("sample.xlsx");
+    const result = await convertToMarkdown("sample.xlsx", bytes);
+
+    expect(result.title).toBe("sample");
+    expect(result.markdown).toContain("## Sheet1");
+    expect(result.markdown).toContain("| Name | Role |");
+    expect(result.markdown).toContain("| Ada | Engineer |");
+    expect(result.warnings).toEqual([]);
   });
 });

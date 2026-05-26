@@ -1495,38 +1495,8 @@
       "title": "Add converter tests for docx, pdf, epub, xlsx",
       "dashboard_group": "Phase 8 — Cross-cutting hardening",
       "dashboard_ref": "paperboy-spec-tasks.json#8.1",
-      "status": "active",
-      "phase": "reply",
-      "next_role": "builder",
-      "next_agent": "cursor",
-      "roles": {
-        "builder": "cursor",
-        "reviewer": "claude",
-        "decider": "claude"
-      },
-      "turn": 2,
-      "max_turns": 4,
-      "handoff_token": "8.1-1779798274",
-      "claimed_by": null,
-      "claimed_at": null,
-      "claimed_token": null,
-      "last_updated": "2026-05-26T12:24:34+00:00",
-      "artifacts": {
-        "review": "reviews/8.1/claude-review-turn-2.md",
-        "reply": null,
-        "decision": null,
-        "artifact": "reviews/8.1/cursor-reply-turn-1.md"
-      },
-      "review_status": "waiting_for_builder",
-      "notes": "Turn 2: fixtures+tests correct (13 green) but docx handler patch breaks paperboy-app browser bundle — esbuild platform=browser cannot resolve 'node:buffer' (verified by running paperboy-app/scripts/build-converter.mjs locally). Fix: replace { buffer: Buffer.from(bytes) } with { arrayBuffer: toArrayBuffer(bytes), buffer: bytes }, restore toArrayBuffer import, drop node:buffer import. JSZip accepts Uint8Array directly. See reviews/8.1/claude-review-turn-2.md."
-    },
-    {
-      "id": "8.2",
-      "title": "Add CLI crawl command tests",
-      "dashboard_group": "Phase 8 — Cross-cutting hardening",
-      "dashboard_ref": "paperboy-spec-tasks.json#8.2",
-      "status": "pending",
-      "phase": null,
+      "status": "review_passed",
+      "phase": "decision",
       "next_role": null,
       "next_agent": null,
       "roles": {
@@ -1534,19 +1504,49 @@
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 0,
+      "turn": 3,
       "max_turns": 4,
-      "handoff_token": null,
+      "handoff_token": "8.1-1779798544",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
+      "last_updated": "2026-05-26T12:29:04+00:00",
       "artifacts": {
-        "review": null,
+        "review": "reviews/8.1/claude-review-turn-3.md",
+        "reply": "reviews/8.1/cursor-reply-turn-2.md",
+        "decision": null,
+        "artifact": "reviews/8.1/cursor-reply-turn-1.md"
+      },
+      "review_status": "review_passed",
+      "notes": "8.1 closed. 4 binary fixtures (~27KB total) + 4 it() cases (substring assertions on public convertToMarkdown API) in paperboy-converter/tests. Latent docx handler bug (arrayBuffer key works only in mammoth browser entry, never in Node) fixed cross-platform via { arrayBuffer, buffer } dual keys + comment. paperboy-converter npm test green (13/13), typecheck clean. paperboy-app browser bundle rebuilt green, app npm test green (6/6). No package.json or other src/ changes. Vendor bundle paperboy-app/src/scripts/vendor/converter.js regenerated."
+    },
+    {
+      "id": "8.2",
+      "title": "Add CLI crawl command tests",
+      "dashboard_group": "Phase 8 — Cross-cutting hardening",
+      "dashboard_ref": "paperboy-spec-tasks.json#8.2",
+      "status": "active",
+      "phase": "review",
+      "next_role": "reviewer",
+      "next_agent": "claude",
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "8.2-0001",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T12:29:04+00:00",
+      "artifacts": {
+        "review": "reviews/8.2/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "in_review"
     },
     {
       "id": "8.3",
