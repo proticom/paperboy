@@ -870,20 +870,20 @@
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 1,
+      "turn": 2,
       "max_turns": 4,
-      "handoff_token": "4.9-1779774147",
+      "handoff_token": "4.9-1779774595",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-26T05:42:27+00:00",
+      "last_updated": "2026-05-26T05:49:55+00:00",
       "artifacts": {
         "review": "reviews/4.9/claude-review-turn-1.md",
-        "reply": null,
+        "reply": "reviews/4.9/cursor-reply-turn-1.md",
         "decision": null
       },
       "review_status": "waiting_for_builder",
-      "notes": "Required: 4.9 not yet implemented. Build Find/Replace overlay per Finding 1 (Cmd+F open, Esc close, Enter/Shift+Enter nav, Aa case toggle, counter, Replace All via single-pass regex per Finding 3 to avoid index shifts, info toast on Replace All). Verify no existing Tauri Edit->Find accelerator (Finding 2). Defer regex toggle. Exact HTML/CSS/JS sketches inlined."
+      "notes": "Cmd+F unreachable in preview-only view: intercept is on textarea, but textarea is display:none in preview, so no keydown fires. Move intercept up to the existing document-level keydown handler (alongside Cmd+G); openOverlay already handles preview->editor switch. All other turn-1 findings satisfied: regex-based Replace All is index-shift safe, no Tauri Find accel exists, builds + 31 tests green."
     },
     {
       "id": "4.10",

@@ -112,6 +112,8 @@ preview.onScroll(() => syncFromPreview());
 
 const settings = initSettings({ invoke });
 
+initFindOverlay({ editor, textarea: editorEl, ui, getViewMode: () => state.viewMode });
+
 createTab();
 setupMenuListeners();
 setupWindowDrag();
@@ -555,6 +557,227 @@ function lockScroll(source, action) {
   ignoredScrollTimer = setTimeout(() => {
     ignoredScrollSource = null;
   }, 90);
+}
+
+// --------------- Find / replace overlay --------------------------------
+
+function initFindOverlay({ editor, textarea, ui, getViewMode }) {
+  const overlay = document.querySelector("[data-find-overlay]");
+  if (!overlay || !textarea) return;
+
+  const findInput = overlay.querySelector("[data-find-input]");
+  const replaceInput = overlay.querySelector("[data-replace-input]");
+  const countEl = overlay.querySelector("[data-find-count]");
+  const prevBtn = overlay.querySelector("[data-find-prev]");
+  const nextBtn = overlay.querySelector("[data-find-next]");
+  const caseBtn = overlay.querySelector("[data-find-case]");
+  const closeBtn = overlay.querySelector("[data-find-close]");
+  const replaceOneBtn = overlay.querySelector("[data-replace-one]");
+  const replaceAllBtn = overlay.querySelector("[data-replace-all]");
+  const actionButtons = [prevBtn, nextBtn, replaceOneBtn, replaceAllBtn];
+
+  const findState = {
+    open: false,
+    everOpened: false,
+    caseSensitive: false,
+    query: "",
+    matches: [],
+    cursor: -1,
+    savedSelection: null,
+  };
+
+  let debounceTimer;
+
+  function escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function enumerateMatches(value, query, caseSensitive) {
+    if (!query) return [];
+    const flags = caseSensitive ? "g" : "gi";
+    const re = new RegExp(escapeRegex(query), flags);
+    const matches = [];
+    for (const match of value.matchAll(re)) {
+      matches.push({ start: match.index, end: match.index + match[0].length });
+    }
+    return matches;
+  }
+
+  function scrollMatchIntoView(start) {
+    const lineStart = textarea.value.lastIndexOf("\n", start - 1) + 1;
+    const before = textarea.value.slice(0, lineStart);
+    const lineNumber = before.split("\n").length - 1;
+    const lineHeight = Number.parseInt(getComputedStyle(textarea).lineHeight, 10) || 20;
+    textarea.scrollTop = Math.max(0, (lineNumber - 2) * lineHeight);
+  }
+
+  function updateActionButtons() {
+    const disabled = findState.matches.length === 0;
+    for (const button of actionButtons) {
+      if (button) button.disabled = disabled;
+    }
+    const total = findState.matches.length;
+    const current = findState.cursor >= 0 ? findState.cursor + 1 : 0;
+    countEl.textContent = total === 0 ? "0 of 0" : `${current} of ${total}`;
+    overlay.classList.toggle("is-empty", Boolean(findState.query) && total === 0);
+  }
+
+  function selectMatch(index) {
+    if (index < 0 || index >= findState.matches.length) return;
+    findState.cursor = index;
+    const { start, end } = findState.matches[index];
+    textarea.setSelectionRange(start, end);
+    scrollMatchIntoView(start);
+    updateActionButtons();
+  }
+
+  function recompute({ selectFirst = true } = {}) {
+    findState.query = findInput.value;
+    findState.caseSensitive = caseBtn?.getAttribute("aria-pressed") === "true";
+    findState.matches = enumerateMatches(
+      textarea.value,
+      findState.query,
+      findState.caseSensitive
+    );
+    if (findState.matches.length === 0) {
+      findState.cursor = -1;
+    } else if (selectFirst && (findState.cursor < 0 || findState.cursor >= findState.matches.length)) {
+      selectMatch(0);
+    } else if (findState.cursor >= 0) {
+      selectMatch(findState.cursor);
+    }
+    updateActionButtons();
+  }
+
+  function nextMatch(backward = false) {
+    if (findState.matches.length === 0) return;
+    let index = findState.cursor + (backward ? -1 : 1);
+    if (index < 0) index = findState.matches.length - 1;
+    if (index >= findState.matches.length) index = 0;
+    selectMatch(index);
+  }
+
+  function openOverlay() {
+    if (getViewMode() === "preview") {
+      ui.setViewMode("editor");
+    }
+    findState.savedSelection = {
+      start: textarea.selectionStart,
+      end: textarea.selectionEnd,
+    };
+    const selected = textarea.value.slice(
+      findState.savedSelection.start,
+      findState.savedSelection.end
+    );
+    if (selected && !selected.includes("\n")) {
+      findInput.value = selected;
+    }
+    findState.open = true;
+    findState.everOpened = true;
+    overlay.hidden = false;
+    recompute({ selectFirst: true });
+    findInput.focus();
+    findInput.select();
+  }
+
+  function closeOverlay() {
+    findState.open = false;
+    overlay.hidden = true;
+    if (findState.savedSelection) {
+      const { start, end } = findState.savedSelection;
+      textarea.setSelectionRange(start, end);
+      findState.savedSelection = null;
+    }
+    editor.focus();
+  }
+
+  function replaceOne() {
+    if (findState.cursor < 0 || findState.matches.length === 0) return;
+    const { start, end } = findState.matches[findState.cursor];
+    const replacement = replaceInput.value;
+    textarea.value =
+      textarea.value.slice(0, start) + replacement + textarea.value.slice(end);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    recompute({ selectFirst: false });
+    if (findState.matches.length > 0) nextMatch(false);
+  }
+
+  function replaceAll() {
+    const query = findInput.value;
+    if (!query) return;
+    const flags = findState.caseSensitive ? "g" : "gi";
+    const re = new RegExp(escapeRegex(query), flags);
+    const matches = textarea.value.match(re) || [];
+    const count = matches.length;
+    if (count === 0) return;
+    textarea.value = textarea.value.replace(re, replaceInput.value);
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    showToast(`Replaced ${count} occurrence(s)`, "info");
+    recompute({ selectFirst: true });
+  }
+
+  editor.onOpenFind(openOverlay);
+
+  closeBtn?.addEventListener("click", closeOverlay);
+  prevBtn?.addEventListener("click", () => nextMatch(true));
+  nextBtn?.addEventListener("click", () => nextMatch(false));
+  replaceOneBtn?.addEventListener("click", replaceOne);
+  replaceAllBtn?.addEventListener("click", replaceAll);
+  caseBtn?.addEventListener("click", () => {
+    const pressed = caseBtn.getAttribute("aria-pressed") === "true";
+    caseBtn.setAttribute("aria-pressed", pressed ? "false" : "true");
+    findState.caseSensitive = !pressed;
+    recompute({ selectFirst: true });
+  });
+
+  findInput.addEventListener("input", () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => recompute({ selectFirst: true }), 50);
+  });
+
+  findInput.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeOverlay();
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      nextMatch(event.shiftKey);
+    }
+  });
+
+  replaceInput.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeOverlay();
+      return;
+    }
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      replaceAll();
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      replaceOne();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    const mod = event.metaKey || event.ctrlKey;
+    if (!mod || event.key.toLowerCase() !== "g") return;
+    if (!findState.open && !findState.everOpened) return;
+    if (!findInput.value) return;
+    event.preventDefault();
+    if (!findState.open) {
+      overlay.hidden = false;
+      findState.open = true;
+    }
+    recompute({ selectFirst: findState.cursor < 0 });
+    nextMatch(event.shiftKey);
+  });
 }
 
 // --------------- Window drag ---------------

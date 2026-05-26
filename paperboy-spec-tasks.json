@@ -5,10 +5,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-25",
     "total_atomic_tasks": 56,
-    "completed": 28,
+    "completed": 29,
     "partial": 0,
     "in_progress": 1,
-    "todo": 23,
+    "todo": 22,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -215,7 +215,7 @@
       "id": "phase-4",
       "title": "Phase 4 — Desktop app feature completeness",
       "status": "in_progress",
-      "progress": "7/13",
+      "progress": "8/13",
       "tasks": [
         {
           "id": "4.1",
@@ -290,7 +290,7 @@
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
           "review_status": "waiting_for_builder",
-          "notes": "Required: 4.9 not yet implemented. Build Find/Replace overlay per Finding 1 (Cmd+F open, Esc close, Enter/Shift+Enter nav, Aa case toggle, counter, Replace All via single-pass regex per Finding 3 to avoid index shifts, info toast on Replace All). Verify no existing Tauri Edit->Find accelerator (Finding 2). Defer regex toggle. Exact HTML/CSS/JS sketches inlined."
+          "notes": "Cmd+F unreachable in preview-only view: intercept is on textarea, but textarea is display:none in preview, so no keydown fires. Move intercept up to the existing document-level keydown handler (alongside Cmd+G); openOverlay already handles preview->editor switch. All other turn-1 findings satisfied: regex-based Replace All is index-shift safe, no Tauri Find accel exists, builds + 31 tests green."
         },
         {
           "id": "4.10",
