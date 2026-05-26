@@ -542,7 +542,8 @@
           "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "in_review"
+          "review_status": "waiting_for_builder",
+          "notes": "Turn 1 contract for 8.4: rewrite .claude/skills/release-cut/SKILL.md to handle ALL 6 active release workflows (spec says 5; paperboy-ai was extracted after spec was written — commit 81b4570 — so the real count is 6: v*/cli-v*/widget-v*/ai-v*/app-v*/ext-v*). Single-file edit. Skill must (1) prompt user for which package(s)+version, (2) bump correctly (workspace-wide for converter, single-package for others), (3) build+test every released package, (4) commit, (5) push tags one at a time in dep order, (6) gh run watch the right workflow per tag, (7) verify on npm or GH Releases. No edits to workflows, package.json files, or source."
         },
         {
           "id": "8.5",
