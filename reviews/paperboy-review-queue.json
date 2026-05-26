@@ -1437,37 +1437,8 @@
       "title": "Add dynamic OG images per route",
       "dashboard_group": "Phase 7 — Site backend & polish",
       "dashboard_ref": "paperboy-spec-tasks.json#7.2",
-      "status": "active",
-      "phase": "reply",
-      "next_role": "builder",
-      "next_agent": "cursor",
-      "roles": {
-        "builder": "cursor",
-        "reviewer": "claude",
-        "decider": "claude"
-      },
-      "turn": 1,
-      "max_turns": 4,
-      "handoff_token": "7.2-1779784793",
-      "claimed_by": null,
-      "claimed_at": null,
-      "claimed_token": null,
-      "last_updated": "2026-05-26T08:39:53+00:00",
-      "artifacts": {
-        "review": "reviews/7.2/claude-review-turn-1.md",
-        "reply": null,
-        "decision": null
-      },
-      "review_status": "waiting_for_builder",
-      "notes": "Per-route OG images: shared lib/og-image.tsx template + 10 thin per-route opengraph-image.tsx files + home refactor (byte-equivalent). 11 OG routes total. No metadata/layout edits, no new deps."
-    },
-    {
-      "id": "7.3",
-      "title": "End-to-end smoke pass on all routes",
-      "dashboard_group": "Phase 7 — Site backend & polish",
-      "dashboard_ref": "paperboy-spec-tasks.json#7.3",
-      "status": "pending",
-      "phase": null,
+      "status": "review_passed",
+      "phase": "decision",
       "next_role": null,
       "next_agent": null,
       "roles": {
@@ -1475,19 +1446,48 @@
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 0,
+      "turn": 2,
       "max_turns": 4,
-      "handoff_token": null,
+      "handoff_token": "7.2-1779785214",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
+      "last_updated": "2026-05-26T08:46:54+00:00",
       "artifacts": {
-        "review": null,
+        "review": "reviews/7.2/claude-review-turn-2.md",
+        "reply": "reviews/7.2/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed",
+      "notes": "7.2 review_passed: 12-file diff matches contract verbatim (1 M + 11 new). lib/og-image.tsx shared template + 10 per-route files. tsc clean, build green, 11 ƒ /…/opengraph-image routes listed. Home card byte-equivalent."
+    },
+    {
+      "id": "7.3",
+      "title": "End-to-end smoke pass on all routes",
+      "dashboard_group": "Phase 7 — Site backend & polish",
+      "dashboard_ref": "paperboy-spec-tasks.json#7.3",
+      "status": "active",
+      "phase": "review",
+      "next_role": "reviewer",
+      "next_agent": "claude",
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "7.3-0001",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T08:46:54+00:00",
+      "artifacts": {
+        "review": "reviews/7.3/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "in_review"
     },
     {
       "id": "8.1",
