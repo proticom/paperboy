@@ -5,10 +5,10 @@
     "dashboard_version": "1.1.0",
     "last_updated": "2026-05-26",
     "total_atomic_tasks": 56,
-    "completed": 47,
+    "completed": 48,
     "partial": 0,
     "in_progress": 1,
-    "todo": 4,
+    "todo": 3,
     "deferred": 4,
     "notes": "Generated from the production readiness plan. Task JSON is source of truth for dashboard and review queue.",
     "review_status_legend": "not_started | in_review | waiting_for_builder | waiting_for_reviewer | review_passed | review_failed | needs_human | blocked"
@@ -507,7 +507,7 @@
       "id": "phase-8",
       "title": "Phase 8 — Cross-cutting hardening",
       "status": "in_progress",
-      "progress": "0/5",
+      "progress": "1/5",
       "tasks": [
         {
           "id": "8.1",
@@ -521,19 +521,19 @@
         {
           "id": "8.2",
           "title": "Add CLI crawl command tests",
-          "status": "in_progress",
+          "status": "done",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "waiting_for_builder",
-          "notes": "Turn 1 contract for 8.2: new file paperboy-cli/tests/crawl.test.ts with 8 it() cases against crawlSite public API. HTTP via in-process http.createServer (no new deps). Covers: seed+links, maxPages, maxDepth, includePatterns, excludePatterns, mapOnly, sitemap.xml discovery, external-link skip. All output redirected to per-test temp dirs (must not pollute paperboy-cli/ working tree). No src/ or package.json edits."
+          "review_status": "review_passed",
+          "notes": "8.2 closed. New paperboy-cli/tests/crawl.test.ts (331 lines, 8 it() cases) covering seed+links, maxPages, maxDepth, includePatterns, excludePatterns, mapOnly, /sitemap.xml discovery, external-link skip. HTTP via in-process http.createServer on loopback. paperboy-cli npm test: 27/27 green (8 new). typecheck clean. No src/ or package.json edits. No working-tree pollution. Builder's path-name deviation (/discovered-* vs /sitemap-discovered-*) was correct — looksLikeSitemap() would re-queue any sitemap-containing URL as a nested sitemap."
         },
         {
           "id": "8.3",
           "title": "Add widget integration tests",
-          "status": "todo",
+          "status": "in_progress",
           "evidence": "",
           "reviewer_guidance": "Read the referenced plan section, inspect listed files, run named validation commands, and verify observable behavior matches the spec.",
-          "review_status": "not_started"
+          "review_status": "in_review"
         },
         {
           "id": "8.4",

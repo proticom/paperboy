@@ -1525,37 +1525,8 @@
       "title": "Add CLI crawl command tests",
       "dashboard_group": "Phase 8 — Cross-cutting hardening",
       "dashboard_ref": "paperboy-spec-tasks.json#8.2",
-      "status": "active",
-      "phase": "reply",
-      "next_role": "builder",
-      "next_agent": "cursor",
-      "roles": {
-        "builder": "cursor",
-        "reviewer": "claude",
-        "decider": "claude"
-      },
-      "turn": 1,
-      "max_turns": 4,
-      "handoff_token": "8.2-1779798776",
-      "claimed_by": null,
-      "claimed_at": null,
-      "claimed_token": null,
-      "last_updated": "2026-05-26T12:32:56+00:00",
-      "artifacts": {
-        "review": "reviews/8.2/claude-review-turn-1.md",
-        "reply": null,
-        "decision": null
-      },
-      "review_status": "waiting_for_builder",
-      "notes": "Turn 1 contract for 8.2: new file paperboy-cli/tests/crawl.test.ts with 8 it() cases against crawlSite public API. HTTP via in-process http.createServer (no new deps). Covers: seed+links, maxPages, maxDepth, includePatterns, excludePatterns, mapOnly, sitemap.xml discovery, external-link skip. All output redirected to per-test temp dirs (must not pollute paperboy-cli/ working tree). No src/ or package.json edits."
-    },
-    {
-      "id": "8.3",
-      "title": "Add widget integration tests",
-      "dashboard_group": "Phase 8 — Cross-cutting hardening",
-      "dashboard_ref": "paperboy-spec-tasks.json#8.3",
-      "status": "pending",
-      "phase": null,
+      "status": "review_passed",
+      "phase": "decision",
       "next_role": null,
       "next_agent": null,
       "roles": {
@@ -1563,19 +1534,48 @@
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 0,
+      "turn": 2,
       "max_turns": 4,
-      "handoff_token": null,
+      "handoff_token": "8.2-1779799002",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
+      "last_updated": "2026-05-26T12:36:42+00:00",
       "artifacts": {
-        "review": null,
+        "review": "reviews/8.2/claude-review-turn-2.md",
+        "reply": "reviews/8.2/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed",
+      "notes": "8.2 closed. New paperboy-cli/tests/crawl.test.ts (331 lines, 8 it() cases) covering seed+links, maxPages, maxDepth, includePatterns, excludePatterns, mapOnly, /sitemap.xml discovery, external-link skip. HTTP via in-process http.createServer on loopback. paperboy-cli npm test: 27/27 green (8 new). typecheck clean. No src/ or package.json edits. No working-tree pollution. Builder's path-name deviation (/discovered-* vs /sitemap-discovered-*) was correct — looksLikeSitemap() would re-queue any sitemap-containing URL as a nested sitemap."
+    },
+    {
+      "id": "8.3",
+      "title": "Add widget integration tests",
+      "dashboard_group": "Phase 8 — Cross-cutting hardening",
+      "dashboard_ref": "paperboy-spec-tasks.json#8.3",
+      "status": "active",
+      "phase": "review",
+      "next_role": "reviewer",
+      "next_agent": "claude",
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "8.3-0001",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T12:36:42+00:00",
+      "artifacts": {
+        "review": "reviews/8.3/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "in_review"
     },
     {
       "id": "8.4",
