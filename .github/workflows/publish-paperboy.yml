@@ -34,5 +34,7 @@ jobs:
         run: npm test
 
       - name: Publish to npm (OIDC trusted publishing, no token needed)
-        working-directory: ./paperboy-cli
-        run: npm publish --access public
+        working-directory: paperboy-cli
+        run: |
+          node ../scripts/pin-registry-deps.mjs cli
+          npm publish --access public
