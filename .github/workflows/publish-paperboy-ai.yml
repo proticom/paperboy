@@ -27,6 +27,9 @@ jobs:
       - name: Install dependencies (root, all workspaces)
         run: npm ci
 
+      - name: Build workspace dependencies
+        run: npm run build --workspace=@proticom/paperboy-converter
+
       - name: Build
         working-directory: paperboy-ai
         run: npm run build
