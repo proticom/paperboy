@@ -1,83 +1,204 @@
 ---
 name: release-cut
-description: Ship a new release end-to-end — bump all packages, rebuild the converter, commit, push, tag, and watch the npm OIDC publish run. Use when you've decided to ship a new version. Asks for the version number up front; nothing else is interactive.
+description: Ship a release for ONE or more of the six paperboy packages (converter, cli, widget, ai, app, ext). Prompts the user for which package(s) and what version. Maps tag prefixes to workflows and watches the right publish/release run.
 disable-model-invocation: true
 ---
 
 # Cut a release
 
-End-to-end ship flow for `@proticom/paperboy-converter` (and the aligned package versions). The npm publish happens via OIDC from a GitHub Actions workflow triggered by a `v*` tag, so the human work is just bump → commit → push tag → wait.
+End-to-end ship flow for the paperboy monorepo. Each package has its own **tag prefix** and **GitHub Actions workflow**. The spec named five tag types; the repo now has **six** because `paperboy-ai` was extracted after the plan was written (commit `81b4570` — `feat: extract paperboy-ai, wire app AI, and fix npm publish CI`).
+
+Run all commands from the **monorepo root** (where `AGENTS.md` and `package.json` workspaces live).
+
+## Package → tag → workflow
+
+| Package dir | Publish name | Tag | Workflow | Output |
+|-------------|--------------|-----|----------|--------|
+| `paperboy-converter/` | `@proticom/paperboy-converter` | `v<version>` | `publish-paperboy-converter.yml` | npm (OIDC) |
+| `paperboy-cli/` | `@proticom/paperboy-cli` | `cli-v<version>` | `publish-paperboy.yml` | npm (OIDC) |
+| `paperboy-widget/` | `@proticom/paperboy-widget` | `widget-v<version>` | `publish-paperboy-widget.yml` | npm (OIDC) |
+| `paperboy-ai/` | `@proticom/paperboy-ai` | `ai-v<version>` | `publish-paperboy-ai.yml` | npm (OIDC) |
+| `paperboy-app/` | `paperboy-editor` (private) | `app-v<version>` | `release-desktop.yml` | GitHub Release (Tauri) |
+| `paperboy-ext/` | `@proticom/paperboy-ext` | `ext-v<version>` | `release-ext.yml` | GitHub Release zip + Chrome Web Store |
 
 ## Prerequisites (one-time)
 
-- `gh` CLI authenticated against `github.com/proticom`.
-- npm trusted publisher already configured for `@proticom/paperboy-converter` (see `AGENTS.md` → "npm publishing").
-- Working tree clean (`git status` empty).
+**All releases**
 
-## Steps
+- `gh` CLI authenticated to `github.com/proticom`.
+- Working tree clean (`git status` empty) before you start.
 
-Run from the monorepo root (`/Volumes/Dev/projects/paperboy/`).
+**npm packages** (converter, cli, widget, ai)
 
-1. **Ask the user for the version.** Format `X.Y.Z` (no `v` prefix). If they don't supply one, infer the next patch from the current `paperboy-converter/package.json` version.
+- [npm Trusted Publisher](https://docs.npmjs.com/trusted-publishers) registered per package on npmjs.com (Proticom scope). Workflows use OIDC — **no `NPM_TOKEN`**.
 
-2. **Bump + rebuild converter.** This is the `/bump-version` skill, inlined:
-   ```bash
-   node scripts/bump-version.mjs --check          # sanity
-   node scripts/bump-version.mjs <version>
-   (cd paperboy-converter && npm run sync:all)
-   ```
+**Desktop app** (`paperboy-app`)
 
-3. **Verify each consumer builds.** Bail and tell the user if any step exits non-zero — do not push a broken release.
-   ```bash
-   npm --workspace=@proticom/paperboy-converter run build
-   npm --workspace=@proticom/paperboy-cli run build
-   npm --workspace=@proticom/paperboy-ext run build
-   npm --workspace=@proticom/paperboy-widget run build
-   (cd paperboy-site && npm install --legacy-peer-deps && npm run build)
-   ```
-   Ensure `paperboy-site/package.json` has `@proticom/paperboy-converter` set to a caret that includes `<version>` (e.g. `^0.2.3`).
+- Tauri signing keys available to the workflow (or accept unsigned local-only builds if the workflow allows). See `paperboy-app` README / `release-desktop.yml`.
 
-4. **Commit (monorepo).** Include every file the bump + sync touched.
-   ```bash
-   git add -A
-   git commit -m "release: v<version>"
-   ```
+**Extension** (`paperboy-ext`)
 
-5. **Site repo: commit + push (if lockfile changed).** `paperboy-site` is a separate Git repo nested at `./paperboy-site/`. After npm publish, the site picks up the new converter from the registry on `npm install` — no vendored `.tgz`.
-   ```bash
-   git -C paperboy-site add package.json package-lock.json
-   git -C paperboy-site commit -m "chore: bump converter to v<version>"
-   git -C paperboy-site push origin master
-   ```
-   Skip this step if the site repo has no converter-related changes.
+- Chrome Web Store API credentials in repo secrets (`release-ext.yml`). Sideload zip still lands on GitHub Releases.
 
-6. **Push monorepo + tag.** The tag triggers the npm publish workflow.
-   ```bash
-   git push origin main
-   git tag v<version>
-   git push origin v<version>
-   ```
+## Step 1 — Ask which package(s) and version
 
-7. **Watch the publish run.**
-   ```bash
-   gh run watch --exit-status $(gh run list --workflow="Publish to npm" --limit 1 --json databaseId --jq '.[0].databaseId')
-   ```
-   If it fails, surface the last 40 lines of logs via `gh run view --log-failed`.
+**Prompt the user up front:**
 
-8. **Verify on npm.**
-   ```bash
-   npm view @proticom/paperboy-converter@<version> version
-   ```
+> Which package are you cutting a release for? (multi-select OK)
+>
+> 1. **converter** — `@proticom/paperboy-converter` → tag `v*`
+> 2. **cli** — `@proticom/paperboy-cli` → tag `cli-v*`
+> 3. **widget** — `@proticom/paperboy-widget` → tag `widget-v*`
+> 4. **ai** — `@proticom/paperboy-ai` → tag `ai-v*`
+> 5. **app** (desktop) — `paperboy-editor` → tag `app-v*`
+> 6. **ext** (Chrome extension) — `@proticom/paperboy-ext` → tag `ext-v*`
 
-9. **Report.**
-   - New version live on npm: yes / no
-   - Monorepo commit SHA + tag
-   - Site repo commit SHA (if any)
-   - Vercel: `paperboy-site` will auto-redeploy from its push; if the user wants to watch it, suggest `/deploy-watch`.
+For **each** selected package, ask for `X.Y.Z` (no prefix in the version string). Default: next patch from that package's `package.json`.
+
+Record the choices in a small table (package → directory → tag → workflow) before proceeding.
+
+## Step 2 — Validate the choice
+
+- **npm packages:** Remind the user Trusted Publisher must exist for that package (no runtime check unless they want `npm view`).
+- **app:** Confirm signing secrets / workflow expectations for `release-desktop.yml`.
+- **ext:** Confirm Chrome Web Store secrets for `release-ext.yml`.
+
+## Step 3 — Bump versions
+
+- **Converter only:** Use workspace-wide bump — `/bump-version` skill or:
+  ```bash
+  node scripts/bump-version.mjs --check
+  node scripts/bump-version.mjs <version>
+  (cd paperboy-converter && npm run sync:all)
+  ```
+  This aligns consumer `package.json` versions that track the converter.
+
+- **Single non-converter package:** Edit **only** that package's `package.json` `version` field (and its lockfile if you run `npm install` there).
+
+- **Multiple packages:** Bump in dependency order: **converter → ai → cli → widget → app / ext**. Use one version per package (they need not match).
+
+## Step 4 — Build + test every released package
+
+For each selected workspace, run build and test where defined. **Bail on non-zero exit** — do not tag a broken tree.
+
+```bash
+npm --workspace=@proticom/paperboy-converter run build
+npm --workspace=@proticom/paperboy-converter test
+
+npm --workspace=@proticom/paperboy-cli run build
+npm --workspace=@proticom/paperboy-cli test
+
+npm --workspace=@proticom/paperboy-widget run build
+npm --workspace=@proticom/paperboy-widget test
+
+npm --workspace=@proticom/paperboy-ai run build
+npm --workspace=@proticom/paperboy-ai test
+
+# app: build web + Tauri prep as your release checklist requires
+npm --workspace=paperboy-editor run build
+
+# ext
+npm --workspace=@proticom/paperboy-ext run build
+```
+
+If **converter** was bumped, also verify `paperboy-site/` still builds after updating its converter caret (step 6).
+
+## Step 5 — Commit (monorepo)
+
+```bash
+git add -A
+git commit -m "release: <pkg1> v<v1>[, <pkg2> v<v2>, ...]"
+```
+
+One commit for the whole release batch.
+
+## Step 6 — Site repo sync (converter only)
+
+`paperboy-site/` is a **separate Git repo** under `./paperboy-site/`. **Only if converter was released:**
+
+1. Set `@proticom/paperboy-converter` in `paperboy-site/package.json` to a caret that includes the new version (e.g. `^0.2.3`).
+2. `npm install --legacy-peer-deps && npm run build` inside `paperboy-site/`.
+3. Commit and push the site repo.
+
+Skip this step for cli / widget / ai / app / ext-only releases.
+
+## Step 7 — Push monorepo
+
+```bash
+git push origin main
+```
+
+## Step 8 — Tag + push tags
+
+Push **one tag per package**, in order if multiple (see "What NOT to do"):
+
+| Package | Commands |
+|---------|----------|
+| converter | `git tag v<version> && git push origin v<version>` |
+| cli | `git tag cli-v<version> && git push origin cli-v<version>` |
+| widget | `git tag widget-v<version> && git push origin widget-v<version>` |
+| ai | `git tag ai-v<version> && git push origin ai-v<version>` |
+| app | `git tag app-v<version> && git push origin app-v<version>` |
+| ext | `git tag ext-v<version> && git push origin ext-v<version>` |
+
+Wrong prefix triggers the wrong workflow (e.g. `v*` always runs the **converter** publish).
+
+## Step 9 — Watch publish/release runs
+
+After each tag push, watch the matching workflow:
+
+```bash
+# converter
+gh run watch --exit-status $(gh run list --workflow=publish-paperboy-converter.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+
+# cli
+gh run watch --exit-status $(gh run list --workflow=publish-paperboy.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+
+# widget
+gh run watch --exit-status $(gh run list --workflow=publish-paperboy-widget.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+
+# ai
+gh run watch --exit-status $(gh run list --workflow=publish-paperboy-ai.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+
+# app (desktop)
+gh run watch --exit-status $(gh run list --workflow=release-desktop.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+
+# ext
+gh run watch --exit-status $(gh run list --workflow=release-ext.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+```
+
+On failure: `gh run view <id> --log-failed` (last ~40 lines).
+
+## Step 10 — Verify
+
+- **npm** (`converter`, `cli`, `widget`, `ai`):
+  ```bash
+  npm view @proticom/<package-name>@<version> version
+  ```
+- **app:** GitHub Release for `app-v<version>` with `.dmg` / `.app.tar.gz` / `.exe` / `.AppImage` (per workflow matrix).
+- **ext:** GitHub Release zip + Chrome Web Store upload success in workflow logs.
+
+## Step 11 — Report
+
+Per package: name, version, tag, publish status, monorepo commit SHA.
+
+If converter: site repo commit SHA and note that Vercel redeploys on site push.
+
+## npm Trusted Publisher recipe
+
+```yaml
+permissions:
+  contents: read
+  id-token: write          # required for OIDC — do not omit
+# setup-node@v5: DO NOT set registry-url (avoids empty-token .npmrc)
+# publish step: npm publish --access public — no NPM_TOKEN
+```
 
 ## What NOT to do
 
-- Don't skip step 3. A failed consumer build that ships to a tag forces a follow-up `0.X.Y+1` to undo it.
-- Don't tag before npm publish succeeds — the site consumes the converter from the registry, so it needs the new version on npm first (or a caret that already resolves once publish completes).
-- Don't force-push tags. If the publish workflow failed and you need a retry, cut a new patch version instead.
-- Don't vendor a converter `.tgz` into `paperboy-site/`.
+- Don't skip step 4. A bad tag forces a follow-up patch to undo.
+- Don't tag a non-converter package as `v<version>` — that only publishes the converter.
+- Don't push two related tags at once (e.g. `v0.2.3` and `cli-v0.2.7`). **Push converter first**, wait for npm publish, then cli/widget/ai that depend on it.
+- Don't force-push tags. Retry with a new patch version instead.
+- Don't vendor a converter `.tgz` into `paperboy-site/` (site uses npm registry).
+- Don't assume `paperboy-site` is in the monorepo push — it is a nested separate repo.

@@ -1583,37 +1583,8 @@
       "title": "Update release-cut skill for five tag types",
       "dashboard_group": "Phase 8 — Cross-cutting hardening",
       "dashboard_ref": "paperboy-spec-tasks.json#8.4",
-      "status": "active",
-      "phase": "reply",
-      "next_role": "builder",
-      "next_agent": "cursor",
-      "roles": {
-        "builder": "cursor",
-        "reviewer": "claude",
-        "decider": "claude"
-      },
-      "turn": 1,
-      "max_turns": 4,
-      "handoff_token": "8.4-1779799588",
-      "claimed_by": null,
-      "claimed_at": null,
-      "claimed_token": null,
-      "last_updated": "2026-05-26T12:46:28+00:00",
-      "artifacts": {
-        "review": "reviews/8.4/claude-review-turn-1.md",
-        "reply": null,
-        "decision": null
-      },
-      "review_status": "waiting_for_builder",
-      "notes": "Turn 1 contract for 8.4: rewrite .claude/skills/release-cut/SKILL.md to handle ALL 6 active release workflows (spec says 5; paperboy-ai was extracted after spec was written — commit 81b4570 — so the real count is 6: v*/cli-v*/widget-v*/ai-v*/app-v*/ext-v*). Single-file edit. Skill must (1) prompt user for which package(s)+version, (2) bump correctly (workspace-wide for converter, single-package for others), (3) build+test every released package, (4) commit, (5) push tags one at a time in dep order, (6) gh run watch the right workflow per tag, (7) verify on npm or GH Releases. No edits to workflows, package.json files, or source."
-    },
-    {
-      "id": "8.5",
-      "title": "Add CHANGELOG.md files to each package",
-      "dashboard_group": "Phase 8 — Cross-cutting hardening",
-      "dashboard_ref": "paperboy-spec-tasks.json#8.5",
-      "status": "pending",
-      "phase": null,
+      "status": "review_passed",
+      "phase": "decision",
       "next_role": null,
       "next_agent": null,
       "roles": {
@@ -1621,19 +1592,48 @@
         "reviewer": "claude",
         "decider": "claude"
       },
-      "turn": 0,
+      "turn": 2,
       "max_turns": 4,
-      "handoff_token": null,
+      "handoff_token": "8.4-1779799811",
       "claimed_by": null,
       "claimed_at": null,
       "claimed_token": null,
-      "last_updated": "2026-05-25T02:35:27+00:00",
+      "last_updated": "2026-05-26T12:50:11+00:00",
       "artifacts": {
-        "review": null,
+        "review": "reviews/8.4/claude-review-turn-2.md",
+        "reply": "reviews/8.4/cursor-reply-turn-1.md",
+        "decision": null
+      },
+      "review_status": "review_passed",
+      "notes": "8.4 closed. .claude/skills/release-cut/SKILL.md rewritten (204 lines) to cover all 6 active release workflows: v* converter, cli-v* cli, widget-v* widget, ai-v* ai (spec said 5; paperboy-ai was added in commit 81b4570 after the spec was written, disclosed in the skill preamble), app-v* desktop, ext-v* extension. 11-step flow prompts user for which package(s)+version, bumps correctly (workspace-wide for converter, single-package for others), build+test, commit, push tags one at a time, gh run watch right workflow per tag, verify per output target (npm / GH Release / Chrome Web Store). Single-file edit. No workflow or package.json changes."
+    },
+    {
+      "id": "8.5",
+      "title": "Add CHANGELOG.md files to each package",
+      "dashboard_group": "Phase 8 — Cross-cutting hardening",
+      "dashboard_ref": "paperboy-spec-tasks.json#8.5",
+      "status": "active",
+      "phase": "review",
+      "next_role": "reviewer",
+      "next_agent": "claude",
+      "roles": {
+        "builder": "cursor",
+        "reviewer": "claude",
+        "decider": "claude"
+      },
+      "turn": 1,
+      "max_turns": 4,
+      "handoff_token": "8.5-0001",
+      "claimed_by": null,
+      "claimed_at": null,
+      "claimed_token": null,
+      "last_updated": "2026-05-26T12:50:11+00:00",
+      "artifacts": {
+        "review": "reviews/8.5/claude-review-turn-1.md",
         "reply": null,
         "decision": null
       },
-      "review_status": "not_started"
+      "review_status": "in_review"
     }
   ]
 }
