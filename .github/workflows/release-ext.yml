@@ -1,0 +1,63 @@
+# Releases paperboy-ext as a sideload zip on `ext-v*` tags.
+# Builds the Chrome Web Store packaging (npm run package:store) and uploads the
+# resulting paperboy-ext/dist/paperboy-extension-<version>.zip to a GitHub Release.
+# The Chrome Web Store upload itself is out of scope; consumers can sideload the zip
+# from the GitHub Release page (and task 6.5 may also mirror it to paperboy-site).
+
+name: Release paperboy-ext
+
+on:
+  push:
+    tags:
+      - 'ext-v*'
+
+concurrency:
+  group: release-ext-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies (root, all workspaces)
+        run: npm ci
+
+      - name: Extract version from tag
+        id: version
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#ext-v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Package extension for store
+        working-directory: paperboy-ext
+        run: npm run package:store
+
+      - name: Verify zip exists
+        shell: bash
+        run: |
+          ZIP="paperboy-ext/dist/paperboy-extension-${{ steps.version.outputs.version }}.zip"
+          test -f "$ZIP" || { echo "Missing $ZIP"; exit 1; }
+          ls -la "$ZIP"
+
+      - name: Upload zip to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: paperboy-ext ${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: paperboy-ext/dist/paperboy-extension-${{ steps.version.outputs.version }}.zip
