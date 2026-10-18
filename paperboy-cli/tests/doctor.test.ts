@@ -25,56 +25,9 @@ describe("doctor", () => {
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 
-  it("reports healthy summary for deterministic mode", async () => {
-    const configModule = await importConfigModule();
-    await configModule.saveConfig({
-      ...configModule.DEFAULT_CONFIG,
-      ai: {
-        ...configModule.DEFAULT_CONFIG.ai,
-        mode: "disabled",
-      },
-    });
-
-    const doctorModule = await importDoctorModule();
-    const report = await doctorModule.runDoctor();
-
-    expect(report.summary.fail).toBe(0);
-    expect(report.checks.some((check) => check.name === "Node.js version")).toBe(true);
-    expect(report.checks.some((check) => check.name === "Configured AI mode")).toBe(true);
-  });
-
-  it("reports missing key failure in openrouter mode", async () => {
-    const configModule = await importConfigModule();
-    const envVarName = "PAPERBOY_TEST_KEY_DOES_NOT_EXIST";
-    await configModule.saveConfig({
-      ...configModule.DEFAULT_CONFIG,
-      ai: {
-        ...configModule.DEFAULT_CONFIG.ai,
-        mode: "openrouter",
-        apiKeyEnvVar: envVarName,
-      },
-    });
-    delete process.env[envVarName];
-
-    const doctorModule = await importDoctorModule();
-    const report = await doctorModule.runDoctor();
-    const keyCheck = report.checks.find(
-      (check) => check.name === "OpenRouter API key",
-    );
-
-    expect(keyCheck?.status).toBe("fail");
-    expect(report.summary.fail).toBeGreaterThan(0);
-  });
-
   it("includes crawl readiness checks when running offline", async () => {
     const configModule = await importConfigModule();
-    await configModule.saveConfig({
-      ...configModule.DEFAULT_CONFIG,
-      ai: {
-        ...configModule.DEFAULT_CONFIG.ai,
-        mode: "disabled",
-      },
-    });
+    await configModule.saveConfig(configModule.DEFAULT_CONFIG);
 
     const doctorModule = await importDoctorModule();
     const report = await doctorModule.runDoctor({ offline: true });
@@ -89,11 +42,19 @@ describe("doctor", () => {
       (check) => check.name === "Converter smoke test",
     );
     expect(smoke?.status).toBe("ok");
+    expect(report.summary.fail).toBe(0);
+    expect(report.checks.map((check) => check.name)).toEqual([
+      "Node.js version", "Config path", "Config file", "Internet reachability",
+      "Converter smoke test", "Proxy environment", "Output directory writable", "Platform",
+    ]);
 
     const proxy = report.checks.find(
       (check) => check.name === "Proxy environment",
     );
-    expect(proxy).toBeDefined();
+    expect(proxy?.status).toBe(
+      ["HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy"]
+        .some((name) => process.env[name]) ? "warn" : "ok",
+    );
 
     const writable = report.checks.find(
       (check) => check.name === "Output directory writable",

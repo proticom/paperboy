@@ -1,16 +1,8 @@
-import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import {
-  CONFIG_PATH,
-  DOTENV_PATH,
-  getApiKey,
-  hasSecretTool,
-  loadConfig,
-  type PaperboyCliConfig,
-} from "./config.js";
+import { CONFIG_PATH } from "./config.js";
 
 type CheckStatus = "ok" | "warn" | "fail";
 
@@ -43,15 +35,6 @@ const PROXY_ENV_VARS = [
   "no_proxy",
 ];
 
-function commandExists(command: string): boolean {
-  try {
-    execSync(`which ${command}`, { stdio: "pipe" });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function parseMajorVersion(version: string): number {
   const major = Number(version.replace(/^v/, "").split(".")[0] ?? "0");
   return Number.isFinite(major) ? major : 0;
@@ -72,120 +55,6 @@ async function fetchWithTimeout(
   } finally {
     clearTimeout(timeout);
   }
-}
-
-async function checkAiMode(config: PaperboyCliConfig): Promise<DoctorCheck[]> {
-  const checks: DoctorCheck[] = [];
-
-  if (config.ai.mode === "disabled") {
-    checks.push({
-      name: "AI mode",
-      status: "ok",
-      details: "AI is disabled (deterministic conversion only).",
-    });
-    return checks;
-  }
-
-  if (config.ai.mode === "ollama") {
-    const hasOllama = commandExists("ollama");
-    checks.push({
-      name: "Ollama binary",
-      status: hasOllama ? "ok" : "fail",
-      details: hasOllama
-        ? "Found `ollama` in PATH."
-        : "Missing `ollama` in PATH. Install from https://ollama.com.",
-    });
-
-    const base = config.ai.baseUrl || "http://localhost:11434";
-    try {
-      const response = await fetchWithTimeout(
-        `${base.replace(/\/+$/, "")}/api/tags`,
-      );
-      checks.push({
-        name: "Ollama endpoint",
-        status: response.ok ? "ok" : "warn",
-        details: response.ok
-          ? `Reachable at ${base}.`
-          : `Endpoint responded with ${response.status}.`,
-      });
-    } catch {
-      checks.push({
-        name: "Ollama endpoint",
-        status: "warn",
-        details: `Could not reach ${base}. Start Ollama if AI descriptions are needed.`,
-      });
-    }
-
-    return checks;
-  }
-
-  if (config.ai.mode === "local-endpoint") {
-    const base = config.ai.baseUrl;
-    const modelsUrl = `${base.replace(/\/+$/, "")}/v1/models`;
-    try {
-      const response = await fetchWithTimeout(modelsUrl);
-      checks.push({
-        name: "Local endpoint",
-        status: response.ok ? "ok" : "warn",
-        details: response.ok
-          ? `Reachable at ${modelsUrl}.`
-          : `Endpoint responded with ${response.status}.`,
-      });
-    } catch {
-      checks.push({
-        name: "Local endpoint",
-        status: "warn",
-        details: `Could not reach ${modelsUrl}.`,
-      });
-    }
-
-    checks.push({
-      name: "Local model id",
-      status: config.ai.model ? "ok" : "fail",
-      details: config.ai.model
-        ? `Configured model: ${config.ai.model}`
-        : "No local model configured.",
-    });
-    return checks;
-  }
-
-  const envVarName = config.ai.apiKeyEnvVar || "PAPERBOY_OPENROUTER_API_KEY";
-  const key = getApiKey(envVarName);
-  checks.push({
-    name: "OpenRouter API key",
-    status: key ? "ok" : "fail",
-    details: key
-      ? `Found key in configured storage (${envVarName}).`
-      : `Missing API key (${envVarName}). Run 'paperboy-cli setup'.`,
-  });
-
-  if (key) {
-    try {
-      const response = await fetchWithTimeout(
-        "https://openrouter.ai/api/v1/models",
-        {
-          headers: {
-            Authorization: `Bearer ${key}`,
-          },
-        },
-      );
-      checks.push({
-        name: "OpenRouter connectivity",
-        status: response.ok ? "ok" : "warn",
-        details: response.ok
-          ? "OpenRouter models endpoint reachable."
-          : `OpenRouter responded with ${response.status}.`,
-      });
-    } catch {
-      checks.push({
-        name: "OpenRouter connectivity",
-        status: "warn",
-        details: "Could not reach OpenRouter models endpoint.",
-      });
-    }
-  }
-
-  return checks;
 }
 
 async function checkCrawlReadiness(
@@ -301,12 +170,6 @@ export async function runDoctor(
     details: CONFIG_PATH,
   });
 
-  checks.push({
-    name: "Dotenv path",
-    status: "ok",
-    details: DOTENV_PATH,
-  });
-
   try {
     await fs.access(CONFIG_PATH);
     checks.push({
@@ -322,35 +185,7 @@ export async function runDoctor(
     });
   }
 
-  const config = await loadConfig();
-  checks.push({
-    name: "Configured AI mode",
-    status: "ok",
-    details: config.ai.mode,
-  });
-
-  checks.push(...(await checkAiMode(config)));
   checks.push(...(await checkCrawlReadiness(options)));
-
-  if (process.platform === "darwin") {
-    checks.push({
-      name: "macOS Keychain support",
-      status: commandExists("security") ? "ok" : "warn",
-      details: commandExists("security")
-        ? "Keychain CLI is available."
-        : "Keychain CLI is unavailable.",
-    });
-  }
-
-  if (process.platform === "linux") {
-    checks.push({
-      name: "Linux secret-tool support",
-      status: hasSecretTool() ? "ok" : "warn",
-      details: hasSecretTool()
-        ? "secret-tool is available."
-        : "secret-tool is unavailable; dotenv fallback is used.",
-    });
-  }
 
   checks.push({
     name: "Platform",

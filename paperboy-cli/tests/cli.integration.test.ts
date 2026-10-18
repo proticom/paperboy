@@ -35,44 +35,21 @@ describe("cli integration", () => {
     const result = runCli(["config", "show"], configDir);
     expect(result.status).toBe(0);
     const parsed = JSON.parse(result.stdout);
-    expect(parsed.ai.mode).toBe("disabled");
+    expect(parsed).toEqual({ version: 1, defaults: { includeLayoutTable: true } });
   });
 
   it("runs doctor in JSON mode", () => {
-    const result = runCli(["doctor", "--json"], configDir);
+    const result = runCli(["doctor", "--json", "--offline"], configDir);
     expect(result.status).toBe(0);
     const parsed = JSON.parse(result.stdout);
-    expect(Array.isArray(parsed.checks)).toBe(true);
-    expect(parsed.summary).toBeDefined();
+    expect(parsed.checks.find((check: { name: string }) => check.name === "Converter smoke test")?.status).toBe("ok");
+    expect(parsed.summary.fail).toBe(0);
   });
 
-  it("returns non-zero doctor exit code when a failing check exists", async () => {
-    const configPath = path.join(configDir, "config.json");
-    await fs.writeFile(
-      configPath,
-      JSON.stringify(
-        {
-          version: 1,
-          ai: {
-            mode: "openrouter",
-            model: "openai/gpt-5-mini",
-            baseUrl: "http://localhost:11434",
-            apiKeyEnvVar: "PAPERBOY_TEST_MISSING_KEY",
-          },
-          defaults: {
-            includeLayoutTable: true,
-            describeImagesWithAi: false,
-          },
-        },
-        null,
-        2,
-      ),
-      "utf8",
-    );
-
-    const result = runCli(["doctor"], configDir);
+  it("rejects the removed image description flag", () => {
+    const result = runCli(["convert", "scan.png", "--describe-image"], configDir);
     expect(result.status).toBe(1);
-    expect(result.stdout).toContain("FAIL");
+    expect(result.stderr).toContain("error: unknown option '--describe-image'");
   });
 
   it("converts file and writes markdown output", async () => {

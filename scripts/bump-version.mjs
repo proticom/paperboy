@@ -29,7 +29,6 @@ const ROOT = resolve(__dirname, "..");
 // JSON files with a top-level "version" key.
 const JSON_TARGETS = [
   "paperboy-converter/package.json",
-  "paperboy-ai/package.json",
   "paperboy-cli/package.json",
   "paperboy-ext/package.json",
   "paperboy-ext/manifest.json",

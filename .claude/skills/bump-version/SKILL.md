@@ -5,7 +5,7 @@ description: Bump every workspace package in the paperboy monorepo to the same v
 
 # Bump version across the monorepo
 
-Two scripts cooperate to keep version numbers aligned across `paperboy-converter`, `paperboy-ai`, `paperboy-cli`, and `paperboy-ext`:
+Two scripts cooperate to keep version numbers aligned across `paperboy-converter`, `paperboy-cli`, and `paperboy-ext`:
 
 - `scripts/bump-version.mjs <version>` — rewrites the version field in every package.json and in `paperboy-ext/manifest.json`.
 - `paperboy-converter/scripts/sync-all.mjs` — rebuilds the converter only. Workspace consumers pick up the new build via symlinks; `paperboy-site` consumes `@proticom/paperboy-converter` from npm (no vendoring).

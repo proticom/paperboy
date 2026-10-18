@@ -1,6 +1,6 @@
 {
   "name": "@proticom/paperboy-ext",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "private": true,
   "description": "Paperboy browser extension side panel",
   "scripts": {
