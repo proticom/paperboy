@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><title>Using the Fetch API</title></head><body>
+<main><article>
+<h1>Using the Fetch API</h1>
+<p>The <a href="/en-US/docs/Web/API/Fetch_API">Fetch API</a> provides a JavaScript interface for making HTTP requests and processing the responses.</p>
+<p>The <code>fetch()</code> function returns a <a href="/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise">Promise</a> which is fulfilled with a response object representing the server's response. You can then check the request status and extract the body of the response in various formats, including text and JSON, by calling the appropriate method on the response.</p>
+<p>Here's a minimal function that uses <code>fetch()</code> to retrieve some JSON data from a server:</p>
+<mdn-code-example class="brush: js notranslate"><template shadowrootmode="open">
+      <div class="code-example">
+        <div class="example-header">
+          <span class="language-name">js</span>
+          <mdn-copy-button variant="secondary"><template shadowrootmode="open"><mdn-button variant="secondary"><template shadowrootmode="open">
+        <button class="button" part="button">
+          
+    <span class="label" part="label"><slot></slot></span>
+  
+        </button>
+      </template>Copy</mdn-button></template></mdn-copy-button>
+          
+        </div>
+        <pre class="brush: js notranslate"><code><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">getData</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">const</span> url <span class="token operator">=</span> <span class="token string">"https://example.org/products.json"</span><span class="token punctuation">;</span>
+  <span class="token keyword">try</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>response<span class="token punctuation">.</span>ok<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Response status: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>response<span class="token punctuation">.</span>status<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> response<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>error<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    console<span class="token punctuation">.</span><span class="token function">error</span><span class="token punctuation">(</span>error<span class="token punctuation">.</span>message<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+</code></pre>
+      </div>
+    </template></mdn-code-example>
+<p>We declare a string containing the URL and then call <code>fetch()</code>, passing the URL with no extra options.</p>
+<h2>Setting the method</h2>
+<p>By default, <code>fetch()</code> makes a GET request, but you can use the <code>method</code> option to use a different request method:</p>
+<mdn-code-example class="brush: js notranslate"><template shadowrootmode="open">
+      <div class="code-example">
+        <div class="example-header">
+          <span class="language-name">js</span>
+          <mdn-copy-button variant="secondary"><template shadowrootmode="open"><mdn-button variant="secondary"><template shadowrootmode="open">
+        <button class="button" part="button">
+          
+    <span class="label" part="label"><slot></slot></span>
+  
+        </button>
+      </template>Copy</mdn-button></template></mdn-copy-button>
+          
+        </div>
+        <pre class="brush: js notranslate"><code><span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token string">"https://example.org/post"</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+  <span class="token literal-property property">method</span><span class="token operator">:</span> <span class="token string">"POST"</span><span class="token punctuation">,</span>
+  <span class="token comment">// …</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+      </div>
+    </template></mdn-code-example>
+<p>If the <code>mode</code> option is set to <code>no-cors</code>, then <code>method</code> must be one of GET, POST or HEAD.</p>
+</article></main>
+</body></html>

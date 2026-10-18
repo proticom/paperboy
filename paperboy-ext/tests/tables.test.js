@@ -3,7 +3,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const { test } = require("node:test");
-const { parseHTML } = require("linkedom");
+const { parseHTML, DOMParser } = require("linkedom");
+const Readability = require("../lib/readability.js");
 const MarkdownIt = require("markdown-it");
 
 const background = fs.readFileSync(path.join(__dirname, "../background.js"), "utf8");
@@ -16,7 +17,7 @@ function pick({ target, clickTarget = target, tab = false, toggle = false, html,
     return { top: 10, left: 10, width: compact || this.localName === "span" ? 30 : 500, height: compact || this.localName === "span" ? 20 : 300 };
   };
   document.elementFromPoint = () => document.querySelector(target);
-  const context = vm.createContext({ document, Node: window.Node,
+  const context = vm.createContext({ document, Node: { DOCUMENT_POSITION_FOLLOWING: 4, DOCUMENT_POSITION_PRECEDING: 2 },
     window: { location: { href: "https://example.org/" }, innerWidth: 1000, innerHeight: 800,
       getComputedStyle: () => ({ overflowY: "visible", overflowX: "visible" }),
       addEventListener() {}, removeEventListener() {},
@@ -106,14 +107,9 @@ test("clicking a snapped table twice still toggles it off", () => {
   assert.deepEqual(pick({ target: "td", toggle: true }).messages, []);
 });
 
-const sidepanel = fs.readFileSync(path.join(__dirname, "../sidepanel.js"), "utf8");
-const conversion = sidepanel.slice(sidepanel.indexOf("function convertHtmlToMarkdown(payload)"), sidepanel.indexOf("function renderMarkdown("));
-
 async function convertPickedHtml(html) {
-  const { createTurndownService, wrapTableFragment } = await import("@proticom/paperboy-converter/turndown");
-  const context = vm.createContext({ turndownService: createTurndownService(), wrapTableFragment });
-  vm.runInContext(conversion, context);
-  return context.convertHtmlToMarkdown({ fromPicker: true, html }).markdown;
+  const { convertHtmlToMarkdown } = await import("../lib/convert.mjs");
+  return convertHtmlToMarkdown({ fromPicker: true, html }, { DOMParser, Readability }).markdown;
 }
 
 for (const [name, rows, columns] of [["wikipedia-tallest", 7, 11], ["github-playwright", 6, 3]]) {

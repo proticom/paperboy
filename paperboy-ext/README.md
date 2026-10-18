@@ -99,6 +99,8 @@ paperboy-ext/
   icons/
 ```
 
+`icons/` holds static PNGs from the Ink P icon kit. They are not generated.
+
 ### File roles (simple explanation)
 
 - `background.js`  

@@ -1,4 +1,4 @@
-import { createTurndownService, wrapTableFragment } from "@proticom/paperboy-converter/turndown";
+import { convertHtmlToMarkdown } from "./lib/convert.mjs";
 import markdownit from "markdown-it";
 
 /* global PAPERBOY_CONVERTER_VERSION */ // banner in sidepanel.bundle.js from build.js
@@ -120,7 +120,6 @@ function escapeBlockquote(text) {
     .join("\n");
 }
 
-const turndownService = createTurndownService();
 const md = markdownit({ html: false, linkify: true, typographer: true });
 
 function setStatus(text, status = "idle") {
@@ -160,139 +159,6 @@ function requestPageData() {
       },
     );
   });
-}
-
-function parseHtmlToDocument(html, url) {
-  const parser = new DOMParser();
-  const documentClone = parser.parseFromString(html, "text/html");
-
-  if (documentClone.head && url) {
-    const base = documentClone.createElement("base");
-    base.href = url;
-    documentClone.head.prepend(base);
-  }
-
-  return documentClone;
-}
-
-// Heuristic for "Readability over-collapsed" — fires for chat pages, docs
-// sites with many sections, anything where the article Readability picks is
-// a tiny fraction of the page's actual text content. Replaces the old
-// hardcoded host allowlist so new chat platforms work without code changes.
-function readabilityOverCollapsed(article, body) {
-  const articleText = (article?.textContent ?? "").length;
-  const bodyText = (body?.textContent ?? "").length;
-  if (bodyText < 1000) return false;
-  return articleText < bodyText * 0.3;
-}
-
-function pickMainContainer(documentClone) {
-  return (
-    documentClone.querySelector("main") ||
-    documentClone.querySelector("[role=main]") ||
-    documentClone.body
-  );
-}
-
-// Lightweight chrome-stripping for cases where Readability is bypassed
-// (chat hosts, picker, etc.). Removes top-level navigation and decorative
-// landmarks that bleed into the markdown otherwise.
-function stripPageChrome(documentClone) {
-  const selectors = [
-    "nav",
-    "aside",
-    "[role=navigation]",
-    "[role=banner]",
-    "[role=complementary]",
-    "[role=contentinfo]",
-    "[aria-hidden=true]",
-  ];
-  for (const sel of selectors) {
-    documentClone.querySelectorAll(sel).forEach((el) => el.remove());
-  }
-  // <header>/<footer> only at the page level, not inside articles/sections.
-  documentClone.querySelectorAll("body > header, body > footer").forEach((el) =>
-    el.remove(),
-  );
-  documentClone
-    .querySelectorAll("body > div header:not(article header):not(section header)")
-    .forEach((el) => {
-      const closestArticleOrSection = el.closest("article, section, main");
-      if (!closestArticleOrSection) el.remove();
-    });
-  documentClone
-    .querySelectorAll("body > div footer:not(article footer):not(section footer)")
-    .forEach((el) => {
-      const closestArticleOrSection = el.closest("article, section, main");
-      if (!closestArticleOrSection) el.remove();
-    });
-}
-
-function convertHtmlToMarkdown(payload) {
-  // Picker output: user already targeted exactly what they want. Skip
-  // Readability + chrome stripping + main-container guessing entirely;
-  // turndown the captured HTML directly.
-  if (payload.fromPicker) {
-    const markdownBody = turndownService.turndown(wrapTableFragment(payload.html ?? "")).trim();
-    const title = payload.title || "Selected region";
-    const markdownLines = [`# ${title}`];
-    if (payload.url) markdownLines.push("", `Source: ${payload.url}`);
-    markdownLines.push("", markdownBody || "_No markdown generated._");
-    return {
-      markdown: `${markdownLines.join("\n").trim()}\n`,
-      title,
-      length: markdownBody.length,
-    };
-  }
-
-  // Readability mutates the document during parse, so keep a pristine clone
-  // for the fallback branch in case we decide to bypass.
-  const documentClone = parseHtmlToDocument(payload.html, payload.url);
-  const fallbackClone = parseHtmlToDocument(payload.html, payload.url);
-
-  const reader = new Readability(documentClone, {
-    charThreshold: 40,
-    keepClasses: false,
-    nbTopCandidates: 5,
-  });
-  const article = reader.parse();
-
-  let contentHtml;
-  if (article?.content && !readabilityOverCollapsed(article, fallbackClone.body)) {
-    contentHtml = article.content;
-  } else {
-    // Readability either failed or collapsed the page to a tiny fragment.
-    // Fall back to the full body with page chrome stripped.
-    stripPageChrome(fallbackClone);
-    contentHtml = pickMainContainer(fallbackClone)?.innerHTML ?? "";
-  }
-
-  if (!contentHtml.trim()) {
-    throw new Error(
-      "No readable content was found. Try another page or scroll the page first.",
-    );
-  }
-
-  const markdownBody = turndownService.turndown(contentHtml).trim();
-  const title = article?.title || payload.title || "Untitled page";
-
-  const markdownLines = [`# ${title}`];
-
-  if (payload.url) {
-    markdownLines.push("", `Source: ${payload.url}`);
-  }
-
-  if (article?.byline) {
-    markdownLines.push("", `Byline: ${article.byline}`);
-  }
-
-  markdownLines.push("", markdownBody || "_No markdown generated._");
-
-  return {
-    markdown: `${markdownLines.join("\n").trim()}\n`,
-    title,
-    length: article?.length ?? markdownBody.length,
-  };
 }
 
 function renderMarkdown(markdownResult, capturedAt) {

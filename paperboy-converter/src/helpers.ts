@@ -3,6 +3,50 @@ import type { ConvertInputData } from "./types.js";
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder("utf-8");
 
+export function unwrapScriptLinks(root: ParentNode): void {
+  for (const link of root.querySelectorAll("a[href]")) {
+    const href = (link.getAttribute("href") ?? "").replace(/[\x00-\x20\x7f]/g, "");
+    if (/^(?:javascript|vbscript):/i.test(href)) {
+      link.replaceWith(...link.childNodes);
+    }
+  }
+}
+
+export function absolutizeUrls(root: ParentNode, baseUrl: string): void {
+  try {
+    new URL(baseUrl);
+  } catch {
+    return;
+  }
+
+  function resolve(value: string): string {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
+      return value;
+    }
+    try {
+      return new URL(value, baseUrl).href;
+    } catch {
+      return value;
+    }
+  }
+
+  for (const element of root.querySelectorAll("[href], [src], [srcset]")) {
+    for (const attribute of ["href", "src"]) {
+      const value = element.getAttribute(attribute);
+      if (value !== null) element.setAttribute(attribute, resolve(value));
+    }
+    const srcset = element.getAttribute("srcset");
+    if (srcset !== null) {
+      // Commas inside URLs (including data URLs) are not candidate separators.
+      element.setAttribute("srcset", srcset.replace(
+        /(\S+?)(\s+[^,]*(?:,|$)|,+(?=\s|$)|$)/g,
+        (_candidate, url: string, descriptor: string) => resolve(url) + descriptor,
+      ));
+    }
+  }
+}
+
 export function stripFileExtension(fileName: string): string {
   const normalized = fileName.replace(/\\/g, "/");
   const baseName = normalized.slice(normalized.lastIndexOf("/") + 1);

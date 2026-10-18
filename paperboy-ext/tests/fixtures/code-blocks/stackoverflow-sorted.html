@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><title>Processing a sorted array</title></head><body>
+<main><article>
+<h1>Why is processing a sorted array faster?</h1>
+<p>The program processes an array of values. The order of those values changes whether a branch is easy to predict. The following short excerpt keeps the highlighted C++ markup and the copy toolbar used in the question.</p>
+<pre class="lang-cpp s-code-block"><div class="mtn4 d-flex jc-end g4 ps-sticky l0 mrn4"><button class="s-btn js-copy-button" type="button">Copy</button></div><code class="hljs language-cpp"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;algorithm&gt;</span></span>
+<span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;ctime&gt;</span></span>
+<span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;iostream&gt;</span></span>
+
+<span class="hljs-function"><span class="hljs-type">int</span> <span class="hljs-title">main</span><span class="hljs-params">()</span>
+</span>{
+    <span class="hljs-comment">// Generate data</span>
+    <span class="hljs-type">const</span> <span class="hljs-type">unsigned</span> arraySize = <span class="hljs-number">32768</span>;
+    <span class="hljs-type">int</span> data[arraySize];
+</code></pre>
+<p>The branch condition adds a value to the sum only when the value is at least 128. Copy the idea into a small benchmark to compare the two orders. The word Copy in this paragraph is ordinary prose.</p>
+<pre class="default s-code-block"><div class="mtn4 d-flex jc-end g4 ps-sticky l0 mrn4"><button class="s-btn js-copy-button" type="button">Copy</button></div><code class="hljs language-haskell"><span class="hljs-title">if</span> (<span class="hljs-class"><span class="hljs-keyword">data</span>[c] &gt;= 128)</span>
+    sum += <span class="hljs-class"><span class="hljs-keyword">data</span>[c];</span>
+</code></pre>
+</article></main>
+</body></html>
