@@ -6,44 +6,35 @@ const { test } = require("node:test");
 const { createRequire } = require("node:module");
 
 const converterRequire = createRequire(require.resolve("@proticom/paperboy-converter/package.json"));
-const { parseHTML } = converterRequire("linkedom");
-const source = fs.readFileSync(path.join(__dirname, "../sidepanel.js"), "utf8");
-const conversion = source.slice(source.indexOf("function convertHtmlToMarkdown("),
-  source.indexOf("\nfunction renderMarkdown("));
+const { parseHTML, DOMParser } = converterRequire("linkedom");
+const source = fs.readFileSync(path.join(__dirname, "../lib/convert.mjs"), "utf8");
 const baseUrl = "https://example.org/articles/current";
 
 async function pick(html, url = baseUrl, pickedBaseUrl) {
-  const { absolutizeUrls, unwrapScriptLinks } = await import("@proticom/paperboy-converter/helpers");
-  const { createTurndownService } = await import("@proticom/paperboy-converter/turndown");
-  const { document } = parseHTML("");
+  const { convertHtmlToMarkdown } = await import("../lib/convert.mjs");
   const templates = [];
-  const payload = { html, url, baseUrl: pickedBaseUrl, fromPicker: true, title: "Picked" };
-  const result = vm.runInNewContext(`${conversion}\nconvertHtmlToMarkdown(payload)`, {
-    payload, absolutizeUrls, unwrapScriptLinks, turndownService: createTurndownService(),
-    document: { createElement(tag) {
-      assert.equal(tag, "template");
-      const template = document.createElement(tag);
-      templates.push(template);
-      return {
-        set innerHTML(value) { template.innerHTML = value; },
-        get innerHTML() {
-          // Linkedom does not serialize content mutations through template.innerHTML.
-          const wrapper = document.createElement("div");
-          wrapper.append(template.content.cloneNode(true));
-          return wrapper.innerHTML;
-        },
-        get content() { return template.content; },
+  class RecordingDOMParser extends DOMParser {
+    parseFromString(...args) {
+      const document = super.parseFromString(...args);
+      const createElement = document.createElement.bind(document);
+      document.createElement = (tag) => {
+        const element = createElement(tag);
+        if (tag === "template") templates.push(element);
+        return element;
       };
-    } },
-  });
+      return document;
+    }
+  }
+  const payload = { html, url, baseUrl: pickedBaseUrl, fromPicker: true, title: "Picked" };
+  const result = convertHtmlToMarkdown(payload, { DOMParser: RecordingDOMParser, Readability: function () {} });
   assert.equal(payload.html, html);
   return { result, templates };
 }
 
 test("picker source imports the helper and calls it before the existing turndown line", () => {
-  assert.match(source, /import \{ absolutizeUrls, unwrapScriptLinks \} from "@proticom\/paperboy-converter\/helpers";/);
-  const branch = conversion.slice(0, conversion.indexOf("\n  // Readability mutates"));
-  assert.match(branch, /unwrapScriptLinks\(template\.content\);[\s\S]*absolutizeUrls\(template\.content, payload\.baseUrl \|\| payload\.url\);[\s\S]*const markdownBody = turndownService\.turndown\(payload\.html \?\? ""\)\.trim\(\);/);
+  assert.match(source, /import \{ absolutizeUrls as absolutizePickedUrls, unwrapScriptLinks \} from "@proticom\/paperboy-converter\/helpers";/);
+  const branch = source.slice(source.indexOf("if (payload.fromPicker)"), source.indexOf("\n  // Readability mutates"));
+  assert.match(branch, /unwrapScriptLinks\(template\.content\);[\s\S]*absolutizePickedUrls\(template\.content, payload\.baseUrl \|\| payload\.url\);[\s\S]*turndownService\.turndown\(/);
 });
 
 test("picker resolves synthetic article links and images while preserving local links", async () => {

@@ -26,6 +26,7 @@ const STORE_FILES = [
   "lib/tesseract/tesseract-core-simd-lstm.wasm",
   "lib/tesseract/lang/eng.traineddata.gz",
   "icons/icon-16.png",
+  "icons/icon-32.png",
   "icons/icon-48.png",
   "icons/icon-128.png",
 ];
