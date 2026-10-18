@@ -41,6 +41,8 @@ export interface ImageDescriptionParams {
 
 export interface ImageConversionOptions {
   includeLayoutTable?: boolean;
+  /** Local directory of gzipped language data. Disables the OCR disk cache. */
+  languageDataPath?: string;
   describeImage?: (params: ImageDescriptionParams) => Promise<string | null>;
   /**
    * Injectable OCR backend. When omitted, the handler lazy-loads tesseract.js

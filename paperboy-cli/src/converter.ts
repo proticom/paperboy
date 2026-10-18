@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import {
   convertToMarkdown,
   shouldReadInputAsText,
@@ -32,16 +33,13 @@ export interface ConvertOptions {
 function toSharedOptions(
   filePath: string,
   options?: ConvertOptions,
-): SharedConvertOptions | undefined {
-  if (!options?.image) {
-    return undefined;
-  }
-
+): SharedConvertOptions {
   const sharedImageOptions: SharedConvertOptions["image"] = {
-    includeLayoutTable: options.image.includeLayoutTable,
+    includeLayoutTable: options?.image?.includeLayoutTable,
+    languageDataPath: fileURLToPath(new URL("./lang/", import.meta.url)),
   };
 
-  if (options.image.describeImage) {
+  if (options?.image?.describeImage) {
     sharedImageOptions.describeImage = async (
       params: SharedImageDescriptionParams,
     ) =>
@@ -54,7 +52,7 @@ function toSharedOptions(
       }) ?? null;
   }
 
-  if (options.image.ocr) {
+  if (options?.image?.ocr) {
     sharedImageOptions.ocr = options.image.ocr;
   }
 

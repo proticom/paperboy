@@ -44,7 +44,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/copy-lang-data.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "doctor": "node ./dist/cli.js doctor",
     "test": "npm run build && vitest run",
