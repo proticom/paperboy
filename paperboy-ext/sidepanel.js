@@ -1,5 +1,5 @@
 import { createTurndownService } from "@proticom/paperboy-converter/turndown";
-import { absolutizeUrls } from "@proticom/paperboy-converter/helpers";
+import { absolutizeUrls, unwrapScriptLinks } from "@proticom/paperboy-converter/helpers";
 import markdownit from "markdown-it";
 
 /* global PAPERBOY_CONVERTER_VERSION */ // banner in sidepanel.bundle.js from build.js
@@ -234,10 +234,13 @@ function convertHtmlToMarkdown(payload) {
   // Readability + chrome stripping + main-container guessing entirely;
   // turndown the captured HTML directly.
   if (payload.fromPicker) {
-    if (payload.url) {
+    if (payload.html) {
       const template = document.createElement("template");
       template.innerHTML = payload.html ?? "";
-      absolutizeUrls(template.content, payload.url);
+      unwrapScriptLinks(template.content);
+      if (payload.baseUrl || payload.url) {
+        absolutizeUrls(template.content, payload.baseUrl || payload.url);
+      }
       payload = { ...payload, html: template.innerHTML };
     }
     const markdownBody = turndownService.turndown(payload.html ?? "").trim();

@@ -3,6 +3,15 @@ import type { ConvertInputData } from "./types.js";
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder("utf-8");
 
+export function unwrapScriptLinks(root: ParentNode): void {
+  for (const link of root.querySelectorAll("a[href]")) {
+    const href = (link.getAttribute("href") ?? "").replace(/[\x00-\x20\x7f]/g, "");
+    if (/^(?:javascript|vbscript):/i.test(href)) {
+      link.replaceWith(...link.childNodes);
+    }
+  }
+}
+
 export function absolutizeUrls(root: ParentNode, baseUrl: string): void {
   try {
     new URL(baseUrl);

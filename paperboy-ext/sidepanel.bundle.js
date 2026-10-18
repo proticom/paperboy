@@ -876,6 +876,14 @@ ${content}
   // ../paperboy-converter/dist/helpers.js
   var textEncoder = new TextEncoder();
   var textDecoder = new TextDecoder("utf-8");
+  function unwrapScriptLinks(root2) {
+    for (const link2 of root2.querySelectorAll("a[href]")) {
+      const href = (link2.getAttribute("href") ?? "").replace(/[\x00-\x20\x7f]/g, "");
+      if (/^(?:javascript|vbscript):/i.test(href)) {
+        link2.replaceWith(...link2.childNodes);
+      }
+    }
+  }
   function absolutizeUrls(root2, baseUrl) {
     try {
       new URL(baseUrl);
@@ -6494,10 +6502,13 @@ ${content}
   }
   function convertHtmlToMarkdown(payload) {
     if (payload.fromPicker) {
-      if (payload.url) {
+      if (payload.html) {
         const template = document.createElement("template");
         template.innerHTML = payload.html ?? "";
-        absolutizeUrls(template.content, payload.url);
+        unwrapScriptLinks(template.content);
+        if (payload.baseUrl || payload.url) {
+          absolutizeUrls(template.content, payload.baseUrl || payload.url);
+        }
         payload = { ...payload, html: template.innerHTML };
       }
       const markdownBody2 = turndownService.turndown(payload.html ?? "").trim();
