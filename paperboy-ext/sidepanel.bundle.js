@@ -776,6 +776,97 @@ var PAPERBOY_CONVERTER_VERSION = "0.3.0";
   }
 
   // ../paperboy-converter/dist/turndown.js
+  var copyLabel = /^(?:copy|copied|copy code|copy to clipboard|copied to clipboard)[.!]?$/i;
+  var lineWrapper = /^(?:DIV|P|LI)$/;
+  var toolbarSelector = "button, label, [role=button], [role=status], [aria-live], [hidden], .sr-only, .visually-hidden";
+  function isCodeToolbar(node) {
+    const text2 = node.textContent?.trim() ?? "";
+    const label = node.getAttribute("aria-label") || node.getAttribute("title") || text2;
+    if (!copyLabel.test(text2) && !copyLabel.test(label))
+      return false;
+    if (!node.matches(toolbarSelector))
+      return false;
+    if (node.closest("pre"))
+      return true;
+    const ownsPre = (element) => Array.from(element.children).some((child) => child.nodeName === "PRE");
+    for (const sibling of [node.previousElementSibling, node.nextElementSibling]) {
+      if (sibling && (sibling.nodeName === "PRE" || ownsPre(sibling)))
+        return true;
+    }
+    let wrapper = node.parentElement;
+    while (wrapper && !wrapper.matches("body, main, article, section, p")) {
+      if (ownsPre(wrapper))
+        return true;
+      wrapper = wrapper.parentElement;
+    }
+    return false;
+  }
+  function codeLanguage(pre) {
+    for (const node of [pre, pre.querySelector("code"), pre.parentElement]) {
+      if (!node)
+        continue;
+      const data = node.getAttribute("data-language");
+      const classes = node.getAttribute("class") ?? "";
+      const hint = data || classes.match(/(?:^|\s)(?:language-|lang-|highlight-(?:source|text)-|brush:\s*)([\w#+.-]+)/i)?.[1];
+      if (hint && /^[\w#+.-]+$/.test(hint))
+        return hint;
+    }
+    return "";
+  }
+  function codeText(node) {
+    if (node.nodeType === 3)
+      return node.nodeValue ?? "";
+    if (node.nodeType !== 1)
+      return "";
+    if (!("tagName" in node) || !("getAttribute" in node))
+      return "";
+    const element = node;
+    if (element.matches("script, style, noscript") || isCodeToolbar(element))
+      return "";
+    if (element.tagName === "BR")
+      return "\n";
+    let text2 = "";
+    for (const child of Array.from(element.childNodes)) {
+      const part = codeText(child);
+      const childElement = child.nodeType === 1 ? child : null;
+      const isLine = childElement && (lineWrapper.test(childElement.nodeName) || childElement.matches('.line, .cm-line, .token-line, .code-line, .view-line, .shiki-line, [data-line], [style*="display: block"], [style*="display:block"]'));
+      if (isLine && !part && Array.from(childElement.querySelectorAll(toolbarSelector)).some(isCodeToolbar))
+        continue;
+      if (isLine && text2 && !text2.endsWith("\n"))
+        text2 += "\n";
+      text2 += part;
+      if (isLine && (!part || !text2.endsWith("\n")))
+        text2 += "\n";
+    }
+    return text2;
+  }
+  function fencedCode(pre) {
+    const code2 = codeText(pre).replace(/\r\n?/g, "\n").replace(/\n$/, "");
+    if (!code2.trim())
+      return "";
+    const longest = Math.max(2, ...Array.from(code2.matchAll(/`+/g), (match2) => match2[0].length));
+    const fence2 = "`".repeat(longest + 1);
+    return `
+
+${fence2}${codeLanguage(pre)}
+${code2}
+${fence2}
+
+`;
+  }
+  function prepareCodeBlocks(root2) {
+    for (const pre of Array.from(root2.querySelectorAll("pre"))) {
+      const language = codeLanguage(pre);
+      const text2 = codeText(pre);
+      if (language)
+        pre.setAttribute("data-language", language);
+      pre.textContent = text2;
+    }
+    for (const node of Array.from(root2.querySelectorAll(toolbarSelector))) {
+      if (isCodeToolbar(node))
+        node.remove();
+    }
+  }
   function cellToMarkdown(cell2, service) {
     const html = cell2.querySelector("table") ? cell2.textContent ?? "" : service.turndown(cell2.innerHTML);
     return html.replace(/\s+/g, " ").trim().replace(/\|/g, "\\|");
@@ -819,9 +910,38 @@ ${lines.join("\n")}
       headingStyle: "atx",
       codeBlockStyle: "fenced",
       bulletListMarker: "-",
-      emDelimiter: "*"
+      emDelimiter: "*",
+      blankReplacement(content, node) {
+        if (node.nodeName === "PRE")
+          return fencedCode(node);
+        if (node.querySelector("pre"))
+          return content;
+        return "isBlock" in node && node.isBlock ? "\n\n" : "";
+      }
     });
     service.use(gfm);
+    service.addRule("unwrapHighlightedCode", {
+      filter(node) {
+        return node.nodeName === "DIV" && /highlight-(?:text|source)-[a-z0-9]+/.test(node.className) && node.firstChild?.nodeName === "PRE";
+      },
+      replacement(content) {
+        return content;
+      }
+    });
+    service.addRule("preToFencedCode", {
+      filter: "pre",
+      replacement(_content, node) {
+        return fencedCode(node);
+      }
+    });
+    service.addRule("removeCodeToolbar", {
+      filter(node) {
+        return isCodeToolbar(node);
+      },
+      replacement() {
+        return "";
+      }
+    });
     service.addRule("removeScriptLikeTags", {
       filter(node) {
         const tag = node.nodeName;
@@ -871,6 +991,123 @@ ${content}
       }
     });
     return service;
+  }
+
+  // lib/convert.mjs
+  var turndownService = createTurndownService();
+  function flattenShadowRoots(root2) {
+    root2.querySelectorAll('template[shadowrootmode="closed"]').forEach((template) => template.remove());
+    for (const template of root2.querySelectorAll('template[shadowrootmode="open"]')) {
+      flattenShadowRoots(template.content);
+      template.replaceWith(template.content);
+    }
+  }
+  function parseHtmlToDocument2(html, url, DOMParser) {
+    const parser = new DOMParser();
+    const documentClone = parser.parseFromString(html, "text/html");
+    if (documentClone.head && url) {
+      const base2 = documentClone.createElement("base");
+      base2.href = url;
+      documentClone.head.prepend(base2);
+    }
+    flattenShadowRoots(documentClone);
+    prepareCodeBlocks(documentClone);
+    return documentClone;
+  }
+  function readabilityOverCollapsed(article, body) {
+    const articleText = (article?.textContent ?? "").length;
+    const bodyText = (body?.textContent ?? "").length;
+    if (bodyText < 1e3) return false;
+    return articleText < bodyText * 0.3;
+  }
+  function pickMainContainer(documentClone) {
+    return documentClone.querySelector("main") || documentClone.querySelector("[role=main]") || documentClone.body;
+  }
+  function stripPageChrome(documentClone) {
+    const selectors = [
+      "nav",
+      "aside",
+      "[role=navigation]",
+      "[role=banner]",
+      "[role=complementary]",
+      "[role=contentinfo]",
+      "[aria-hidden=true]"
+    ];
+    for (const sel of selectors) {
+      documentClone.querySelectorAll(sel).forEach((el) => el.remove());
+    }
+    documentClone.querySelectorAll("body > header, body > footer").forEach(
+      (el) => el.remove()
+    );
+    documentClone.querySelectorAll("body > div header:not(article header):not(section header)").forEach((el) => {
+      const closestArticleOrSection = el.closest("article, section, main");
+      if (!closestArticleOrSection) el.remove();
+    });
+    documentClone.querySelectorAll("body > div footer:not(article footer):not(section footer)").forEach((el) => {
+      const closestArticleOrSection = el.closest("article, section, main");
+      if (!closestArticleOrSection) el.remove();
+    });
+  }
+  function convertHtmlToMarkdown(payload, {
+    DOMParser = globalThis.DOMParser,
+    Readability = globalThis.Readability
+  } = {}) {
+    if (payload.fromPicker) {
+      const markdownBody2 = turndownService.turndown(
+        parseHtmlToDocument2(`<html><body>${payload.html ?? ""}</body></html>`, payload.url, DOMParser).body.innerHTML
+      ).trim();
+      const title2 = payload.title || "Selected region";
+      const markdownLines2 = [`# ${title2}`];
+      if (payload.url) markdownLines2.push("", `Source: ${payload.url}`);
+      markdownLines2.push("", markdownBody2 || "_No markdown generated._");
+      return {
+        markdown: `${markdownLines2.join("\n").trim()}
+`,
+        title: title2,
+        length: markdownBody2.length
+      };
+    }
+    const documentClone = parseHtmlToDocument2(payload.html, payload.url, DOMParser);
+    const fallbackClone = parseHtmlToDocument2(payload.html, payload.url, DOMParser);
+    const reader = new Readability(documentClone, {
+      charThreshold: 40,
+      keepClasses: false,
+      nbTopCandidates: 5
+    });
+    const article = reader.parse();
+    const overCollapsed = readabilityOverCollapsed(article, fallbackClone.body);
+    stripPageChrome(fallbackClone);
+    const fallbackContent = pickMainContainer(fallbackClone);
+    const countCode = (root2) => [...root2.querySelectorAll("pre")].filter((pre) => pre.textContent.trim()).length;
+    const articleDocument = new DOMParser().parseFromString(article?.content || "", "text/html");
+    const droppedCode = fallbackContent && countCode(articleDocument) < countCode(fallbackContent);
+    let contentHtml;
+    if (article?.content && !droppedCode && !overCollapsed) {
+      contentHtml = article.content;
+    } else {
+      contentHtml = fallbackContent?.innerHTML ?? "";
+    }
+    if (!contentHtml.trim()) {
+      throw new Error(
+        "No readable content was found. Try another page or scroll the page first."
+      );
+    }
+    const markdownBody = turndownService.turndown(contentHtml).trim();
+    const title = article?.title || payload.title || "Untitled page";
+    const markdownLines = [`# ${title}`];
+    if (payload.url) {
+      markdownLines.push("", `Source: ${payload.url}`);
+    }
+    if (article?.byline) {
+      markdownLines.push("", `Byline: ${article.byline}`);
+    }
+    markdownLines.push("", markdownBody || "_No markdown generated._");
+    return {
+      markdown: `${markdownLines.join("\n").trim()}
+`,
+      title,
+      length: article?.length ?? markdownBody.length
+    };
   }
 
   // ../node_modules/markdown-it/lib/common/utils.mjs
@@ -6378,7 +6615,6 @@ ${content}
   function escapeBlockquote(text2) {
     return text2.replace(/\r\n/g, "\n").split("\n").map((line) => `> ${line}`).join("\n");
   }
-  var turndownService = createTurndownService();
   var md = lib_default({ html: false, linkify: true, typographer: true });
   function setStatus(text2, status = "idle") {
     dom.metaText.textContent = text2;
@@ -6414,101 +6650,6 @@ ${content}
         }
       );
     });
-  }
-  function parseHtmlToDocument(html, url) {
-    const parser = new DOMParser();
-    const documentClone = parser.parseFromString(html, "text/html");
-    if (documentClone.head && url) {
-      const base2 = documentClone.createElement("base");
-      base2.href = url;
-      documentClone.head.prepend(base2);
-    }
-    return documentClone;
-  }
-  function readabilityOverCollapsed(article, body) {
-    const articleText = (article?.textContent ?? "").length;
-    const bodyText = (body?.textContent ?? "").length;
-    if (bodyText < 1e3) return false;
-    return articleText < bodyText * 0.3;
-  }
-  function pickMainContainer(documentClone) {
-    return documentClone.querySelector("main") || documentClone.querySelector("[role=main]") || documentClone.body;
-  }
-  function stripPageChrome(documentClone) {
-    const selectors = [
-      "nav",
-      "aside",
-      "[role=navigation]",
-      "[role=banner]",
-      "[role=complementary]",
-      "[role=contentinfo]",
-      "[aria-hidden=true]"
-    ];
-    for (const sel of selectors) {
-      documentClone.querySelectorAll(sel).forEach((el) => el.remove());
-    }
-    documentClone.querySelectorAll("body > header, body > footer").forEach(
-      (el) => el.remove()
-    );
-    documentClone.querySelectorAll("body > div header:not(article header):not(section header)").forEach((el) => {
-      const closestArticleOrSection = el.closest("article, section, main");
-      if (!closestArticleOrSection) el.remove();
-    });
-    documentClone.querySelectorAll("body > div footer:not(article footer):not(section footer)").forEach((el) => {
-      const closestArticleOrSection = el.closest("article, section, main");
-      if (!closestArticleOrSection) el.remove();
-    });
-  }
-  function convertHtmlToMarkdown(payload) {
-    if (payload.fromPicker) {
-      const markdownBody2 = turndownService.turndown(payload.html ?? "").trim();
-      const title2 = payload.title || "Selected region";
-      const markdownLines2 = [`# ${title2}`];
-      if (payload.url) markdownLines2.push("", `Source: ${payload.url}`);
-      markdownLines2.push("", markdownBody2 || "_No markdown generated._");
-      return {
-        markdown: `${markdownLines2.join("\n").trim()}
-`,
-        title: title2,
-        length: markdownBody2.length
-      };
-    }
-    const documentClone = parseHtmlToDocument(payload.html, payload.url);
-    const fallbackClone = parseHtmlToDocument(payload.html, payload.url);
-    const reader = new Readability(documentClone, {
-      charThreshold: 40,
-      keepClasses: false,
-      nbTopCandidates: 5
-    });
-    const article = reader.parse();
-    let contentHtml;
-    if (article?.content && !readabilityOverCollapsed(article, fallbackClone.body)) {
-      contentHtml = article.content;
-    } else {
-      stripPageChrome(fallbackClone);
-      contentHtml = pickMainContainer(fallbackClone)?.innerHTML ?? "";
-    }
-    if (!contentHtml.trim()) {
-      throw new Error(
-        "No readable content was found. Try another page or scroll the page first."
-      );
-    }
-    const markdownBody = turndownService.turndown(contentHtml).trim();
-    const title = article?.title || payload.title || "Untitled page";
-    const markdownLines = [`# ${title}`];
-    if (payload.url) {
-      markdownLines.push("", `Source: ${payload.url}`);
-    }
-    if (article?.byline) {
-      markdownLines.push("", `Byline: ${article.byline}`);
-    }
-    markdownLines.push("", markdownBody || "_No markdown generated._");
-    return {
-      markdown: `${markdownLines.join("\n").trim()}
-`,
-      title,
-      length: article?.length ?? markdownBody.length
-    };
   }
   function renderMarkdown(markdownResult, capturedAt) {
     state.markdown = markdownResult.markdown;

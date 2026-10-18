@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><title>Using the Fetch API</title></head><body>
+<main><article>
+<h1>Using the Fetch API</h1>
+<p>By default, fetch makes a GET request, but you can use the method option to use a different request method. The following example sends a POST request. The example is rendered inside an open shadow root on the source page.</p>
+<mdn-code-example class="brush: js notranslate"><template shadowrootmode="open">
+<div class="code-example">
+<div class="example-header"><span class="language-name">js</span><mdn-copy-button variant="secondary"></mdn-copy-button></div>
+<pre class="brush: js notranslate"><code><span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span>(<span class="token string">"https://example.org/post"</span>, {
+  <span class="token literal-property property">method</span>: <span class="token string">"POST"</span>,
+  <span class="token comment">// …</span>
+});
+</code></pre>
+</div>
+</template></mdn-code-example>
+<p>If the mode option is set to no-cors, then method must be one of GET, POST or HEAD. Use the response to inspect the result of the request. The inline expression <code>fetch(url)</code> is separate from the example.</p>
+</article></main>
+</body></html>
