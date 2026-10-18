@@ -160,6 +160,7 @@ async function capturePageInPage() {
       : document.documentElement?.outerHTML ?? "",
     title: document.title ?? "",
     url: window.location.href,
+    baseUrl: document.baseURI,
     lang: document.documentElement?.lang ?? "",
     capturedAt: new Date().toISOString(),
   };

@@ -1127,12 +1127,12 @@ ${content}
       template.replaceWith(template.content);
     }
   }
-  function parseHtmlToDocument(html, url, DOMParser = globalThis.DOMParser) {
+  function parseHtmlToDocument(html, baseUrl, DOMParser = globalThis.DOMParser) {
     const parser = new DOMParser();
     const documentClone = parser.parseFromString(html, "text/html");
-    if (documentClone.head && url) {
+    if (documentClone.head && baseUrl) {
       const base2 = documentClone.createElement("base");
-      base2.setAttribute("href", url);
+      base2.setAttribute("href", baseUrl);
       documentClone.head.prepend(base2);
     }
     flattenShadowRoots(documentClone);
@@ -1292,9 +1292,17 @@ ${content}
         conversionPath: "picker"
       };
     }
-    const documentClone = parseHtmlToDocument(payload.html, payload.url, DOMParser);
-    const fallbackClone = parseHtmlToDocument(payload.html, payload.url, DOMParser);
+    const baseUrl = payload.baseUrl || payload.url;
+    const documentClone = parseHtmlToDocument(payload.html, baseUrl, DOMParser);
+    const fallbackClone = parseHtmlToDocument(payload.html, baseUrl, DOMParser);
     for (const document2 of [documentClone, fallbackClone]) {
+      unwrapScriptLinks(document2);
+      if (payload.url) {
+        for (const link2 of document2.querySelectorAll("a[href]")) {
+          const href = link2.getAttribute("href").trim();
+          if (href.startsWith("#")) link2.setAttribute("href", new URL(href, payload.url).href);
+        }
+      }
       document2.querySelectorAll(anchorSelector).forEach((node, index) => node.setAttribute(anchorAttribute, String(index)));
     }
     const reader = new Readability(documentClone, {
@@ -1314,7 +1322,7 @@ ${content}
     } else {
       stripPageChrome(fallbackClone);
       const fallbackContent = pickMainContainer(fallbackClone);
-      if (fallbackContent) absolutizeUrls2(fallbackContent, fallbackClone.querySelector("base")?.getAttribute("href") || payload.url);
+      if (fallbackContent) absolutizeUrls2(fallbackContent, baseUrl);
       contentHtml = fallbackContent?.innerHTML ?? "";
     }
     const outputDocument = new DOMParser().parseFromString(`<html><body>${contentHtml}</body></html>`, "text/html");

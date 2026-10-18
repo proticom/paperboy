@@ -12,6 +12,7 @@ for (const native of [false, true, "includes-closed", "throws", "ignores-options
   for (const action of ["capture", "pick"]) {
     test(`${action} serializes nested open roots (${native || "fallback"})`, async () => {
       const { window, document } = parseHTML('<html><head><title>Example</title></head><body><article><x-example></x-example><x-private></x-private></article></body></html>');
+      Object.defineProperty(document, "baseURI", { value: "https://example.org/assets/v2/" });
       const host = document.querySelector("x-example");
       const open = host.attachShadow({ mode: "open" });
       // linkedom omits ShadowRoot.mode, which is present in browsers.
@@ -36,7 +37,7 @@ for (const native of [false, true, "includes-closed", "throws", "ignores-options
       window.Element.prototype.getBoundingClientRect = () => ({ top: 10, left: 10, width: 500, height: 300 });
       document.elementFromPoint = () => article;
       const pageWindow = {
-        location: { href: "https://example.org/" },
+        location: { href: "https://example.org/deep/dir/page.html" },
         innerWidth: 1000, innerHeight: 800,
         getComputedStyle: () => ({ overflowY: "visible", overflowX: "visible" }),
         addEventListener() {}, removeEventListener() {},
@@ -70,6 +71,8 @@ for (const native of [false, true, "includes-closed", "throws", "ignores-options
         assert.match(payload.html, /<template shadowrootmode="open">/);
         assert.match(payload.html, /first\(\);\n  second\(\);/);
       }
+      assert.equal(payload.baseUrl, "https://example.org/assets/v2/");
+      assert.equal(payload.url, "https://example.org/deep/dir/page.html");
       assert.equal(payload.html.includes("secret"), false);
       assert.equal(payload.html.includes('shadowrootmode="closed"'), false);
       assert.equal(host.innerHTML, "");
