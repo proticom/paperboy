@@ -37,7 +37,22 @@ describe("shared converter", () => {
     expect(result.title).toBe("memo");
     expect(result.markdown).toContain("Hello");
     expect(result.markdown).toContain("World");
+    expect(result.markdown).not.toContain("Times New Roman");
     expect(result.warnings).toHaveLength(0);
+  });
+
+  it("skips RTF font and color tables", async () => {
+    const result = await convertToMarkdown(
+      "memo.rtf",
+      "{\\rtf1\\ansi{\\fonttbl{\\f0\\fswiss Helvetica;}}{\\colortbl;\\red255\\green0\\blue0;}{\\stylesheet{\\s0 Normal;}}{\\info{\\author Ada}}{\\*\\generator Paperboy}Hello body\\par Kept}",
+    );
+
+    expect(result.markdown.startsWith("Hello body")).toBe(true);
+    expect(result.markdown).toContain("Kept");
+    expect(result.markdown).not.toContain("Helvetica");
+    expect(result.markdown).not.toContain("Normal");
+    expect(result.markdown).not.toContain("Paperboy");
+    expect(result.markdown).not.toContain("Ada");
   });
 
   it("converts csv files to markdown table", async () => {
@@ -74,17 +89,44 @@ describe("shared converter", () => {
               },
             ],
           }),
-          describeImage: async () => "A scanned receipt.",
         },
       },
     );
 
-    expect(result.markdown).toContain("## Image Description");
-    expect(result.markdown).toContain("A scanned receipt.");
     expect(result.markdown).toContain("## OCR Text");
     expect(result.markdown).toContain("Detected text");
     expect(result.markdown).toContain("## Text Positioning");
     expect(result.markdown).toContain("| Detected | 96.3 | 10 | 20 | 70 | 20 |");
+  });
+
+  it("omits the text positioning table only when includeLayoutTable is false", async () => {
+    const ocr = async () => ({
+      text: "Detected text",
+      words: [
+        {
+          text: "Detected",
+          confidence: 96.3,
+          bbox: { x0: 10, y0: 20, x1: 80, y1: 40 },
+        },
+      ],
+    });
+
+    const withDefault = await convertToMarkdown(
+      "scan.png",
+      new Uint8Array([137, 80, 78, 71]),
+      { image: { ocr } },
+    );
+    const withoutTable = await convertToMarkdown(
+      "scan.png",
+      new Uint8Array([137, 80, 78, 71]),
+      { image: { ocr, includeLayoutTable: false } },
+    );
+
+    expect(withDefault.markdown).toContain("## Text Positioning");
+    expect(withDefault.markdown).toContain("| Detected | 96.3 | 10 | 20 | 70 | 20 |");
+    expect(withoutTable.markdown).toContain("## OCR Text");
+    expect(withoutTable.markdown).not.toContain("## Text Positioning");
+    expect(withoutTable.markdown).not.toContain("| Detected |");
   });
 
   it("warns when OCR finds no text", async () => {
@@ -124,6 +166,15 @@ describe("shared converter — binary handlers", () => {
     expect(result.markdown).toContain("Hello pdf world.");
     expect(Array.isArray(result.warnings)).toBe(true);
     expect(result.markdown).not.toMatch(/^## Page 1/m);
+  });
+
+  it("converts pdf files from a Node Buffer", async () => {
+    const bytes = readFileSync(new URL("./fixtures/sample.pdf", import.meta.url));
+    const result = await convertToMarkdown("sample.pdf", bytes);
+
+    expect(result.title).toBe("sample");
+    expect(result.markdown).toBe("Hello pdf world.");
+    expect(result.warnings).toEqual([]);
   });
 
   it("converts epub files to markdown", async () => {

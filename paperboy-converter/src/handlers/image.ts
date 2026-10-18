@@ -1,8 +1,9 @@
-import { getExtension, stripFileExtension, toBytes } from "../helpers.js";
+import { stripFileExtension, toBytes } from "../helpers.js";
 import type {
   ConvertInputData,
   ConvertOptions,
   ConvertResult,
+  ImageConversionOptions,
   OcrFunction,
   OcrResult,
   OcrWord,
@@ -89,16 +90,32 @@ function collectWordsFromTesseractBlocks(rawBlocks: unknown): OcrWord[] {
 async function defaultOcr(
   bytes: Uint8Array,
   language: string,
+  options?: ImageConversionOptions,
 ): Promise<OcrResult> {
   const { default: Tesseract } = await import("tesseract.js");
   const recognizeArg = bytes as unknown as Parameters<
     typeof Tesseract.recognize
   >[0];
-  const result = await Tesseract.recognize(recognizeArg, language);
-  return {
-    text: result.data?.text ?? "",
-    words: collectWordsFromTesseractBlocks(result.data?.blocks),
-  };
+  const worker =
+    options?.languageDataPath === undefined
+      ? await Tesseract.createWorker(language)
+      : await Tesseract.createWorker(language, undefined, {
+          langPath: options.languageDataPath,
+          gzip: true,
+          cacheMethod: "none",
+        });
+  // tesseract.js v6 returns only text unless output formats are requested.
+  // The convenience recognize() cannot pass that third argument, so words
+  // never arrive and the positioning table stays empty.
+  try {
+    const result = await worker.recognize(recognizeArg, {}, { text: true, blocks: true });
+    return {
+      text: result.data?.text ?? "",
+      words: collectWordsFromTesseractBlocks(result.data?.blocks),
+    };
+  } finally {
+    await worker.terminate();
+  }
 }
 
 function buildLayoutTable(words: OcrWordPosition[]): string {
@@ -112,64 +129,27 @@ function buildLayoutTable(words: OcrWordPosition[]): string {
   return [header, divider, ...body].join("\n");
 }
 
-function getImageMimeType(filename: string): string {
-  const extension = getExtension(filename);
-  switch (extension) {
-    case "png":
-      return "image/png";
-    case "jpg":
-    case "jpeg":
-      return "image/jpeg";
-    case "gif":
-      return "image/gif";
-    case "bmp":
-      return "image/bmp";
-    case "webp":
-      return "image/webp";
-    case "tif":
-    case "tiff":
-      return "image/tiff";
-    default:
-      return "application/octet-stream";
-  }
-}
-
 export async function convertImage(
   filename: string,
   data: ConvertInputData,
   options?: ConvertOptions,
 ): Promise<ConvertResult> {
   const fileBytes = toBytes(data);
-  const imageMimeType = getImageMimeType(filename);
   const warnings = [
-    "OCR runs locally and may take longer on large images. First run can download language data.",
+    options?.image?.languageDataPath === undefined
+      ? "OCR runs locally and may take longer on large images. First run can download language data."
+      : "OCR runs locally and may take longer on large images.",
   ];
 
-  const ocr: OcrFunction = options?.image?.ocr ?? defaultOcr;
+  const ocr: OcrFunction =
+    options?.image?.ocr ??
+    ((bytes, language) => defaultOcr(bytes, language, options?.image));
   const ocrResult = await ocr(fileBytes, "eng");
   const ocrText = (ocrResult.text ?? "").trim();
   const words = toOcrWordPositions(ocrResult.words ?? []);
   const includeLayout = options?.image?.includeLayoutTable ?? true;
   const sections: string[] = [];
 
-  let description: string | null = null;
-  if (options?.image?.describeImage) {
-    try {
-      description = await options.image.describeImage({
-        filename,
-        fileBytes,
-        imageMimeType,
-        ocrText,
-        words,
-      });
-    } catch {
-      warnings.push("AI image description failed, so only OCR output was included.");
-    }
-  }
-
-  if (description && description.trim().length > 0) {
-    sections.push(`## Image Description\n\n${description.trim()}`);
-  }
   if (ocrText.length > 0) {
     sections.push(`## OCR Text\n\n${ocrText}`);
   } else {

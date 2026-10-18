@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "'/Users/edward/MSDev/projects/paperboy/.codex/hooks/block-generated.sh'",
+            "command": "\"$(git rev-parse --show-toplevel)/.codex/hooks/block-generated.sh\"",
             "timeout": 5
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "'/Users/edward/MSDev/projects/paperboy/.codex/hooks/typecheck-site.sh'",
+            "command": "\"$(git rev-parse --show-toplevel)/.codex/hooks/typecheck-site.sh\"",
             "timeout": 60
           }
         ]

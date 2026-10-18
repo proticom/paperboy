@@ -26,7 +26,6 @@ describe("config module", () => {
     const config = await configModule.loadConfig();
 
     expect(config.version).toBe(1);
-    expect(config.ai.mode).toBe("disabled");
     expect(config.defaults.includeLayoutTable).toBe(true);
   });
 
@@ -35,33 +34,33 @@ describe("config module", () => {
     const current = await configModule.loadConfig();
     const next = {
       ...current,
-      ai: {
-        ...current.ai,
-        mode: "openrouter" as const,
-        model: "openai/gpt-5-mini",
-      },
       defaults: {
         ...current.defaults,
-        describeImagesWithAi: true,
+        includeLayoutTable: false,
       },
     };
 
     await configModule.saveConfig(next);
     const loaded = await configModule.loadConfig();
 
-    expect(loaded.ai.mode).toBe("openrouter");
-    expect(loaded.defaults.describeImagesWithAi).toBe(true);
+    expect(loaded).toEqual({
+      version: 1,
+      defaults: { includeLayoutTable: false },
+    });
   });
 
-  it("writes and loads dotenv API keys", async () => {
+  it("ignores legacy AI settings and unknown keys", async () => {
     const configModule = await importConfigModule();
-    const envVar = "PAPERBOY_TEST_API_KEY";
-    const value = "test-secret-value";
+    await fs.writeFile(configModule.CONFIG_PATH, JSON.stringify({
+      version: 1,
+      ai: { mode: "removed-provider" },
+      defaults: { includeLayoutTable: false, describeImagesWithAi: true },
+      unknown: true,
+    }));
 
-    await configModule.writeApiKeyToDotenv(envVar, value);
-    delete process.env[envVar];
-
-    configModule.loadDotenvFromConfigDirectory();
-    expect(process.env[envVar]).toBe(value);
+    expect(await configModule.loadConfig()).toEqual({
+      version: 1,
+      defaults: { includeLayoutTable: false },
+    });
   });
 });

@@ -12,7 +12,7 @@ export async function convertPdf(
   data: ConvertInputData,
   _options?: ConvertOptions,
 ): Promise<ConvertResult> {
-  const { totalPages, text } = await extractText(toBytes(data), {
+  const { totalPages, text } = await extractText(new Uint8Array(toBytes(data)), {
     mergePages: false,
   });
   const pages = text.map(normalizePdfText);
