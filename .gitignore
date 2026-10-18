@@ -16,9 +16,6 @@ paperboy-site/
 **/*.tsbuildinfo
 next-env.d.ts
 
-# Rust / Tauri
-**/target/
-
 # OS / editor
 .DS_Store
 

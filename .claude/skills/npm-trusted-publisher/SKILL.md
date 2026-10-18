@@ -19,7 +19,7 @@ Same pattern as [Gnosys](https://www.npmjs.com/package/gnosys) / `@proticom` org
 
 **GitHub repo:** `proticom/paperboy`
 
-All three workflows:
+Both workflows:
 
 - Run `npm ci` at the **monorepo root** (root `package-lock.json`)
 - Use `actions/setup-node@v5` with `cache: npm` and `cache-dependency-path: package-lock.json`
@@ -41,7 +41,7 @@ Requires `@proticom` org membership with publish rights for the package.
    - **Workflow filename:** the matching `publish-paperboy-*.yml` from the table above (filename only, e.g. `publish-paperboy-converter.yml`)
    - **Environment:** leave blank unless the workflow uses a GitHub Environment
 4. **Save**.
-5. Repeat for all three packages (three separate Trusted Publisher entries).
+5. Repeat for both packages (two separate Trusted Publisher entries).
 
 ## First-publish caveat
 

@@ -1,6 +1,6 @@
 # @proticom/paperboy-converter
 
-Turn many common document and image formats into **Markdown** in Node.js. This package powers the [Paperboy](https://github.com/proticom/paperboy) CLI, browser extension, and widget; you can also use it directly in your own scripts and servers.
+Turn many common document and image formats into **Markdown** in Node.js. This package powers the [Paperboy](https://github.com/proticom/paperboy) CLI and browser extension; you can also use it directly in your own scripts and servers.
 
 ## Install
 
