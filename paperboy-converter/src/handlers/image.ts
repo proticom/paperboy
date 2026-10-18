@@ -1,4 +1,4 @@
-import { getExtension, stripFileExtension, toBytes } from "../helpers.js";
+import { stripFileExtension, toBytes } from "../helpers.js";
 import type {
   ConvertInputData,
   ConvertOptions,
@@ -112,35 +112,12 @@ function buildLayoutTable(words: OcrWordPosition[]): string {
   return [header, divider, ...body].join("\n");
 }
 
-function getImageMimeType(filename: string): string {
-  const extension = getExtension(filename);
-  switch (extension) {
-    case "png":
-      return "image/png";
-    case "jpg":
-    case "jpeg":
-      return "image/jpeg";
-    case "gif":
-      return "image/gif";
-    case "bmp":
-      return "image/bmp";
-    case "webp":
-      return "image/webp";
-    case "tif":
-    case "tiff":
-      return "image/tiff";
-    default:
-      return "application/octet-stream";
-  }
-}
-
 export async function convertImage(
   filename: string,
   data: ConvertInputData,
   options?: ConvertOptions,
 ): Promise<ConvertResult> {
   const fileBytes = toBytes(data);
-  const imageMimeType = getImageMimeType(filename);
   const warnings = [
     "OCR runs locally and may take longer on large images. First run can download language data.",
   ];
@@ -152,24 +129,6 @@ export async function convertImage(
   const includeLayout = options?.image?.includeLayoutTable ?? true;
   const sections: string[] = [];
 
-  let description: string | null = null;
-  if (options?.image?.describeImage) {
-    try {
-      description = await options.image.describeImage({
-        filename,
-        fileBytes,
-        imageMimeType,
-        ocrText,
-        words,
-      });
-    } catch {
-      warnings.push("AI image description failed, so only OCR output was included.");
-    }
-  }
-
-  if (description && description.trim().length > 0) {
-    sections.push(`## Image Description\n\n${description.trim()}`);
-  }
   if (ocrText.length > 0) {
     sections.push(`## OCR Text\n\n${ocrText}`);
   } else {

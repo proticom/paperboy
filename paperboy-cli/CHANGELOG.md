@@ -5,6 +5,17 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - Unreleased
+
+### Removed
+- **Breaking:** the `--describe-image` flag on `convert`. Passing it now fails with an unknown-option error.
+- AI provider, model and API-key setup from `paperboy-cli setup` (including OpenRouter model picking and `ollama pull`). `setup` now configures conversion defaults only.
+- Ollama, OpenRouter, dotenv and OS key-store checks from `paperboy-cli doctor`.
+- API-key storage and dotenv loading from the config module, the `DOTENV_PATH` export, and the `dotenv` and `@proticom/paperboy-ai` dependencies.
+
+### Changed
+- Older config files that still contain AI settings load without error; those keys are ignored.
+
 ## [0.2.6] - 2026-05-26
 
 ### Added

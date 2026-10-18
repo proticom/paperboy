@@ -1,6 +1,6 @@
 # @proticom/paperboy-converter
 
-Turn many common document and image formats into **Markdown** in Node.js. This package powers the [Paperboy](https://github.com/proticom/paperboy) CLI, desktop app, browser extension, and widget; you can also use it directly in your own scripts and servers.
+Turn many common document and image formats into **Markdown** in Node.js. This package powers the [Paperboy](https://github.com/proticom/paperboy) CLI, browser extension, and widget; you can also use it directly in your own scripts and servers.
 
 ## Install
 
@@ -74,7 +74,7 @@ Also exported from the package root:
 | `@proticom/paperboy-converter/helpers` | Low-level helpers (`getExtension`, `toBytes`, etc.) |
 | `@proticom/paperboy-converter/types` | TypeScript types only |
 
-## Image options (OCR and optional description)
+## Image options (OCR)
 
 Images are converted with **Tesseract.js** (local OCR). The first run may download language data; large images can be slow.
 
@@ -83,23 +83,9 @@ const result = await convertToMarkdown("scan.png", buffer, {
   image: {
     // default true: adds a "## Text Positioning" markdown table
     includeLayoutTable: true,
-
-    // Optional: you call your own vision/LLM API and return a string (or null to skip)
-    describeImage: async ({
-      filename,
-      fileBytes,
-      imageMimeType,
-      ocrText,
-      words,
-    }) => {
-      // Example: return null to skip AI entirely
-      return null;
-    },
   },
 });
 ```
-
-The library does **not** bundle OpenAI, Ollama, or other remote models. If you pass **`describeImage`**, you implement it (your API keys, your network policy).
 
 ## Command-line usage
 

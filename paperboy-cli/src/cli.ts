@@ -3,14 +3,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
-import { describeImageWithAi, getProvider } from "@proticom/paperboy-ai";
-import { getApiKey, loadConfig, loadDotenvFromConfigDirectory } from "./config.js";
+import { loadConfig } from "./config.js";
 import { convertFileToMarkdown, type ConvertOptions } from "./converter.js";
 import { crawlSite } from "./crawl.js";
 import { printDoctorReport, runDoctor } from "./doctor.js";
 import { runSetup } from "./setup.js";
-
-loadDotenvFromConfigDirectory();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,7 +49,7 @@ program
 
 program
   .command("setup")
-  .description("Interactive setup for AI provider and key storage")
+  .description("Configure conversion defaults")
   .action(async () => {
     await runSetup();
   });
@@ -62,7 +59,6 @@ program
   .description("Convert a supported file into markdown")
   .option("-o, --output <path>", "Output markdown file path")
   .option("--stdout", "Print markdown to stdout instead of writing file")
-  .option("--describe-image", "Use configured AI to add image description section")
   .option("--no-layout-table", "Skip OCR positioning table for image conversion")
   .option("--json", "Print JSON metadata about the conversion")
   .action(
@@ -71,7 +67,6 @@ program
       options: {
         output?: string;
         stdout?: boolean;
-        describeImage?: boolean;
         layoutTable?: boolean;
         json?: boolean;
       },
@@ -83,25 +78,6 @@ program
           includeLayoutTable: options.layoutTable ?? config.defaults.includeLayoutTable,
         },
       };
-
-      const shouldDescribe =
-        options.describeImage || config.defaults.describeImagesWithAi;
-      if (shouldDescribe && config.ai.mode !== "disabled") {
-        const provider = getProvider(config.ai.mode);
-        const apiKey = getApiKey(provider.envVar ?? "");
-        convertOptions.image = {
-          ...convertOptions.image,
-          describeImage: async (params) =>
-            describeImageWithAi({
-              aiConfig: config.ai,
-              apiKey,
-              imageBytes: params.fileBytes,
-              imageMimeType: params.imageMimeType,
-              ocrText: params.ocrText,
-              words: params.words,
-            }),
-        };
-      }
 
       const result = await convertFileToMarkdown(absoluteInputPath, convertOptions);
       const outputPath = options.output
@@ -279,7 +255,7 @@ program
 
 program
   .command("doctor")
-  .description("Run environment diagnostics for conversion and AI setup")
+  .description("Run environment diagnostics for conversion and crawling")
   .option("--json", "Print doctor report as JSON")
   .option("--offline", "Skip the internet reachability check")
   .action(async (options: { json?: boolean; offline?: boolean }) => {

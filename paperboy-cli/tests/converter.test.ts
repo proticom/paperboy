@@ -108,12 +108,9 @@ describe("converter", () => {
             },
           ],
         }),
-        describeImage: async () => "A scanned receipt.",
       },
     });
 
-    expect(result.markdown).toContain("## Image Description");
-    expect(result.markdown).toContain("A scanned receipt.");
     expect(result.markdown).toContain("## OCR Text");
     expect(result.markdown).toContain("Detected text");
     expect(result.markdown).toContain("## Text Positioning");

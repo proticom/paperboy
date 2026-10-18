@@ -12,7 +12,7 @@ export async function convertDocx(
   const bytes = toBytes(data);
   // mammoth's Node entry reads `buffer`; the browser entry reads `arrayBuffer`.
   // Pass both so the same compiled handler works in `paperboy-cli` (Node) and
-  // `paperboy-app` (Tauri webview, esbuild platform=browser). JSZip accepts
+  // browser builds (esbuild platform=browser). JSZip accepts
   // Uint8Array directly, so no `Buffer.from` wrapping is required.
   const result = await mammoth.convertToHtml({
     arrayBuffer: toArrayBuffer(bytes),

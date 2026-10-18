@@ -20,40 +20,29 @@ Use this checklist before publishing `@proticom/paperboy-cli`.
 
 ## 3) Command Smoke Tests
 
-- [ ] `node dist/cli.js setup` launches interactive flow
+- [ ] `node dist/cli.js setup` saves the OCR layout-table preference
 - [ ] `node dist/cli.js config show` prints valid JSON
 - [ ] `node dist/cli.js doctor` reports expected environment checks
 - [ ] `node dist/cli.js convert <sample-file> --json` converts and returns metadata
 
-## 4) OCR and AI Behavior
+## 4) OCR Behavior
 
 - [ ] Image OCR conversion works on a sample image
 - [ ] `--no-layout-table` removes positioning table
-- [ ] `--describe-image` adds description when AI is configured
-- [ ] Deterministic conversion still works with AI mode disabled
 
-## 5) Security and Credential Handling
-
-- [ ] API key storage options work on target OS:
-  - [ ] macOS Keychain
-  - [ ] Linux `secret-tool` (if available)
-  - [ ] dotenv fallback
-- [ ] No secrets in committed files
-- [ ] `.env` paths are documented and excluded from accidental commits in downstream repos
-
-## 6) Documentation
+## 5) Documentation
 
 - [ ] README includes install, setup, convert, doctor, config, and examples
 - [ ] README lists supported file types and OCR behavior
-- [ ] README covers key storage and config paths
+- [ ] README covers conversion defaults and config paths
 - [ ] Changelog/release notes prepared
 
-## 7) Package Dry Run
+## 6) Package Dry Run
 
 - [ ] `npm pack --dry-run` shows expected files only
 - [ ] Tarball contains `dist` output and README
 
-## 8) Publish
+## 7) Publish
 
 - [ ] Logged into npm with correct account (`npm whoami`)
 - [ ] Scope permissions verified
@@ -63,7 +52,7 @@ Use this checklist before publishing `@proticom/paperboy-cli`.
 npm publish --access public
 ```
 
-## 9) Post-Publish Verification
+## 8) Post-Publish Verification
 
 - [ ] Install from npm in a clean temp folder
 - [ ] `paperboy-cli --help` works after global install

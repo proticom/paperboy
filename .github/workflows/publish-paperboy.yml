@@ -26,9 +26,7 @@ jobs:
         run: npm ci
 
       - name: Build workspace dependencies
-        run: |
-          npm run build --workspace=@proticom/paperboy-converter
-          npm run build --workspace=@proticom/paperboy-ai
+        run: npm run build --workspace=@proticom/paperboy-converter
 
       - name: Build
         working-directory: paperboy-cli
