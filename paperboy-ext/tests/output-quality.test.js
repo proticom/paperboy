@@ -155,7 +155,7 @@ test("only token-boundary exclusions gate missing code, without stripping Readab
   assert.deepEqual(fences(result.markdown).map((block) => block.content), ["included();\n  next();\n"]);
 });
 
-for (const callout of ['<aside class="note">', '<div role="note">', '<div role="complementary">']) {
+for (const callout of ['<aside class="note">', '<aside class="starlight-aside starlight-aside--note">', '<div role="note">', '<div role="complementary">']) {
   test(`article callout ${callout} retains its dropped code`, async () => {
     const { convertHtmlToMarkdown } = await import("../lib/convert.mjs");
     const closing = callout.startsWith("<aside") ? "</aside>" : "</div>";
@@ -170,6 +170,16 @@ for (const callout of ['<aside class="note">', '<div role="note">', '<div role="
 }
 
 const setupParagraphs = (count) => Array.from({ length: count }, (_, index) => `<p>Article paragraph ${index + 1} explaining the topic in reasonable depth so Readability scores it as the main content of this article about shell scripting.</p>`).join("");
+
+for (const identity of ['class="sidebar widget-area"', 'id="WIDGET-panel"', 'class="related-posts"', 'id="PopularPosts"']) {
+  test(`sidebar aside ${identity} between retained sections stays excluded`, async () => {
+    const { convertHtmlToMarkdown } = await import("../lib/convert.mjs");
+    const html = `<html><head><title>Shell tips</title></head><body><main><section><h2>Part one</h2>${setupParagraphs(8)}</section><aside ${identity}><h3>Popular posts</h3><pre>SIDEBAR_MID_CODE</pre></aside><section><h2>Part two</h2>${setupParagraphs(8)}<pre>echo ARTICLE_CODE</pre></section></main></body></html>`;
+    const result = convertHtmlToMarkdown({ html, url: "https://example.org/article" }, dependencies);
+    assert.deepEqual(fences(result.markdown).map((block) => block.content), ["echo ARTICLE_CODE\n"]);
+    assert.doesNotMatch(result.markdown, /SIDEBAR_MID_CODE/);
+  });
+}
 
 test("intro code survives a has-sidebar wrapper above the article", async () => {
   const { convertHtmlToMarkdown } = await import("../lib/convert.mjs");
