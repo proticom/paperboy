@@ -16,7 +16,7 @@ End-to-end ship flow for `@proticom/paperboy-converter` (and the aligned package
 
 ## Steps
 
-Run from the monorepo root (`/Volumes/Dev/projects/paperboy/`).
+Run from the monorepo root.
 
 1. **Ask the user for the version.** Format `X.Y.Z` (no `v` prefix). If they don't supply one, infer the next patch from the current `paperboy-converter/package.json` version.
 
@@ -72,7 +72,7 @@ Run from the monorepo root (`/Volumes/Dev/projects/paperboy/`).
    - New version live on npm: yes / no
    - Monorepo commit SHA + tag
    - Site repo commit SHA (if any)
-   - Vercel: `paperboy-site` will auto-redeploy from its push; if the user wants to watch it, suggest `/deploy-watch`.
+   - Vercel: `paperboy-site` will auto-redeploy from its push.
 
 ## What NOT to do
 
