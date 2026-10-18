@@ -1,6 +1,6 @@
 ---
 name: npm-trusted-publisher
-description: One-time npm Trusted Publisher (OIDC) setup for @proticom/paperboy-converter, @proticom/paperboy-cli, and @proticom/paperboy-widget. Use before the first tag-driven publish, when publish workflows 404, or when onboarding a new maintainer to npm publish rights. Documents manual npmjs.com steps only — the agent cannot configure npm.com.
+description: One-time npm Trusted Publisher (OIDC) setup for @proticom/paperboy-converter and @proticom/paperboy-cli. Use before the first tag-driven publish, when publish workflows 404, or when onboarding a new maintainer to npm publish rights. Documents manual npmjs.com steps only — the agent cannot configure npm.com.
 disable-model-invocation: true
 ---
 
@@ -16,7 +16,6 @@ Same pattern as [Gnosys](https://www.npmjs.com/package/gnosys) / `@proticom` org
 |-------------|---------------|-------------|
 | `@proticom/paperboy-converter` | `.github/workflows/publish-paperboy-converter.yml` | `v*` (e.g. `v0.2.2`) |
 | `@proticom/paperboy-cli` | `.github/workflows/publish-paperboy.yml` | `cli-v*` (e.g. `cli-v0.2.3`) |
-| `@proticom/paperboy-widget` | `.github/workflows/publish-paperboy-widget.yml` | `widget-v*` (e.g. `widget-v0.2.2`) |
 
 **GitHub repo:** `proticom/paperboy`
 
@@ -71,7 +70,6 @@ The publish workflows include this comment for a reason:
 ```bash
 npm view @proticom/paperboy-converter@<version>
 npm view @proticom/paperboy-cli@<version>
-npm view @proticom/paperboy-widget@<version>
 ```
 
 Each should show the expected version, `dist-tags.latest`, and repository metadata pointing at `github.com/proticom/paperboy`.

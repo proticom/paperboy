@@ -6351,9 +6351,10 @@ ${content}
         // loads the glue via importScripts() inside the worker, and MV3 CSP
         // pins script-src to 'self', so a CDN URL gets blocked.
         corePath: chrome.runtime.getURL("lib/tesseract/"),
-        // Language data is a regular fetch — host_permissions covers cross-
-        // origin, so the CDN is fine and saves us bundling ~5MB of data.
-        langPath: "https://tessdata.projectnaptha.com/4.0.0_fast",
+        // Bundled English data keeps OCR offline, including its first run.
+        langPath: chrome.runtime.getURL("lib/tesseract/lang"),
+        gzip: true,
+        cacheMethod: "none",
         // See workerBlobURL comment in tesseract docs: default true wraps
         // workerPath in a blob URL which can't importScripts back to our
         // extension origin under MV3 CSP. False keeps the direct extension URL.

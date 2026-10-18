@@ -5,6 +5,7 @@
   "description": "Paperboy browser extension side panel",
   "scripts": {
     "build": "node build.js",
+    "test": "node --test tests/*.test.js",
     "icons": "node scripts/generate-icons.js",
     "package:store": "node build.js && node package-for-store.js"
   },
@@ -16,6 +17,7 @@
   },
   "devDependencies": {
     "@napi-rs/canvas": "^0.1.97",
+    "@tesseract.js-data/eng": "1.0.0",
     "adm-zip": "^0.5.16",
     "esbuild": "^0.27.4"
   }
