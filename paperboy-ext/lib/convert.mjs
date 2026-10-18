@@ -27,7 +27,7 @@ function flattenShadowRoots(root) {
   }
 }
 
-function parseHtmlToDocument(html, baseUrl, DOMParser) {
+export function parseHtmlToDocument(html, baseUrl, DOMParser = globalThis.DOMParser) {
   const parser = new DOMParser();
   const documentClone = parser.parseFromString(html, "text/html");
 

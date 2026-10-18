@@ -1127,7 +1127,7 @@ ${content}
       template.replaceWith(template.content);
     }
   }
-  function parseHtmlToDocument2(html, baseUrl, DOMParser) {
+  function parseHtmlToDocument(html, baseUrl, DOMParser = globalThis.DOMParser) {
     const parser = new DOMParser();
     const documentClone = parser.parseFromString(html, "text/html");
     if (documentClone.head && baseUrl) {
@@ -1278,7 +1278,7 @@ ${content}
         payload = { ...payload, html: wrapper.innerHTML };
       }
       const markdownBody2 = turndownService.turndown(
-        parseHtmlToDocument2(`<html><body>${wrapTableFragment(payload.html ?? "")}</body></html>`, payload.url, DOMParser).body.innerHTML
+        parseHtmlToDocument(`<html><body>${wrapTableFragment(payload.html ?? "")}</body></html>`, payload.url, DOMParser).body.innerHTML
       ).trim();
       const title2 = payload.title || "Selected region";
       const markdownLines2 = [`# ${title2}`];
@@ -1293,8 +1293,8 @@ ${content}
       };
     }
     const baseUrl = payload.baseUrl || payload.url;
-    const documentClone = parseHtmlToDocument2(payload.html, baseUrl, DOMParser);
-    const fallbackClone = parseHtmlToDocument2(payload.html, baseUrl, DOMParser);
+    const documentClone = parseHtmlToDocument(payload.html, baseUrl, DOMParser);
+    const fallbackClone = parseHtmlToDocument(payload.html, baseUrl, DOMParser);
     for (const document2 of [documentClone, fallbackClone]) {
       unwrapScriptLinks(document2);
       if (payload.url) {
