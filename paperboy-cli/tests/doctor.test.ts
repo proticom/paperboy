@@ -86,6 +86,15 @@ describe("doctor", () => {
       expect(proxy?.details).toContain("***@");
       expect(proxy?.details).not.toContain("user");
       expect(proxy?.details).not.toContain("secret");
+
+      process.env.HTTPS_PROXY = "http://cnUo1:12/cnPo1@proxy.qa.test:8080";
+      const qaReport = await doctorModule.runDoctor({ offline: true });
+      const qaProxy = qaReport.checks.find(
+        (check) => check.name === "Proxy environment",
+      );
+      expect(qaProxy?.details).toContain("***@");
+      expect(qaProxy?.details).not.toContain("cnUo1");
+      expect(qaProxy?.details).not.toContain("cnPo1");
     } finally {
       for (const name of names) {
         const previous = saved.get(name);
@@ -159,5 +168,47 @@ describe("redactProxyValue", () => {
       expect(redacted).not.toContain("pa/ss");
       expect(redacted).not.toContain("pa ss");
     }
+
+    const ambiguous = [
+      ["http://u:12/p@h.example", "http://***@h.example", "u", "12/p"],
+      ["http://u:12#p@h.example", "http://***@h.example", "u", "12#p"],
+      ["http://u:34?p@h.example", "http://***@h.example", "u", "34?p"],
+      [
+        "http://cnUo1:12/cnPo1@proxy.qa.test:8080",
+        "http://***@proxy.qa.test:8080",
+        "cnUo1",
+        "cnPo1",
+      ],
+    ] as const;
+    for (const [value, expected, username, password] of ambiguous) {
+      const redacted = redactProxyValue(value);
+      expect(redacted).toBe(expected);
+      expect(redacted).not.toContain(username);
+      expect(redacted).not.toContain(password);
+    }
+
+    const lf = "http://proxy.example:8080\nhttp://a:b@second.example:8080";
+    expect(redactProxyValue(lf)).toBe(
+      "http://proxy.example:8080\nhttp://***@second.example:8080",
+    );
+    expect(redactProxyValue(lf)).not.toContain("a:b");
+
+    const crlf = "http://proxy.example:8080\r\nhttp://a:b@second.example:8080";
+    expect(redactProxyValue(crlf)).toBe(
+      "http://proxy.example:8080\r\nhttp://***@second.example:8080",
+    );
+    expect(redactProxyValue(crlf)).not.toContain("a:b");
+
+    const both =
+      "http://a:b@first.example:8080\nhttp://c:d@second.example:8080";
+    expect(redactProxyValue(both)).toBe(
+      "http://***@first.example:8080\nhttp://***@second.example:8080",
+    );
+    expect(redactProxyValue(both)).not.toContain("a:b");
+    expect(redactProxyValue(both)).not.toContain("c:d");
+
+    expect(redactProxyValue("http://proxy.example:8080/a@b")).toBe(
+      "http://***@b",
+    );
   });
 });

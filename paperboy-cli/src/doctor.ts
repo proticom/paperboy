@@ -39,6 +39,14 @@ const SCHEME_PREFIX = /^\s*[a-z][a-z0-9+.-]*:\/\//i;
 
 /** Replace proxy userinfo with `***@`. Never throws. */
 export function redactProxyValue(value: string): string {
+  // Redact each comma- or newline-separated entry on its own.
+  if (/[,\r\n]/.test(value)) {
+    return value.replace(/[^,\r\n]+/g, (entry) => redactProxyEntry(entry));
+  }
+  return redactProxyEntry(value);
+}
+
+function redactProxyEntry(value: string): string {
   try {
     const url = new URL(value);
     if (url.username || url.password) {
@@ -51,6 +59,10 @@ export function redactProxyValue(value: string): string {
     if (at >= 0 && (schemeSlashes < 0 || schemeSlashes > at)) {
       return redactUnparsedUserinfo(value);
     }
+    // Parsed with no userinfo but an "@" later on, e.g. "http://u:12/p@host",
+    // where WHATWG reads "12" as the port. This is ambiguous, so redact
+    // conservatively: over-redacting is safe, leaking is not.
+    if (at >= 0) return redactUnparsedUserinfo(value);
     return value;
   } catch {
     return redactUnparsedUserinfo(value);
