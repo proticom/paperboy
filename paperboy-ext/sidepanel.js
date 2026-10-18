@@ -1,5 +1,6 @@
 import { convertHtmlToMarkdown, parseHtmlToDocument } from "./lib/convert.mjs";
 import markdownit from "markdown-it";
+import { createPreviewController } from "./lib/preview.mjs";
 
 /* global PAPERBOY_CONVERTER_VERSION */ // banner in sidepanel.bundle.js from build.js
 const CONVERTER_VERSION = PAPERBOY_CONVERTER_VERSION;
@@ -24,6 +25,7 @@ const dom = {
   ocrButtonLabel: document.getElementById("ocr-btn-label"),
   output: document.getElementById("markdown-output"),
   preview: document.getElementById("preview-output"),
+  loadImagesButton: document.getElementById("load-images-btn"),
   metaText: document.getElementById("meta-text"),
   converterVersionLine: document.getElementById("converter-version-line"),
   viewToggle: document.getElementById("view-toggle"),
@@ -121,6 +123,14 @@ function escapeBlockquote(text) {
 }
 
 const md = markdownit({ html: false, linkify: true, typographer: true });
+const preview = createPreviewController({
+  container: dom.preview,
+  loadButton: dom.loadImagesButton,
+  md,
+  fetch: (url, options) => fetch(url, options),
+  createObjectURL: (blob) => URL.createObjectURL(blob),
+  revokeObjectURL: (url) => URL.revokeObjectURL(url),
+});
 
 function setStatus(text, status = "idle") {
   dom.metaText.textContent = text;
@@ -165,7 +175,7 @@ function renderMarkdown(markdownResult, capturedAt) {
   state.markdown = markdownResult.markdown;
   state.title = markdownResult.title || "";
   dom.output.textContent = markdownResult.markdown;
-  dom.preview.innerHTML = md.render(markdownResult.markdown);
+  preview.setMarkdown(markdownResult.markdown);
   dom.copyButton.disabled = false;
   dom.copyMenuToggle.disabled = false;
 
@@ -241,7 +251,7 @@ function renderError(error) {
   state.markdown = "";
   state.title = "";
   dom.output.textContent = `Error: ${error.message}`;
-  dom.preview.innerHTML = "";
+  preview.reset();
   dom.copyButton.disabled = true;
   dom.copyMenuToggle.disabled = true;
   setStatus("Could not convert this page.", "error");
@@ -262,7 +272,8 @@ function setViewMode(view, { persist = true } = {}) {
 
   const showSource = view === "source";
   dom.output.hidden = !showSource;
-  dom.preview.hidden = showSource;
+  if (showSource) preview.hide();
+  else preview.show();
 
   if (persist) savePrefs({ view });
 }

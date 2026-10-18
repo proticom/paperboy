@@ -6747,6 +6747,127 @@ ${content}
   };
   var lib_default = MarkdownIt;
 
+  // lib/preview.mjs
+  var MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+  function createPreviewController({
+    container,
+    loadButton,
+    md: md2,
+    fetch: fetchImage,
+    createObjectURL,
+    revokeObjectURL,
+    timeoutMs = 15e3
+  }) {
+    let markdown = "";
+    let visible = !container.hidden;
+    let rendered = false;
+    let loading = null;
+    let generation = 0;
+    const blobUrls = /* @__PURE__ */ new Set();
+    const requests = /* @__PURE__ */ new Set();
+    const placeholders = () => [...container.querySelectorAll("[data-image-url]")];
+    const isRemoteImage = (placeholder) => /^(?:https?:)?\/\//i.test(placeholder.dataset.imageUrl);
+    const escape3 = md2.utils.escapeHtml;
+    md2.renderer.rules.image = (tokens, index, options, env) => {
+      const token = tokens[index];
+      const src = token.attrGet("src") || "";
+      const alt = md2.renderer.renderInlineAsText(token.children || [], options, env);
+      if (/^(?:data|blob):/i.test(src)) {
+        return `<img src="${escape3(src)}" alt="${escape3(alt)}">`;
+      }
+      return `<span class="deferred-image" data-image-url="${escape3(src)}" data-image-alt="${escape3(alt)}">${escape3(alt || "image")} <a href="${escape3(src)}">${escape3(src)}</a></span>`;
+    };
+    function updateButton() {
+      const available = visible && placeholders().some(isRemoteImage);
+      loadButton.hidden = !available;
+      loadButton.disabled = !available || loading !== null;
+    }
+    function render() {
+      container.innerHTML = md2.render(markdown);
+      rendered = true;
+      updateButton();
+    }
+    function reset() {
+      generation += 1;
+      for (const request of requests) request.abort();
+      requests.clear();
+      container.replaceChildren();
+      for (const url of blobUrls) revokeObjectURL(url);
+      blobUrls.clear();
+      markdown = "";
+      rendered = false;
+      loading = null;
+      updateButton();
+    }
+    function setMarkdown(value) {
+      reset();
+      markdown = value;
+      if (visible) render();
+    }
+    function show() {
+      visible = true;
+      container.hidden = false;
+      if (!rendered) render();
+      updateButton();
+    }
+    function hide() {
+      visible = false;
+      container.hidden = true;
+      updateButton();
+    }
+    async function loadImages() {
+      if (!visible || loading !== null) return;
+      const currentGeneration = generation;
+      loading = currentGeneration;
+      updateButton();
+      try {
+        await Promise.all(placeholders().map(async (placeholder) => {
+          const request = new AbortController();
+          requests.add(request);
+          const aborted = new Promise((resolve, reject) => {
+            request.signal.addEventListener("abort", () => reject(new Error("Image load aborted")), { once: true });
+          });
+          const timer = setTimeout(() => request.abort(), timeoutMs);
+          try {
+            const src = placeholder.dataset.imageUrl;
+            const normalized = src.startsWith("//") ? `https:${src}` : src;
+            if (!isRemoteImage(placeholder)) throw new Error("Unsupported image URL");
+            const url = new URL(normalized);
+            const response = await Promise.race([
+              fetchImage(url.href, { credentials: "omit", signal: request.signal }),
+              aborted
+            ]);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            if (!/^image\//i.test(response.headers?.get("content-type") || "")) throw new Error("Unsupported image type");
+            if (Number(response.headers?.get("content-length")) > MAX_IMAGE_BYTES) throw new Error("Image too large");
+            const blob = await Promise.race([response.blob(), aborted]);
+            if (blob.size > MAX_IMAGE_BYTES) throw new Error("Image too large");
+            if (generation !== currentGeneration) return;
+            const blobUrl = createObjectURL(blob);
+            blobUrls.add(blobUrl);
+            const image2 = container.ownerDocument.createElement("img");
+            image2.src = blobUrl;
+            image2.alt = placeholder.dataset.imageAlt;
+            placeholder.replaceWith(image2);
+          } catch {
+            if (generation === currentGeneration) placeholder.dataset.imageState = "failed";
+          } finally {
+            clearTimeout(timer);
+            requests.delete(request);
+          }
+        }));
+      } finally {
+        if (loading === currentGeneration) loading = null;
+        updateButton();
+      }
+    }
+    loadButton.addEventListener("click", () => {
+      void loadImages();
+    });
+    updateButton();
+    return { setMarkdown, show, hide, reset, loadImages };
+  }
+
   // sidepanel.js
   var CONVERTER_VERSION = PAPERBOY_CONVERTER_VERSION;
   var MESSAGE_TYPES = {
@@ -6768,6 +6889,7 @@ ${content}
     ocrButtonLabel: document.getElementById("ocr-btn-label"),
     output: document.getElementById("markdown-output"),
     preview: document.getElementById("preview-output"),
+    loadImagesButton: document.getElementById("load-images-btn"),
     metaText: document.getElementById("meta-text"),
     converterVersionLine: document.getElementById("converter-version-line"),
     viewToggle: document.getElementById("view-toggle")
@@ -6850,6 +6972,14 @@ ${content}
     return text2.replace(/\r\n/g, "\n").split("\n").map((line) => `> ${line}`).join("\n");
   }
   var md = lib_default({ html: false, linkify: true, typographer: true });
+  var preview = createPreviewController({
+    container: dom.preview,
+    loadButton: dom.loadImagesButton,
+    md,
+    fetch: (url, options) => fetch(url, options),
+    createObjectURL: (blob) => URL.createObjectURL(blob),
+    revokeObjectURL: (url) => URL.revokeObjectURL(url)
+  });
   function setStatus(text2, status = "idle") {
     dom.metaText.textContent = text2;
     dom.metaText.dataset.state = status;
@@ -6889,7 +7019,7 @@ ${content}
     state.markdown = markdownResult.markdown;
     state.title = markdownResult.title || "";
     dom.output.textContent = markdownResult.markdown;
-    dom.preview.innerHTML = md.render(markdownResult.markdown);
+    preview.setMarkdown(markdownResult.markdown);
     dom.copyButton.disabled = false;
     dom.copyMenuToggle.disabled = false;
     const capturedTime = new Date(capturedAt).toLocaleTimeString();
@@ -6953,7 +7083,7 @@ ${escapeBlockquote(`OCR: ${text2}`)}
     state.markdown = "";
     state.title = "";
     dom.output.textContent = `Error: ${error2.message}`;
-    dom.preview.innerHTML = "";
+    preview.reset();
     dom.copyButton.disabled = true;
     dom.copyMenuToggle.disabled = true;
     setStatus("Could not convert this page.", "error");
@@ -6971,7 +7101,8 @@ ${escapeBlockquote(`OCR: ${text2}`)}
     dom.viewToggle.style.setProperty("--active-index", String(activeIndex));
     const showSource = view === "source";
     dom.output.hidden = !showSource;
-    dom.preview.hidden = showSource;
+    if (showSource) preview.hide();
+    else preview.show();
     if (persist) savePrefs({ view });
   }
   async function extractCurrentPage() {
