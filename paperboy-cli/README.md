@@ -10,26 +10,28 @@ It supports deterministic conversion for documents/spreadsheets and local OCR fo
 npm install -g @proticom/paperboy-cli
 ```
 
+`paperboy-cli` is installed as an equivalent alias.
+
 ## Quick Start
 
 ```bash
 # 1) Configure once
-paperboy-cli setup
+paperboy setup
 
 # 2) Convert a file
-paperboy-cli convert "./input.pdf"
+paperboy convert "./input.pdf"
 
 # 3) Check environment health
-paperboy-cli doctor
+paperboy doctor
 ```
 
 ## Commands
 
-### `paperboy-cli setup`
+### `paperboy setup`
 
 Choose whether image conversion includes an OCR text-position table, then save the conversion defaults.
 
-### `paperboy-cli convert <inputPath>`
+### `paperboy convert <inputPath>`
 
 Convert a supported file into Markdown.
 
@@ -43,23 +45,23 @@ Examples:
 
 ```bash
 # Basic conversion (writes next to source file)
-paperboy-cli convert "./book.epub"
+paperboy convert "./book.epub"
 
 # Write to a specific file
-paperboy-cli convert "./scan.png" -o "./out/scan.md"
+paperboy convert "./scan.png" -o "./out/scan.md"
 
 # Stream to stdout for pipelines
-paperboy-cli convert "./report.docx" --stdout
+paperboy convert "./report.docx" --stdout
 
 # JSON metadata (good for scripts)
-paperboy-cli convert "./table.xlsx" --json
+paperboy convert "./table.xlsx" --json
 ```
 
-### `paperboy-cli config show`
+### `paperboy config show`
 
 Print the current config JSON.
 
-### `paperboy-cli doctor`
+### `paperboy doctor`
 
 Runs diagnostics and prints what is healthy/missing.
 
@@ -75,7 +77,7 @@ What it checks:
 Use JSON output for automation:
 
 ```bash
-paperboy-cli doctor --json
+paperboy doctor --json
 ```
 
 ## Supported Input Formats
