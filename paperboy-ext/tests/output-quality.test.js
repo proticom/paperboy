@@ -82,7 +82,7 @@ test("dropped code is restored in source order without promoting neighboring chr
   assert.doesNotMatch(result.markdown, /data-paperboy-anchor|comment\(\)/);
 });
 
-test("over-collapse fallback resolves links, images and srcset without changing special URLs", async () => {
+test("over-collapse fallback resolves links, images and srcset while preserving non-HTTP URLs", async () => {
   const { convertHtmlToMarkdown } = await import("../lib/convert.mjs");
   const documents = [];
   class InspectingParser extends DOMParser {
@@ -98,7 +98,7 @@ test("over-collapse fallback resolves links, images and srcset without changing 
   assert.match(result.markdown, /\[guide\]\(https:\/\/example.org\/docs\/guide\)/);
   const output = documents.at(-1);
   assert.deepEqual([...output.querySelectorAll("a")].map((node) => node.getAttribute("href")),
-    ["https://example.org/docs/guide", "#part", "mailto:test@example.invalid", "tel:123", "data:text/plain,hello"]);
+    ["https://example.org/docs/guide", "https://example.org/docs/page#part", "mailto:test@example.invalid", "tel:123", "data:text/plain,hello"]);
   assert.deepEqual([...output.querySelectorAll("img")].map((node) => [node.getAttribute("src"), node.getAttribute("srcset")]), [
     ["https://example.org/diagram.png", "https://example.org/docs/small.png 1x, https://example.org/large.png 2x"],
     ["data:image/png;base64,AAAA", "data:image/png;base64,AAAA 1x, https://example.org/other.png 2x"],

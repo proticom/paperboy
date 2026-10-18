@@ -1297,6 +1297,12 @@ ${content}
     const fallbackClone = parseHtmlToDocument2(payload.html, baseUrl, DOMParser);
     for (const document2 of [documentClone, fallbackClone]) {
       unwrapScriptLinks(document2);
+      if (payload.url) {
+        for (const link2 of document2.querySelectorAll("a[href]")) {
+          const href = link2.getAttribute("href").trim();
+          if (href.startsWith("#")) link2.setAttribute("href", new URL(href, payload.url).href);
+        }
+      }
       document2.querySelectorAll(anchorSelector).forEach((node, index) => node.setAttribute(anchorAttribute, String(index)));
     }
     const reader = new Readability(documentClone, {

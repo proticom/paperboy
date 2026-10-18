@@ -220,6 +220,12 @@ export function convertHtmlToMarkdown(payload, {
 
   for (const document of [documentClone, fallbackClone]) {
     unwrapScriptLinks(document);
+    if (payload.url) {
+      for (const link of document.querySelectorAll("a[href]")) {
+        const href = link.getAttribute("href").trim();
+        if (href.startsWith("#")) link.setAttribute("href", new URL(href, payload.url).href);
+      }
+    }
     document.querySelectorAll(anchorSelector).forEach((node, index) => node.setAttribute(anchorAttribute, String(index)));
   }
   const reader = new Readability(documentClone, {

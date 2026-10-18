@@ -22,11 +22,29 @@ for (const conversionPath of ["readability", "fallback"]) {
       assert.ok(result.markdown.includes(`[Templates](${directory}guide/templates)`));
       assert.ok(result.markdown.includes(`![Diagram](${directory}img/a.png)`));
       assert.ok(result.markdown.includes("[Root](https://example.org/x)"));
-      const fragment = conversionPath === "fallback" ? "#frag" : `${baseUrl || url}#frag`;
-      assert.ok(result.markdown.includes(`[Fragment](${fragment})`));
+      assert.match(result.markdown, /\[Fragment\]\(https:\/\/example.org\/deep\/dir\/page\.html#frag\)/);
       assert.ok(result.markdown.includes("Source: https://example.org/deep/dir/page.html"));
     });
   }
+
+  test(`whole-page ${conversionPath} replaces the page fragment and keeps queries on the base`, async () => {
+    const { convertHtmlToMarkdown } = await import("../lib/convert.mjs");
+    const result = convertHtmlToMarkdown({
+      html: html.replace('href="#frag"', 'href="  #frag  "').replace('href="/x"', 'href="?x"'),
+      url: `${url}#top`,
+      baseUrl: "https://example.org/assets/v2/",
+    }, { DOMParser, Readability });
+    assert.equal(result.conversionPath, conversionPath);
+    assert.match(result.markdown, /\[Fragment\]\(https:\/\/example.org\/deep\/dir\/page\.html#frag\)/);
+    assert.match(result.markdown, /\[Root\]\(https:\/\/example.org\/assets\/v2\/\?x\)/);
+  });
+
+  test(`whole-page ${conversionPath} leaves fragments alone without a page URL`, async () => {
+    const { convertHtmlToMarkdown } = await import("../lib/convert.mjs");
+    const result = convertHtmlToMarkdown({ html }, { DOMParser, Readability });
+    assert.equal(result.conversionPath, conversionPath);
+    assert.match(result.markdown, /\[Fragment\]\(#frag\)/);
+  });
 
   test(`whole-page ${conversionPath} unwraps script links and keeps inline content`, async () => {
     const { convertHtmlToMarkdown } = await import("../lib/convert.mjs");
