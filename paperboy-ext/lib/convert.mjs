@@ -97,11 +97,15 @@ const anchorAttribute = "data-paperboy-anchor";
 const anchorSelector = "h1, h2, h3, h4, h5, h6, p, pre";
 
 function excludedCode(node) {
-  for (let parent = node; parent && !parent.matches("html, body"); parent = parent.parentElement) {
-    if (parent.matches("main, [role=main], article")) continue;
-    if (parent.matches("footer, aside, nav, [role=navigation], [role=banner], [role=complementary], [role=contentinfo]")) return true;
+  const boundary = node.closest("article, main, [role=main]");
+  const tokens = boundary
+    ? /(?:^|[\s_-])(?:comments?|related|newsletter|promo|share|sharing|subscribe|nav(?:bar|igation)?)(?=$|[\s_-])/i
+    : /(?:^|[\s_-])(?:comments?|related|footer|sidebar|newsletter|promo|share|sharing|subscribe|nav(?:bar|igation)?)(?=$|[\s_-])/i;
+  for (let parent = node; parent && parent !== boundary && !parent.matches("html, body"); parent = parent.parentElement) {
+    if (parent.matches("footer, nav, [role=navigation], [role=contentinfo]")) return true;
+    if (!boundary && parent.matches("aside, [role=banner], [role=complementary]")) return true;
     const identity = `${parent.id} ${parent.getAttribute("class") || ""}`;
-    if (/(?:^|[\s_-])(?:comments?|related|footer|sidebar|newsletter|promo|share|sharing|subscribe|nav(?:bar|igation)?)(?=$|[\s_-])/i.test(identity)) return true;
+    if (tokens.test(identity)) return true;
   }
   return false;
 }
@@ -114,6 +118,10 @@ function reinsertCode(article, source) {
   if (!surviving.length) return 0;
   let region = surviving[0].parentElement;
   while (region && !surviving.every((node) => region.contains(node))) region = region.parentElement;
+  let introSibling = region?.previousElementSibling;
+  while (introSibling?.matches("aside, nav, [role=navigation], [role=complementary]") && !introSibling.querySelector("pre")) {
+    introSibling = introSibling.previousElementSibling;
+  }
   let previous = null;
   let inserted = 0;
   for (let index = 0; index < anchors.length; index++) {
@@ -127,14 +135,22 @@ function reinsertCode(article, source) {
     const following = anchors.slice(index + 1).find((node) => retained.has(node.getAttribute(anchorAttribute)));
     let branch = original;
     while (branch.parentElement && branch.parentElement !== region?.parentElement) branch = branch.parentElement;
-    const adjacentIntro = branch === region?.previousElementSibling && !branch.querySelector("h2, h3, h4, h5, h6");
+    const adjacentIntro = branch === introSibling && !branch.querySelector("h2, h3, h4, h5, h6");
     const adjacentCode = branch === region?.nextElementSibling
       && (branch.localName === "pre" || branch.matches("mdn-code-example, .code-example, .highlight, .code-block"));
     if (!(previous && following) && !region?.contains(original) && !adjacentIntro && !adjacentCode) continue;
     const clone = article.importNode(original, true);
-    if (previous) previous.after(clone);
-    else if (following) retained.get(following.getAttribute(anchorAttribute)).before(clone);
+    const callout = original.closest("aside, [role=note]");
+    const boundary = original.closest("article, main, [role=main]");
+    const calloutBlocks = callout && boundary?.contains(callout) ? [...callout.querySelectorAll("p, pre")] : [];
+    const leads = calloutBlocks.slice(0, calloutBlocks.indexOf(original))
+      .filter((node) => node.localName === "p" && node.closest("aside, [role=note]") === callout
+        && !retained.has(node.getAttribute(anchorAttribute)))
+      .map((node) => article.importNode(node, true));
+    if (previous) previous.after(...leads, clone);
+    else if (following) retained.get(following.getAttribute(anchorAttribute)).before(...leads, clone);
     else continue;
+    for (const lead of leads) retained.set(lead.getAttribute(anchorAttribute), lead);
     retained.set(id, clone);
     previous = clone;
     inserted++;
@@ -193,9 +209,6 @@ export function convertHtmlToMarkdown(payload, {
   });
   const article = reader.parse();
   const overCollapsed = readabilityOverCollapsed(article, fallbackClone.body, DOMParser);
-  stripPageChrome(fallbackClone);
-  const fallbackContent = pickMainContainer(fallbackClone);
-
   const articleDocument = new DOMParser().parseFromString(`<html><body>${article?.content || ""}</body></html>`, "text/html");
   let contentHtml;
   let conversionPath = "fallback";
@@ -204,6 +217,8 @@ export function convertHtmlToMarkdown(payload, {
     contentHtml = articleDocument.body.innerHTML;
     conversionPath = inserted ? `readability+reinserted ${inserted}` : "readability";
   } else {
+    stripPageChrome(fallbackClone);
+    const fallbackContent = pickMainContainer(fallbackClone);
     if (fallbackContent) absolutizeUrls(fallbackContent, fallbackClone.querySelector("base")?.getAttribute("href") || payload.url);
     contentHtml = fallbackContent?.innerHTML ?? "";
   }

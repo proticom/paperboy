@@ -10,6 +10,7 @@ These fixtures contain short excerpts from rendered page captures made on 2026-1
 | `code-blocks/stackoverflow-sorted.html` | [Stack Overflow question 11227809](https://stackoverflow.com/q/11227809) and [answer 11227902](https://stackoverflow.com/a/11227902) | Stack Overflow posts, CC BY-SA 3.0/4.0 per post revision. Author attribution is on the linked post pages. Short excerpts for testing; the C++ program is truncated after its array declaration. |
 | `code-blocks/bash-manual.html` | [GNU Bash Reference Manual](https://www.gnu.org/software/bash/manual/bash.html) | Free Software Foundation, GNU Free Documentation License (GFDL) 1.3. Short excerpts for testing. |
 | `code-blocks/blog-comment-pre.html` | Synthetic blog regression input, https://blog.example/post | Synthetic test markup; reader names replaced with generic labels. |
+| `code-blocks/article-aside-note.html` | Synthetic article callout, https://example.org/article | Synthetic test markup for code and lead text in an article aside. |
 
 ## Full capture measurements
 

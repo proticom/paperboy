@@ -32,6 +32,11 @@ describe("code blocks", () => {
     expect(convert(html)).toBe("```\na\nb\n```");
   });
 
+  it("ignores highlight.js auto-detection without a pre language hint", () => {
+    expect(convert('<pre><code class="hljs language-haskell">main = print 1</code></pre>'))
+      .toBe("```\nmain = print 1\n```");
+  });
+
   it.each([
     '<div>first</div><div>  second</div>',
     '<p>first</p><p>  second</p>',

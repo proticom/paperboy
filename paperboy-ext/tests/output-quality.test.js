@@ -140,7 +140,7 @@ for (const container of ['<main class="comments-open">', '<div role="main" class
 
 test("only token-boundary exclusions gate missing code, without stripping Readability input", async () => {
   const { convertHtmlToMarkdown } = await import("../lib/convert.mjs");
-  const excluded = ["comment-thread", "comments", "related-posts", "footer-links", "newsletter-signup", "promo-box", "share-tools", "sharing-tools", "subscribe-banner", "sidebar", "navbar"];
+  const excluded = ["comment-thread", "comments", "related-posts", "newsletter-signup", "promo-box", "share-tools", "sharing-tools", "subscribe-banner", "navbar"];
   class DroppingReadability extends Readability {
     parse() {
       assert.equal(this._doc.querySelectorAll("pre").length, excluded.length + 1);
@@ -153,4 +153,50 @@ test("only token-boundary exclusions gate missing code, without stripping Readab
   const result = convertHtmlToMarkdown({ html }, { DOMParser, Readability: DroppingReadability });
   assert.equal(result.conversionPath, "readability+reinserted 1");
   assert.deepEqual(fences(result.markdown).map((block) => block.content), ["included();\n  next();\n"]);
+});
+
+for (const callout of ['<aside class="note">', '<div role="note">', '<div role="complementary">']) {
+  test(`article callout ${callout} retains its dropped code`, async () => {
+    const { convertHtmlToMarkdown } = await import("../lib/convert.mjs");
+    const closing = callout.startsWith("<aside") ? "</aside>" : "</div>";
+    const html = read("article-aside-note").replace('<aside class="note">', callout).replace("</aside>", closing);
+    const result = convertHtmlToMarkdown({ html, url: "https://example.org/article" }, dependencies);
+    assert.deepEqual(fences(result.markdown).map((block) => block.content), ["echo ARTICLE_CODE\nls -la\n", "brew install ASIDE_CODE\nbrew doctor\n"]);
+    if (callout !== '<div role="complementary">') {
+      assert.match(result.markdown, /Note: install the tool before running the next example\.\n\n```bash\nbrew install ASIDE_CODE/);
+      assert.equal(result.markdown.split("Note: install the tool").length - 1, 1);
+    }
+  });
+}
+
+const setupParagraphs = (count) => Array.from({ length: count }, (_, index) => `<p>Article paragraph ${index + 1} explaining the topic in reasonable depth so Readability scores it as the main content of this article about shell scripting.</p>`).join("");
+
+test("intro code survives a has-sidebar wrapper above the article", async () => {
+  const { convertHtmlToMarkdown } = await import("../lib/convert.mjs");
+  const html = `<html><head><title>Shell tips</title></head><body><main><div class="content has-sidebar"><header><h1>Shell tips</h1><p>Quick example:</p><pre>echo INTRO_CODE\npwd</pre></header><aside><nav>Table of contents</nav></aside><article>${setupParagraphs(10)}<pre>echo ARTICLE_CODE</pre>${setupParagraphs(4)}</article></div><aside class="sidebar"><pre>SIDEBAR_CODE</pre></aside></main></body></html>`;
+  const result = convertHtmlToMarkdown({ html, url: "https://example.org/article" }, dependencies);
+  assert.deepEqual(fences(result.markdown).map((block) => block.content), ["echo INTRO_CODE\npwd\n", "echo ARTICLE_CODE\n"]);
+  assert.doesNotMatch(result.markdown, /SIDEBAR_CODE/);
+});
+
+for (const [opening, closing, code] of [
+  ["<footer>", "</footer>", "FOOTER_CODE"],
+  ['<div class="related-posts">', "</div>", "RELATED_CODE"],
+  ['<div class="comments"><div class="comment">', "</div></div>", "COMMENT_CODE"],
+  ['<nav role="navigation">', '</nav>', 'NAV_CODE'],
+]) {
+  test(`article reinsertion excludes ${code}`, async () => {
+    const { convertHtmlToMarkdown } = await import("../lib/convert.mjs");
+    const html = `<html><body><main><article><h1>Shell tips</h1>${setupParagraphs(8)}<pre>echo ARTICLE_CODE</pre>${opening}<p>Commands from another context.</p><pre>echo ${code}</pre>${closing}${setupParagraphs(4)}</article></main></body></html>`;
+    const result = convertHtmlToMarkdown({ html, url: "https://example.org/article" }, dependencies);
+    assert.deepEqual(fences(result.markdown).map((block) => block.content), ["echo ARTICLE_CODE\n"]);
+    assert.equal(result.markdown.includes(code), false);
+  });
+}
+
+test("callouts outside an article or main boundary keep the prior exclusion", async () => {
+  const { convertHtmlToMarkdown } = await import("../lib/convert.mjs");
+  const html = read("article-aside-note").replace("<main><article>", '<div class="content">').replace("</article></main>", "</div>");
+  const result = convertHtmlToMarkdown({ html, url: "https://example.org/article" }, dependencies);
+  assert.deepEqual(fences(result.markdown).map((block) => block.content), ["echo ARTICLE_CODE\nls -la\n"]);
 });
