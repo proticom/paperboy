@@ -1,4 +1,4 @@
-import { createTurndownService, prepareCodeBlocks } from "@proticom/paperboy-converter/turndown";
+import { createTurndownService, prepareCodeBlocks, wrapTableFragment } from "@proticom/paperboy-converter/turndown";
 import { absolutizeUrls as absolutizePickedUrls, unwrapScriptLinks } from "@proticom/paperboy-converter/helpers";
 
 const turndownService = createTurndownService();
@@ -198,7 +198,7 @@ export function convertHtmlToMarkdown(payload, {
       payload = { ...payload, html: wrapper.innerHTML };
     }
     const markdownBody = turndownService.turndown(
-      parseHtmlToDocument(`<html><body>${payload.html ?? ""}</body></html>`, payload.url, DOMParser).body.innerHTML,
+      parseHtmlToDocument(`<html><body>${wrapTableFragment(payload.html ?? "")}</body></html>`, payload.url, DOMParser).body.innerHTML,
     ).trim();
     const title = payload.title || "Selected region";
     const markdownLines = [`# ${title}`];
