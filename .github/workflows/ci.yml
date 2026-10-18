@@ -24,6 +24,13 @@ jobs:
       - name: Build workspaces
         run: npm run build --workspaces --if-present
 
+      - name: Check committed extension bundle is up to date
+        run: |
+          if ! git diff --exit-code paperboy-ext/sidepanel.bundle.js; then
+            echo "::error file=paperboy-ext/sidepanel.bundle.js::sidepanel.bundle.js is stale; run npm run build and commit it"
+            exit 1
+          fi
+
       - name: Typecheck workspaces
         run: npm run typecheck --workspaces --if-present
 
