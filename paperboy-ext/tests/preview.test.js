@@ -16,6 +16,15 @@ const remoteMarkdown = [
   '<img src="https://example.org/raw.png" srcset="https://example.org/large.png 2x">',
 ].join("\n\n");
 
+function imageResponse(overrides = {}) {
+  return {
+    ok: true,
+    headers: new Headers({ "content-type": "image/png" }),
+    blob: async () => new Blob(["image"], { type: "image/png" }),
+    ...overrides,
+  };
+}
+
 async function setup(overrides = {}) {
   const { createPreviewController } = await import("../lib/preview.mjs");
   const { document } = parseHTML('<html><body><button hidden disabled></button><article hidden></article></body></html>');
@@ -31,7 +40,7 @@ async function setup(overrides = {}) {
     md,
     fetch: async (url, options) => {
       calls.push([url, options]);
-      return { ok: true, blob: async () => new Blob(["image"], { type: "image/png" }) };
+      return imageResponse();
     },
     createObjectURL: (blob) => {
       created.push(blob);
@@ -114,16 +123,35 @@ test("Load images is hidden for text and inline images", async () => {
   assert.equal(loadButton.disabled, true);
 });
 
+for (const [kind, markdown, count] of [
+  ["relative", "![root](/a.png)\n\n![relative](images/a.png)", 2],
+  ["other-scheme", "![ftp](ftp://example.org/a.png)", 1],
+]) {
+  test(`Load images is hidden when only ${kind} images are deferred`, async () => {
+    const { controller, container, loadButton, calls } = await setup();
+    controller.show();
+    controller.setMarkdown(markdown);
+    assert.equal(container.querySelectorAll("[data-image-url]").length, count);
+    assert.equal(loadButton.hidden, true);
+    assert.equal(loadButton.disabled, true);
+    assert.deepEqual(calls, []);
+  });
+}
+
 test("Load images fetches HTTP(S) without credentials and inserts only blob URLs", async () => {
   const { controller, container, loadButton, calls, created } = await setup();
   controller.show();
   controller.setMarkdown("![secure](https://example.org/a.png)\n\n![relative](//example.org/b.png)\n\n![plain](http://example.org/c.png)");
   await controller.loadImages();
-  assert.deepEqual(calls, [
-    ["https://example.org/a.png", { credentials: "omit" }],
-    ["https://example.org/b.png", { credentials: "omit" }],
-    ["http://example.org/c.png", { credentials: "omit" }],
+  assert.deepEqual(calls.map(([url, options]) => [url, options.credentials]), [
+    ["https://example.org/a.png", "omit"],
+    ["https://example.org/b.png", "omit"],
+    ["http://example.org/c.png", "omit"],
   ]);
+  for (const [, options] of calls) {
+    assert.equal(options.signal instanceof AbortSignal, true);
+    assert.equal(options.signal.aborted, false);
+  }
   assert.equal(created.length, 3);
   assert.equal(created.every((blob) => blob instanceof Blob), true);
   assert.deepEqual([...container.querySelectorAll("img")].map((img) => [img.getAttribute("src"), img.getAttribute("alt")]), [
@@ -150,12 +178,125 @@ test("failed fetches stay as marked placeholders; other schemes are never fetche
   controller.show();
   controller.setMarkdown("![offline](https://example.org/throw.png)\n\n![missing](https://example.org/404.png)\n\n![ftp](ftp://example.org/a.png)\n\n![relative](/a.png)\n\n![unsafe](javascript:alert%281%29)");
   await controller.loadImages();
-  assert.deepEqual(calls, [
-    ["https://example.org/throw.png", { credentials: "omit" }],
-    ["https://example.org/404.png", { credentials: "omit" }],
+  assert.deepEqual(calls.map(([url, options]) => [url, options.credentials]), [
+    ["https://example.org/throw.png", "omit"],
+    ["https://example.org/404.png", "omit"],
   ]);
   assert.equal(container.querySelectorAll('[data-image-state="failed"]').length, 4);
   assert.equal(container.querySelectorAll("img").length, 0);
+  assert.equal(loadButton.hidden, false);
+  assert.equal(loadButton.disabled, false);
+});
+
+for (const { name, response, expectedBlobCalls } of [
+  { name: "HTTP 404", response: () => ({ ok: false, status: 404 }), expectedBlobCalls: 0 },
+  {
+    name: "non-image content type",
+    response: () => imageResponse({ headers: new Headers({ "content-type": "text/html" }) }),
+    expectedBlobCalls: 0,
+  },
+  { name: "missing content type", response: () => imageResponse({ headers: undefined }), expectedBlobCalls: 0 },
+  {
+    name: "Content-Length over the cap",
+    response: (limit) => imageResponse({ headers: new Headers({ "content-type": "image/png", "content-length": String(limit + 1) }) }),
+    expectedBlobCalls: 0,
+  },
+  {
+    name: "blob over the cap",
+    response: (limit) => imageResponse({ blob: async () => new Blob([new Uint8Array(limit + 1)]) }),
+    expectedBlobCalls: 1,
+  },
+]) {
+  test(`${name} marks the image failed without creating a blob URL`, async () => {
+    const { MAX_IMAGE_BYTES } = await import("../lib/preview.mjs");
+    const result = response(MAX_IMAGE_BYTES);
+    let blobCalls = 0;
+    const readBlob = result.blob;
+    result.blob = async () => { blobCalls += 1; return readBlob(); };
+    const { controller, container, loadButton, created } = await setup({ fetch: async () => result });
+    controller.show();
+    controller.setMarkdown("![test](https://example.org/test.png)");
+    await controller.loadImages();
+    assert.equal(container.querySelector("[data-image-url]").dataset.imageState, "failed");
+    assert.equal(container.querySelectorAll("img").length, 0);
+    assert.equal(blobCalls, expectedBlobCalls);
+    assert.deepEqual(created, []);
+    assert.equal(loadButton.disabled, false);
+  });
+}
+
+test("image content types are case-insensitive and a blob at the size cap is accepted", async () => {
+  const { MAX_IMAGE_BYTES } = await import("../lib/preview.mjs");
+  const { controller, container, created } = await setup({ fetch: async () => imageResponse({
+    headers: new Headers({ "content-type": "IMAGE/PNG", "content-length": String(MAX_IMAGE_BYTES) }),
+    blob: async () => new Blob([new Uint8Array(MAX_IMAGE_BYTES)]),
+  }) });
+  controller.show();
+  controller.setMarkdown("![test](https://example.org/test.png)");
+  await controller.loadImages();
+  assert.equal(container.querySelector("img").getAttribute("src"), "blob:https://example.org/1");
+  assert.equal(created.length, 1);
+  assert.equal(created[0].size, MAX_IMAGE_BYTES);
+});
+
+for (const boundary of ["fetch", "blob"]) {
+  test(`a stalled ${boundary} times out, aborts the signal and re-enables Load images`, async () => {
+    let signal;
+    const pending = new Promise(() => {});
+    const { controller, container, loadButton, created } = await setup({
+      timeoutMs: 10,
+      fetch: (url, options) => {
+        signal = options.signal;
+        return boundary === "fetch" ? pending : Promise.resolve(imageResponse({ blob: () => pending }));
+      },
+    });
+    controller.show();
+    controller.setMarkdown("![test](https://example.org/test.png)");
+    const loading = controller.loadImages();
+    assert.equal(loadButton.disabled, true);
+    assert.equal(signal instanceof AbortSignal, true);
+    assert.equal(signal.aborted, false);
+    await loading;
+    assert.equal(signal.aborted, true);
+    assert.equal(container.querySelector("[data-image-url]").dataset.imageState, "failed");
+    assert.deepEqual(created, []);
+    assert.equal(loadButton.hidden, false);
+    assert.equal(loadButton.disabled, false);
+  });
+}
+
+test("a completed fetch clears its abort timer", async () => {
+  const { controller, container, calls } = await setup({ timeoutMs: 10 });
+  controller.show();
+  controller.setMarkdown("![test](https://example.org/test.png)");
+  await controller.loadImages();
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  assert.equal(calls[0][1].signal.aborted, false);
+  assert.equal(container.querySelector("img").getAttribute("src"), "blob:https://example.org/1");
+});
+
+test("reset aborts old requests without clearing a newer generation's loading state", async () => {
+  const signals = [];
+  let finish;
+  const { controller, container, loadButton, created } = await setup({ fetch: (url, options) => {
+    signals.push(options.signal);
+    return new Promise((resolve) => { finish = resolve; });
+  } });
+  controller.show();
+  controller.setMarkdown("![old](https://example.org/old.png)");
+  const oldLoading = controller.loadImages();
+  controller.setMarkdown("![new](https://example.org/new.png)");
+  assert.equal(signals[0].aborted, true);
+  const newLoading = controller.loadImages();
+  await oldLoading;
+  assert.equal(loadButton.disabled, true);
+  assert.equal(signals[1].aborted, false);
+  assert.deepEqual(created, []);
+  finish(imageResponse());
+  await newLoading;
+  assert.equal(container.querySelector("img").getAttribute("alt"), "new");
+  assert.equal(created.length, 1);
+  controller.setMarkdown("![next](https://example.org/next.png)");
   assert.equal(loadButton.hidden, false);
   assert.equal(loadButton.disabled, false);
 });
@@ -175,7 +316,7 @@ test("the button loads images and concurrent requests do not duplicate fetches",
   assert.equal(loadButton.disabled, true);
   await controller.loadImages();
   assert.equal(fetches, 1);
-  finish({ ok: true, blob: async () => new Blob(["image"]) });
+  finish(imageResponse());
   await new Promise(setImmediate);
   assert.equal(container.querySelector("img").getAttribute("src"), "blob:https://example.org/1");
   assert.equal(loadButton.hidden, true);
@@ -206,14 +347,14 @@ for (const boundary of ["response", "blob"]) {
     let finish;
     const pending = new Promise((resolve) => { finish = resolve; });
     const { controller, container, loadButton, created, revoked } = await setup({
-      fetch: async () => boundary === "response" ? pending : { ok: true, blob: () => pending },
+      fetch: async () => boundary === "response" ? pending : imageResponse({ blob: () => pending }),
     });
     controller.show();
     controller.setMarkdown("![old](https://example.org/old.png)");
     const loading = controller.loadImages();
-    await Promise.resolve();
+    await new Promise(setImmediate);
     controller.setMarkdown("![new](https://example.org/new.png)");
-    finish(boundary === "response" ? { ok: true, blob: async () => new Blob(["old"]) } : new Blob(["old"]));
+    finish(boundary === "response" ? imageResponse() : new Blob(["old"]));
     await loading;
     assert.deepEqual(created, []);
     assert.deepEqual(revoked, []);
@@ -260,14 +401,14 @@ for (const view of ["source", "preview"]) {
     const revoked = [];
     let failConversion = false;
     const context = vm.createContext({
-      window, document, DOMParser, Blob, Date, TextEncoder, TextDecoder,
+      window, document, DOMParser, Blob, Date, TextEncoder, TextDecoder, AbortController, setTimeout, clearTimeout,
       URL: class extends URL {
         static createObjectURL() { return "blob:https://example.org/loaded"; }
         static revokeObjectURL(url) { revoked.push(url); }
       },
       fetch: async (url, options) => {
         calls.push([url, options.credentials]);
-        return { ok: true, blob: async () => new Blob(["image"]) };
+        return imageResponse();
       },
       chrome: {
         storage: { local: { get: async () => ({ "paperboy:prefs": { view } }), set: async () => {} } },

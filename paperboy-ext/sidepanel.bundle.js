@@ -6277,21 +6277,25 @@ ${content}
   var lib_default = MarkdownIt;
 
   // lib/preview.mjs
+  var MAX_IMAGE_BYTES = 20 * 1024 * 1024;
   function createPreviewController({
     container,
     loadButton,
     md: md2,
     fetch: fetchImage,
     createObjectURL,
-    revokeObjectURL
+    revokeObjectURL,
+    timeoutMs = 15e3
   }) {
     let markdown = "";
     let visible = !container.hidden;
     let rendered = false;
-    let loading = false;
+    let loading = null;
     let generation = 0;
     const blobUrls = /* @__PURE__ */ new Set();
+    const requests = /* @__PURE__ */ new Set();
     const placeholders = () => [...container.querySelectorAll("[data-image-url]")];
+    const isRemoteImage = (placeholder) => /^(?:https?:)?\/\//i.test(placeholder.dataset.imageUrl);
     const escape3 = md2.utils.escapeHtml;
     md2.renderer.rules.image = (tokens, index, options, env) => {
       const token = tokens[index];
@@ -6303,9 +6307,9 @@ ${content}
       return `<span class="deferred-image" data-image-url="${escape3(src)}" data-image-alt="${escape3(alt)}">${escape3(alt || "image")} <a href="${escape3(src)}">${escape3(src)}</a></span>`;
     };
     function updateButton() {
-      const available = visible && placeholders().length > 0;
+      const available = visible && placeholders().some(isRemoteImage);
       loadButton.hidden = !available;
-      loadButton.disabled = !available || loading;
+      loadButton.disabled = !available || loading !== null;
     }
     function render() {
       container.innerHTML = md2.render(markdown);
@@ -6314,12 +6318,14 @@ ${content}
     }
     function reset() {
       generation += 1;
+      for (const request of requests) request.abort();
+      requests.clear();
       container.replaceChildren();
       for (const url of blobUrls) revokeObjectURL(url);
       blobUrls.clear();
       markdown = "";
       rendered = false;
-      loading = false;
+      loading = null;
       updateButton();
     }
     function setMarkdown(value) {
@@ -6339,32 +6345,48 @@ ${content}
       updateButton();
     }
     async function loadImages() {
-      if (!visible || loading) return;
+      if (!visible || loading !== null) return;
       const currentGeneration = generation;
-      loading = true;
+      loading = currentGeneration;
       updateButton();
-      await Promise.all(placeholders().map(async (placeholder) => {
-        try {
-          const src = placeholder.dataset.imageUrl;
-          const normalized = src.startsWith("//") ? `https:${src}` : src;
-          if (!/^https?:\/\//i.test(normalized)) throw new Error("Unsupported image URL");
-          const url = new URL(normalized);
-          const response = await fetchImage(url.href, { credentials: "omit" });
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const blob = await response.blob();
-          if (generation !== currentGeneration) return;
-          const blobUrl = createObjectURL(blob);
-          blobUrls.add(blobUrl);
-          const image2 = container.ownerDocument.createElement("img");
-          image2.src = blobUrl;
-          image2.alt = placeholder.dataset.imageAlt;
-          placeholder.replaceWith(image2);
-        } catch {
-          if (generation === currentGeneration) placeholder.dataset.imageState = "failed";
-        }
-      }));
-      if (generation === currentGeneration) {
-        loading = false;
+      try {
+        await Promise.all(placeholders().map(async (placeholder) => {
+          const request = new AbortController();
+          requests.add(request);
+          const aborted = new Promise((resolve, reject) => {
+            request.signal.addEventListener("abort", () => reject(new Error("Image load aborted")), { once: true });
+          });
+          const timer = setTimeout(() => request.abort(), timeoutMs);
+          try {
+            const src = placeholder.dataset.imageUrl;
+            const normalized = src.startsWith("//") ? `https:${src}` : src;
+            if (!isRemoteImage(placeholder)) throw new Error("Unsupported image URL");
+            const url = new URL(normalized);
+            const response = await Promise.race([
+              fetchImage(url.href, { credentials: "omit", signal: request.signal }),
+              aborted
+            ]);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            if (!/^image\//i.test(response.headers?.get("content-type") || "")) throw new Error("Unsupported image type");
+            if (Number(response.headers?.get("content-length")) > MAX_IMAGE_BYTES) throw new Error("Image too large");
+            const blob = await Promise.race([response.blob(), aborted]);
+            if (blob.size > MAX_IMAGE_BYTES) throw new Error("Image too large");
+            if (generation !== currentGeneration) return;
+            const blobUrl = createObjectURL(blob);
+            blobUrls.add(blobUrl);
+            const image2 = container.ownerDocument.createElement("img");
+            image2.src = blobUrl;
+            image2.alt = placeholder.dataset.imageAlt;
+            placeholder.replaceWith(image2);
+          } catch {
+            if (generation === currentGeneration) placeholder.dataset.imageState = "failed";
+          } finally {
+            clearTimeout(timer);
+            requests.delete(request);
+          }
+        }));
+      } finally {
+        if (loading === currentGeneration) loading = null;
         updateButton();
       }
     }
