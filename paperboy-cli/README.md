@@ -10,7 +10,7 @@ It supports deterministic conversion for documents/spreadsheets and local OCR fo
 npm install -g @proticom/paperboy-cli
 ```
 
-`paperboy-cli` is installed as an equivalent alias.
+`paperboy-cli` is installed as an equivalent alias. `paperboy-dispatch` is also installed as a legacy alias for compatibility; prefer `paperboy`.
 
 ## Quick Start
 
@@ -55,6 +55,37 @@ paperboy convert "./report.docx" --stdout
 
 # JSON metadata (good for scripts)
 paperboy convert "./table.xlsx" --json
+```
+
+### `paperboy crawl <url>`
+
+Crawl one page or a site on the same origin, convert HTML pages to Markdown, and follow links up to the depth limit. It also reads `sitemap.xml` (and nested sitemaps, up to the sitemap limit) and queues those URLs.
+
+Options:
+- `--max-pages <number>`: maximum pages to process (default `300`)
+- `--max-depth <number>`: maximum depth from seed URLs (default `4`)
+- `--include-patterns <patterns>`: comma-separated regexes; only matching URLs are kept
+- `--exclude-patterns <patterns>`: comma-separated regexes for URLs to skip
+- `--min-content-words <number>`: skip converted pages with fewer words (default `0`)
+- `--output-mode <mode>`: `single`, `mirror`, or `jsonl` (default `single`)
+- `-o, --output <path>`: output file for `single` and `jsonl`, or a directory for `mirror`
+- `--map`: list discovered URLs only; do not convert pages to Markdown
+- `--json`: print the crawl report as JSON
+- `--rate-limit-ms <number>`: delay between requests in milliseconds (default `500`)
+- `--timeout-ms <number>`: HTTP timeout in milliseconds (default `10000`)
+- `--max-sitemaps <number>`: maximum sitemap files to read (default `20`)
+
+Examples:
+
+```bash
+# One Markdown file for the crawled pages
+paperboy crawl "https://example.com"
+
+# One Markdown file per page, under a directory
+paperboy crawl "https://example.com" --output-mode mirror -o "./out/example"
+
+# List URLs from the seed page and sitemaps, without conversion
+paperboy crawl "https://example.com" --map
 ```
 
 ### `paperboy config show`

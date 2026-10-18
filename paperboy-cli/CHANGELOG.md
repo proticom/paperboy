@@ -8,12 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.1] - Unreleased
 
 ### Added
-- `paperboy` command, matching the name shown in `--help`. `paperboy-cli` still works as an alias.
+- `paperboy` command, matching the name `--help` has always shown. `paperboy-cli` keeps working, and `paperboy-dispatch` remains as a legacy alias.
 
 ### Changed
-- README and help text use `paperboy` as the command name.
+- The `doctor` hint for a missing config file now says `paperboy setup`.
+- README uses `paperboy` as the command name and documents `crawl` and the `paperboy-cli` / `paperboy-dispatch` aliases.
+- Publish checklist checks `paperboy` and the `paperboy-cli` alias.
 
-## [0.3.0] - Unreleased
+## [0.3.0] - 2026-10-18
 
 ### Removed
 - **Breaking:** the `--describe-image` flag on `convert`. Passing it now fails with an unknown-option error.
