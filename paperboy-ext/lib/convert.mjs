@@ -105,7 +105,11 @@ function excludedCode(node) {
     if (parent.matches("footer, nav, [role=navigation], [role=contentinfo]")) return true;
     if (!boundary && parent.matches("aside, [role=banner], [role=complementary]")) return true;
     const identity = `${parent.id} ${parent.getAttribute("class") || ""}`;
-    if (boundary && parent.matches("aside") && /sidebar|widget|related|popular/i.test(identity)) return true;
+    if (boundary && parent.matches("aside")) {
+      const spaced = identity.replace(/([a-z])([A-Z])/g, "$1-$2");
+      if (/(?:^|[\s_-])(?:notes?|callouts?)(?=$|[\s_-])/i.test(spaced) || parent.classList.contains("starlight-aside")) continue;
+      if (/(?:^|[\s_-])(?:sidebar|widgets?|related|popular)(?=$|[\s_-])/i.test(spaced)) return true;
+    }
     if (tokens.test(identity)) return true;
   }
   return false;
