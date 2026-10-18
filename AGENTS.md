@@ -6,7 +6,7 @@ This folder is a **multi-package workspace**. Most packages share **one Git repo
 
 | Remote | What it tracks |
 |--------|----------------|
-| [github.com/proticom/paperboy](https://github.com/proticom/paperboy) | **Public** monorepo: root `AGENTS.md`, `paperboy-cli/`, `paperboy-converter/`, `paperboy-ext/`, `paperboy-widget/`, and shared assets. `paperboy-site/` is **not** part of this repo (see `.gitignore`). |
+| [github.com/proticom/paperboy](https://github.com/proticom/paperboy) | **Public** monorepo: root `AGENTS.md`, `paperboy-cli/`, `paperboy-converter/`, `paperboy-ext/`, and shared assets. `paperboy-site/` is **not** part of this repo (see `.gitignore`). |
 | [github.com/proticom/paperboy-site](https://github.com/proticom/paperboy-site) | **Private** Next.js site only. Work inside `paperboy-site/` and push from that directory. |
 
 Clone both into the same parent if you want the historical layout: check out `paperboy`, then clone `paperboy-site` into `paperboy/paperboy-site` (replacing or merging with an existing folder).
@@ -15,15 +15,14 @@ Clone both into the same parent if you want the historical layout: check out `pa
 
 | Directory | Role |
 |-----------|------|
-| `paperboy-site/` | Next.js 16 site (separate Git repo). Dev: `npm run dev` from that folder. |
-| `paperboy-widget/` | Embeddable markdown/web widget; build with `npm run build`. |
+| `paperboy-site/` | Next.js 16 site (separate Git repo). Dev: `npm run dev` from that folder. The site currently ships its own vendored copy of the widget bundle (`public/widget/paperboy-widget.min.js`). That file is no longer built from this repo. |
 | `paperboy-ext/` | Browser extension (manifest, background, side panel). Build: `npm run build`. |
 | `paperboy-cli/` | CLI (`paperboy-cli`). See package `README.md`. |
-| `paperboy-converter/` | Shared `@proticom/paperboy-converter` library used by site, widget, ext, and CLI. |
+| `paperboy-converter/` | Shared `@proticom/paperboy-converter` library used by site, ext, and CLI. |
 
 ## npm workspaces (dev install)
 
-The monorepo root has its own `package.json` with `workspaces: ["paperboy-converter", "paperboy-ai", "paperboy-cli", "paperboy-ext", "paperboy-widget"]`. One `npm install` at the root installs everything; `@proticom/paperboy-converter` is symlinked into each consumer's `node_modules` instead of being copied from a tarball.
+The monorepo root has its own `package.json` with `workspaces: ["paperboy-converter", "paperboy-ai", "paperboy-cli", "paperboy-ext"]`. One `npm install` at the root installs everything; `@proticom/paperboy-converter` is symlinked into each consumer's `node_modules` instead of being copied from a tarball.
 
 ```bash
 # from the monorepo root

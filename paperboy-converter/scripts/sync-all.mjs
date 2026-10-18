@@ -25,7 +25,7 @@ async function main() {
     "Build complete. paperboy-site consumes @proticom/paperboy-converter from npm — no vendor step.",
   );
   console.log(
-    "Workspace consumers (CLI, app, widget, extension) already get the converter via npm workspaces.",
+    "Workspace consumers (CLI, app, extension) already get the converter via npm workspaces.",
   );
 }
 

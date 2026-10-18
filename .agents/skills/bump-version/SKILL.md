@@ -5,7 +5,7 @@ description: Bump every workspace package in the paperboy monorepo to the same v
 
 # Bump version across the monorepo
 
-Two scripts cooperate to keep version numbers aligned across `paperboy-converter`, `paperboy-ai`, `paperboy-cli`, `paperboy-ext`, and `paperboy-widget`:
+Two scripts cooperate to keep version numbers aligned across `paperboy-converter`, `paperboy-ai`, `paperboy-cli`, and `paperboy-ext`:
 
 - `scripts/bump-version.mjs <version>` — rewrites the version field in every package.json and in `paperboy-ext/manifest.json`.
 - `paperboy-converter/scripts/sync-all.mjs` — rebuilds the converter only. Workspace consumers pick up the new build via symlinks; `paperboy-site` consumes `@proticom/paperboy-converter` from npm (no vendoring).
@@ -14,7 +14,7 @@ Two scripts cooperate to keep version numbers aligned across `paperboy-converter
 
 ## Steps
 
-Run from the monorepo root (`/Volumes/Dev/projects/paperboy/`).
+Run from the monorepo root.
 
 1. **Confirm everything is aligned right now.**
    ```bash
@@ -34,11 +34,10 @@ Run from the monorepo root (`/Volumes/Dev/projects/paperboy/`).
    ```
    This runs `tsc` on the converter only. It does not touch `paperboy-site/`.
 
-4. **Sanity-check each consumer builds.** The workspace symlinks the converter for cli/ext/widget, so just `tsc -p paperboy-converter/tsconfig.json` (or the workspace build) is usually enough. Optionally:
+4. **Sanity-check each consumer builds.** The workspace symlinks the converter for cli/ext, so just `tsc -p paperboy-converter/tsconfig.json` (or the workspace build) is usually enough. Optionally:
    ```bash
    npm --workspace=@proticom/paperboy-cli run build
    npm --workspace=@proticom/paperboy-ext run build
-   npm --workspace=@proticom/paperboy-widget run build
    cd paperboy-site && npm install --legacy-peer-deps && npm run build && cd ..
    ```
    In `paperboy-site`, ensure `@proticom/paperboy-converter` in `package.json` uses a caret that includes the new version (e.g. `^0.2.3`) before `npm install`.
