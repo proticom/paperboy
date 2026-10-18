@@ -246,8 +246,12 @@ program
     },
   );
 
-program
-  .command("config show")
+const configCommand = program
+  .command("config")
+  .description("Show or manage Paperboy CLI configuration");
+
+configCommand
+  .command("show")
   .description("Show current Paperboy CLI configuration")
   .action(async () => {
     const config = await loadConfig();

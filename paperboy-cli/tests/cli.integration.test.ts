@@ -31,6 +31,12 @@ describe("cli integration", () => {
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 
+  it("rejects unknown config sub-commands", () => {
+    const result = runCli(["config", "foo"], configDir);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("unknown command 'foo'");
+  });
+
   it("prints config JSON", () => {
     const result = runCli(["config", "show"], configDir);
     expect(result.status).toBe(0);

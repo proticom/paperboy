@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - `convert -o` now creates missing parent directories for the output file instead of failing with ENOENT.
+- `config show` is now a real sub-command: `paperboy config <anything else>` fails with exit code 1 instead of printing the config, and help shows `config` correctly.
 
 ## [0.3.0] - Unreleased
 
