@@ -873,6 +873,39 @@ ${content}
     return service;
   }
 
+  // ../paperboy-converter/dist/helpers.js
+  var textEncoder = new TextEncoder();
+  var textDecoder = new TextDecoder("utf-8");
+  function absolutizeUrls(root2, baseUrl) {
+    try {
+      new URL(baseUrl);
+    } catch {
+      return;
+    }
+    function resolve(value) {
+      const trimmed = value.trim();
+      if (!trimmed || trimmed.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
+        return value;
+      }
+      try {
+        return new URL(value, baseUrl).href;
+      } catch {
+        return value;
+      }
+    }
+    for (const element of root2.querySelectorAll("[href], [src], [srcset]")) {
+      for (const attribute2 of ["href", "src"]) {
+        const value = element.getAttribute(attribute2);
+        if (value !== null)
+          element.setAttribute(attribute2, resolve(value));
+      }
+      const srcset = element.getAttribute("srcset");
+      if (srcset !== null) {
+        element.setAttribute("srcset", srcset.replace(/(\S+?)(\s+[^,]*(?:,|$)|,+(?=\s|$)|$)/g, (_candidate, url, descriptor) => resolve(url) + descriptor));
+      }
+    }
+  }
+
   // ../node_modules/markdown-it/lib/common/utils.mjs
   var utils_exports = {};
   __export(utils_exports, {
@@ -6461,6 +6494,12 @@ ${content}
   }
   function convertHtmlToMarkdown(payload) {
     if (payload.fromPicker) {
+      if (payload.url) {
+        const template = document.createElement("template");
+        template.innerHTML = payload.html ?? "";
+        absolutizeUrls(template.content, payload.url);
+        payload = { ...payload, html: template.innerHTML };
+      }
       const markdownBody2 = turndownService.turndown(payload.html ?? "").trim();
       const title2 = payload.title || "Selected region";
       const markdownLines2 = [`# ${title2}`];
