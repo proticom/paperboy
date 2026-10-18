@@ -23,6 +23,55 @@ chrome.runtime.onStartup.addListener(() => {
   configureSidePanelBehavior();
 });
 
+// Installed in the isolated world shared by subsequent injections in this frame.
+function installPaperboySerializerInPage() {
+  globalThis.__paperboySerializeOpenShadowRoots = function(element) {
+    if (!element) return "";
+    const shadowRoots = [];
+    function collect(root) {
+      for (const el of [root, ...root.querySelectorAll("*")]) {
+        if (el.shadowRoot?.mode === "open") {
+          shadowRoots.push(el.shadowRoot);
+          collect(el.shadowRoot);
+        }
+      }
+    }
+    collect(element);
+    if (typeof element.getHTML === "function") {
+      try {
+        const clone = element.cloneNode(false);
+        clone.innerHTML = element.getHTML({ serializableShadowRoots: true, shadowRoots });
+        const containsClosed = /<template\b[^>]*shadowrootmode=["']?closed\b/i.test(clone.innerHTML);
+        if (!containsClosed && (!shadowRoots.length || clone.querySelector('template[shadowrootmode="open"]'))) {
+          return clone.outerHTML;
+        }
+      } catch {
+        // Older browsers can expose getHTML without supporting its options.
+      }
+    }
+    function cloneWithShadows(node) {
+      const clone = node.cloneNode(false);
+      if (node.shadowRoot?.mode === "open") {
+        const template = node.ownerDocument.createElement("template");
+        template.setAttribute("shadowrootmode", "open");
+        const contents = node.ownerDocument.createElement("div");
+        for (const child of node.shadowRoot.childNodes) {
+          contents.appendChild(cloneWithShadows(child));
+        }
+        template.innerHTML = contents.innerHTML;
+        clone.appendChild(template);
+      }
+      if (node.nodeName === "TEMPLATE") {
+        clone.innerHTML = node.innerHTML;
+      } else {
+        for (const child of node.childNodes) clone.appendChild(cloneWithShadows(child));
+      }
+      return clone;
+    }
+    return cloneWithShadows(element).outerHTML;
+  };
+}
+
 // Runs in the page context, no closure access. Auto-scrolls the dominant
 // scroll container so lazy-loaded content (images, infinite-scroll lists,
 // chat backlog) is in the DOM before serialization. Caps at 20 iterations
@@ -106,7 +155,9 @@ async function capturePageInPage() {
   });
 
   return {
-    html: document.documentElement?.outerHTML ?? "",
+    html: typeof globalThis.__paperboySerializeOpenShadowRoots === "function"
+      ? globalThis.__paperboySerializeOpenShadowRoots(document.documentElement)
+      : document.documentElement?.outerHTML ?? "",
     title: document.title ?? "",
     url: window.location.href,
     lang: document.documentElement?.lang ?? "",
@@ -380,7 +431,11 @@ function startPickerInPage() {
       if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
       return 0;
     });
-    const html = sorted.map((el) => el.outerHTML || "").join("\n");
+    const html = sorted.map((el) =>
+      typeof globalThis.__paperboySerializeOpenShadowRoots === "function"
+        ? globalThis.__paperboySerializeOpenShadowRoots(el)
+        : el.outerHTML || "",
+    ).join("\n");
     teardown();
     chrome.runtime.sendMessage({
       type: PICKED,
@@ -535,6 +590,10 @@ async function captureActiveTab() {
   }
 
   try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: installPaperboySerializerInPage,
+    });
     const [injection] = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: capturePageInPage,
@@ -562,6 +621,10 @@ async function startPickerOnActiveTab() {
     };
   }
   try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: installPaperboySerializerInPage,
+    });
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: startPickerInPage,
