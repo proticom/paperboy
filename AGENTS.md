@@ -23,7 +23,7 @@ Clone both into the same parent if you want the historical layout: check out `pa
 
 ## npm workspaces (dev install)
 
-The monorepo root has its own `package.json` with `workspaces: ["paperboy-converter", "paperboy-ai", "paperboy-cli", "paperboy-ext", "paperboy-widget"]`. One `npm install` at the root installs everything; `@proticom/paperboy-converter` is symlinked into each consumer's `node_modules` instead of being copied from a tarball.
+The monorepo root has its own `package.json` with `workspaces: ["paperboy-converter", "paperboy-cli", "paperboy-ext", "paperboy-widget"]`. One `npm install` at the root installs everything; `@proticom/paperboy-converter` is symlinked into each consumer's `node_modules` instead of being copied from a tarball.
 
 ```bash
 # from the monorepo root

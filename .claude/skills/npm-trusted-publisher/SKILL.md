@@ -1,6 +1,6 @@
 ---
 name: npm-trusted-publisher
-description: One-time npm Trusted Publisher (OIDC) setup for @proticom/paperboy-converter, @proticom/paperboy-ai, @proticom/paperboy-cli, and @proticom/paperboy-widget. Use before the first tag-driven publish, when publish workflows 404, or when onboarding a new maintainer to npm publish rights. Documents manual npmjs.com steps only — the agent cannot configure npm.com.
+description: One-time npm Trusted Publisher (OIDC) setup for @proticom/paperboy-converter, @proticom/paperboy-cli, and @proticom/paperboy-widget. Use before the first tag-driven publish, when publish workflows 404, or when onboarding a new maintainer to npm publish rights. Documents manual npmjs.com steps only — the agent cannot configure npm.com.
 disable-model-invocation: true
 ---
 
@@ -15,13 +15,12 @@ Same pattern as [Gnosys](https://www.npmjs.com/package/gnosys) / `@proticom` org
 | npm package | Workflow file | Tag trigger |
 |-------------|---------------|-------------|
 | `@proticom/paperboy-converter` | `.github/workflows/publish-paperboy-converter.yml` | `v*` (e.g. `v0.2.2`) |
-| `@proticom/paperboy-ai` | `.github/workflows/publish-paperboy-ai.yml` | `ai-v*` (e.g. `ai-v0.2.2`) |
 | `@proticom/paperboy-cli` | `.github/workflows/publish-paperboy.yml` | `cli-v*` (e.g. `cli-v0.2.3`) |
 | `@proticom/paperboy-widget` | `.github/workflows/publish-paperboy-widget.yml` | `widget-v*` (e.g. `widget-v0.2.2`) |
 
 **GitHub repo:** `proticom/paperboy`
 
-All four workflows:
+All three workflows:
 
 - Run `npm ci` at the **monorepo root** (root `package-lock.json`)
 - Use `actions/setup-node@v5` with `cache: npm` and `cache-dependency-path: package-lock.json`
@@ -43,7 +42,7 @@ Requires `@proticom` org membership with publish rights for the package.
    - **Workflow filename:** the matching `publish-paperboy-*.yml` from the table above (filename only, e.g. `publish-paperboy-converter.yml`)
    - **Environment:** leave blank unless the workflow uses a GitHub Environment
 4. **Save**.
-5. Repeat for all four packages (four separate Trusted Publisher entries).
+5. Repeat for all three packages (three separate Trusted Publisher entries).
 
 ## First-publish caveat
 

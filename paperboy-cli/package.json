@@ -55,11 +55,9 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@proticom/paperboy-ai": "*",
     "@proticom/paperboy-converter": "*",
     "@inquirer/prompts": "^7.8.4",
-    "commander": "^14.0.1",
-    "dotenv": "^17.2.3"
+    "commander": "^14.0.1"
   },
   "devDependencies": {
     "@types/node": "^24.6.1",

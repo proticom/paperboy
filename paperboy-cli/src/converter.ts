@@ -5,7 +5,6 @@ import {
   SUPPORTED_EXTENSIONS,
   type ConvertOptions as SharedConvertOptions,
   type ConvertResult,
-  type ImageDescriptionParams as SharedImageDescriptionParams,
   type OcrFunction,
   type OcrWordPosition,
 } from "@proticom/paperboy-converter";
@@ -13,53 +12,7 @@ import {
 export type { ConvertResult, OcrFunction, OcrWordPosition };
 export { SUPPORTED_EXTENSIONS };
 
-export interface ImageDescriptionParams {
-  filePath: string;
-  fileBytes: Buffer;
-  imageMimeType: string;
-  ocrText: string;
-  words: OcrWordPosition[];
-}
-
-export interface ConvertOptions {
-  image?: {
-    includeLayoutTable?: boolean;
-    describeImage?: (params: ImageDescriptionParams) => Promise<string | null>;
-    ocr?: OcrFunction;
-  };
-}
-
-function toSharedOptions(
-  filePath: string,
-  options?: ConvertOptions,
-): SharedConvertOptions | undefined {
-  if (!options?.image) {
-    return undefined;
-  }
-
-  const sharedImageOptions: SharedConvertOptions["image"] = {
-    includeLayoutTable: options.image.includeLayoutTable,
-  };
-
-  if (options.image.describeImage) {
-    sharedImageOptions.describeImage = async (
-      params: SharedImageDescriptionParams,
-    ) =>
-      options.image?.describeImage?.({
-        filePath,
-        fileBytes: Buffer.from(params.fileBytes),
-        imageMimeType: params.imageMimeType,
-        ocrText: params.ocrText,
-        words: params.words,
-      }) ?? null;
-  }
-
-  if (options.image.ocr) {
-    sharedImageOptions.ocr = options.image.ocr;
-  }
-
-  return { image: sharedImageOptions };
-}
+export type ConvertOptions = SharedConvertOptions;
 
 export async function convertFileToMarkdown(
   filePath: string,
@@ -69,5 +22,5 @@ export async function convertFileToMarkdown(
     ? await fs.readFile(filePath, "utf8")
     : await fs.readFile(filePath);
 
-  return convertToMarkdown(filePath, input, toSharedOptions(filePath, options));
+  return convertToMarkdown(filePath, input, options);
 }

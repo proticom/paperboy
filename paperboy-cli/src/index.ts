@@ -10,7 +10,6 @@ export {
   saveConfig,
   DEFAULT_CONFIG,
   CONFIG_PATH,
-  DOTENV_PATH,
   type PaperboyCliConfig,
 } from "./config.js";
 export { runSetup } from "./setup.js";
