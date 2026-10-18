@@ -5,6 +5,15 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - Unreleased
+
+### Added
+- `npm test` in `paperboy-ext/` checks the local OCR assets, worker options, packaging lists and MV3 restrictions.
+
+### Changed
+- English OCR language data (`eng.traineddata.gz` from the pinned `@tesseract.js-data/eng@1.0.0`, `4.0.0_best_int`) is now bundled with the extension and loaded locally with gzip on and language caching off, instead of being fetched from a remote CDN at runtime; image OCR therefore needs no remote language download, including its first run (fetching images from web pages still uses the existing host permissions). The build copies the data into the unpacked build and the store zip.
+- Version aligned to 0.3.0 with the converter and CLI; the bundled converter is 0.3.0.
+
 ## [0.2.2] - 2026-05-25
 
 ### Added
