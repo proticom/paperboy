@@ -21,11 +21,11 @@ jobs:
       - name: Install (root, all workspaces)
         run: npm ci
 
-      - name: Typecheck workspaces
-        run: npm run typecheck --workspaces --if-present
-
       - name: Build workspaces
         run: npm run build --workspaces --if-present
+
+      - name: Typecheck workspaces
+        run: npm run typecheck --workspaces --if-present
 
       - name: Test workspaces
         run: npm test --workspaces --if-present

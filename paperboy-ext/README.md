@@ -62,6 +62,26 @@ On those pages, Paperboy will show an error message in the side panel.
 
 ---
 
+## OCR and network use
+
+English image OCR runs locally, including its first run. The build bundles the
+Tesseract worker, WASM engine, and `eng.traineddata.gz` from
+`@tesseract.js-data/eng@1.0.0` in `lib/tesseract/`. The package provides
+`4.0.0_best_int`, which supports the LSTM engine used here; it does not publish
+the previous fast variant.
+
+Language data loads from the extension with gzip enabled and language caching
+disabled. OCR needs no remote language downloads. Fetching images from web pages
+still needs network access and the existing HTTP/HTTPS host permissions. Once
+image bytes are available locally, recognition works offline.
+
+Run `npm install` at the monorepo root, then `npm run build` in `paperboy-ext/`.
+The build regenerates `lib/tesseract/` and copies the language data into
+`dist/unpacked/`. `npm run package:store` includes the same data in the store zip.
+No traineddata binary is committed.
+
+---
+
 ## Project Structure
 
 ```
@@ -97,7 +117,7 @@ These items are **not** finished or **not** polished yet. They are safe to pick 
 
 2. **Chrome Web Store** — Today the flow is **Load unpacked** only. A store release needs listing copy, screenshots, a privacy policy URL (clipboard + broad host access should be explained), versioning discipline, and a repeatable zip/build of the extension folder (without `node_modules`).
 
-3. **Quality gates** — There are no automated tests yet. Useful additions would be small unit tests for the markdown shaping (title / Source / Byline) and/or a dry run of the message types between background, content script, and side panel.
+3. **Quality gates** — Run `npm test` in `paperboy-ext/` after building to validate local OCR assets, worker options, packaging lists, and MV3 restrictions. Further tests could cover markdown shaping (title / Source / Byline) and messages between the background script and side panel.
 
 4. **Other browsers** — The UI is built around **Chrome’s Side Panel API**. Porting to Firefox or Safari would mean different UI surfaces (popup or sidebar) and different APIs; treat as a separate effort.
 
