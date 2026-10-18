@@ -1127,7 +1127,7 @@ ${content}
       template.replaceWith(template.content);
     }
   }
-  function parseHtmlToDocument2(html, url, DOMParser) {
+  function parseHtmlToDocument(html, url, DOMParser = globalThis.DOMParser) {
     const parser = new DOMParser();
     const documentClone = parser.parseFromString(html, "text/html");
     if (documentClone.head && url) {
@@ -1278,7 +1278,7 @@ ${content}
         payload = { ...payload, html: wrapper.innerHTML };
       }
       const markdownBody2 = turndownService.turndown(
-        parseHtmlToDocument2(`<html><body>${wrapTableFragment(payload.html ?? "")}</body></html>`, payload.url, DOMParser).body.innerHTML
+        parseHtmlToDocument(`<html><body>${wrapTableFragment(payload.html ?? "")}</body></html>`, payload.url, DOMParser).body.innerHTML
       ).trim();
       const title2 = payload.title || "Selected region";
       const markdownLines2 = [`# ${title2}`];
@@ -1292,8 +1292,8 @@ ${content}
         conversionPath: "picker"
       };
     }
-    const documentClone = parseHtmlToDocument2(payload.html, payload.url, DOMParser);
-    const fallbackClone = parseHtmlToDocument2(payload.html, payload.url, DOMParser);
+    const documentClone = parseHtmlToDocument(payload.html, payload.url, DOMParser);
+    const fallbackClone = parseHtmlToDocument(payload.html, payload.url, DOMParser);
     for (const document2 of [documentClone, fallbackClone]) {
       document2.querySelectorAll(anchorSelector).forEach((node, index) => node.setAttribute(anchorAttribute, String(index)));
     }
