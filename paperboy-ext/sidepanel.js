@@ -1,4 +1,4 @@
-import { convertHtmlToMarkdown } from "./lib/convert.mjs";
+import { convertHtmlToMarkdown, parseHtmlToDocument } from "./lib/convert.mjs";
 import markdownit from "markdown-it";
 
 /* global PAPERBOY_CONVERTER_VERSION */ // banner in sidepanel.bundle.js from build.js
