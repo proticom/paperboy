@@ -14,7 +14,7 @@ Two scripts cooperate to keep version numbers aligned across `paperboy-converter
 
 ## Steps
 
-Run from the monorepo root (`/Volumes/Dev/projects/paperboy/`).
+Run from the monorepo root.
 
 1. **Confirm everything is aligned right now.**
    ```bash
