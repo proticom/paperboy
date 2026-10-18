@@ -27,4 +27,3 @@ Use this skill right after running `git push origin master` in `paperboy-site/`.
 
 - After every site `git push` to master.
 - When the user asks "is the site live yet?" or "did my push deploy?".
-- After a `sync-widget` run followed by a push.

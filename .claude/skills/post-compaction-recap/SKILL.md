@@ -40,7 +40,7 @@ Run all steps. Keep the report tight — this is a recap, not an audit.
    git -C /Volumes/Dev/projects/paperboy/paperboy-site log --oneline -5
    ```
 
-4. **Any uncommitted work?** If `git status` shows modified files, list which files and group them by package (paperboy-converter / paperboy-cli / paperboy-app / paperboy-ext / paperboy-widget / paperboy-site).
+4. **Any uncommitted work?** If `git status` shows modified files, list which files and group them by package (paperboy-converter / paperboy-cli / paperboy-app / paperboy-ext / paperboy-site).
 
 5. **Background processes.** Quickly check if any long-running build/dev process is still alive that we should know about:
    ```bash

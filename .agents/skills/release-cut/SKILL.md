@@ -32,7 +32,6 @@ Run from the monorepo root (`/Volumes/Dev/projects/paperboy/`).
    npm --workspace=@proticom/paperboy-converter run build
    npm --workspace=@proticom/paperboy-cli run build
    npm --workspace=@proticom/paperboy-ext run build
-   npm --workspace=@proticom/paperboy-widget run build
    (cd paperboy-site && npm install --legacy-peer-deps && npm run build)
    ```
    Ensure `paperboy-site/package.json` has `@proticom/paperboy-converter` set to a caret that includes `<version>` (e.g. `^0.2.3`).
