@@ -71,4 +71,33 @@ describe("TextEdit-style RTF", () => {
 
     expect(result.markdown).toBe("Alpha\n\nBeta\nGamma\tDelta");
   });
+
+  it("keeps the word after \\\\par followed by CRLF", async () => {
+    const result = await convertToMarkdown(
+      "memo.rtf",
+      "{\\rtf1\\ansi First MIKE\\par\r\nSecond NOVEMBER\\par\r\nThird OSCAR\\par\r\n}",
+    );
+
+    expect(result.markdown).toBe(
+      "First MIKE\n\nSecond NOVEMBER\n\nThird OSCAR",
+    );
+  });
+
+  it("keeps the word after \\\\b and \\\\i followed by LF", async () => {
+    const result = await convertToMarkdown(
+      "memo.rtf",
+      "{\\rtf1\\ansi \\b\nBold ROMEO\\b0\\par\n\\i\nItalic SIERRA}",
+    );
+
+    expect(result.markdown).toBe("Bold ROMEO\n\nItalic SIERRA");
+  });
+
+  it("keeps text after an escaped backslash", async () => {
+    const result = await convertToMarkdown(
+      "memo.rtf",
+      "{\\rtf1\\ansi Path C:\\\\temp\\par Next XRAY}",
+    );
+
+    expect(result.markdown).toBe("Path C:\\temp\n\nNext XRAY");
+  });
 });

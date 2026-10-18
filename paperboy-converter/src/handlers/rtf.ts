@@ -9,9 +9,13 @@ function decodeRtfToText(input: string): string {
   if (!input) return "";
 
   return normalizeLineEndings(input)
+    // Hold escaped backslashes so a later strip cannot read \\temp as \temp.
+    .replace(/\\\\/g, "\u0000")
     // A backslash before a raw newline is RTF's paragraph-break control
-    // symbol (TextEdit writes one per line). Skip escaped backslashes.
-    .replace(/(?<!\\)((?:\\\\)*)\\\n/g, "$1\\par ")
+    // symbol (TextEdit writes one per line). Escaped pairs are already held.
+    .replace(/\\\n/g, "\\par ")
+    // A newline ends a control word, so turn it into the space delimiter.
+    .replace(/(\\[a-zA-Z]+-?\d*)\n/g, "$1 ")
     // Raw newlines in RTF source are not text.
     .replace(/\n/g, "")
     // Match whole control words only, so \pardirnatural or \partightenfactor0
@@ -30,11 +34,12 @@ function decodeRtfToText(input: string): string {
       const normalized = value < 0 ? 65536 + value : value;
       return String.fromCharCode(normalized);
     })
-    .replace(/\\([{}\\])/g, "$1")
+    .replace(/\\([{}])/g, "$1")
     .replace(/\\[a-zA-Z]+-?\d* ?/g, "")
     .replace(/[{}]/g, "")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
+    .replace(/\u0000/g, "\\")
     .trim();
 }
 
