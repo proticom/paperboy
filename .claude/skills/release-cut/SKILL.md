@@ -105,7 +105,7 @@ Skip this step for cli / ext-only releases.
 ## Step 7 — Push monorepo
 
 ```bash
-git push origin main
+git push origin master
 ```
 
 ## Step 8 — Tag + push tags

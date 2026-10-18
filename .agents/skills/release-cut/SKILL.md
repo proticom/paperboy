@@ -52,7 +52,7 @@ Run from the monorepo root.
 
 6. **Push monorepo + tag.** The tag triggers the npm publish workflow.
    ```bash
-   git push origin main
+   git push origin master
    git tag v<version>
    git push origin v<version>
    ```
