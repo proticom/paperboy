@@ -11,7 +11,7 @@
  *      (rebuilds, repacks the tarball with the new name, propagates the
  *       file:.../proticom-paperboy-converter-X.Y.Z.tgz reference to every
  *       consumer, runs npm install in each)
- *   2. Verify each consumer builds (npm run build in cli/app/ext/widget)
+ *   2. Verify each consumer builds (npm run build in cli/app/ext)
  *   3. Commit + push: chore: align all packages to vX.Y.Z
  *
  * The paperboy-site repo is intentionally NOT touched — it's a separate
@@ -35,7 +35,6 @@ const JSON_TARGETS = [
   "paperboy-app/src-tauri/tauri.conf.json",
   "paperboy-ext/package.json",
   "paperboy-ext/manifest.json",
-  "paperboy-widget/package.json",
 ];
 
 // TOML files where the [package] block has `version = "X.Y.Z"`.

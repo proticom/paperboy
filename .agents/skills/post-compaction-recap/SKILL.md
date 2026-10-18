@@ -25,7 +25,7 @@ Run all steps. Keep the report tight — this is a recap, not an audit.
 1. **Confirm cwd.** `pwd` — note whether we're in `paperboy/` (monorepo root), `paperboy/paperboy-site/` (separate repo), or somewhere else. A surprising cwd is the #1 cause of "git push went to the wrong repo" errors.
 
 2. **Pull recent Gnosys state for this project:**
-   - `mcp__gnosys__gnosys_working_set` with `projectRoot: /Volumes/Dev/projects/paperboy` — surfaces the 5-10 most recently touched memories.
+   - `mcp__gnosys__gnosys_working_set` with `projectRoot` set to the monorepo root — surfaces the 5-10 most recently touched memories.
    - `mcp__gnosys__gnosys_recall` with `query: "session start"` and same `projectRoot` — pulls the same context the SessionStart hook would have loaded.
    - `mcp__gnosys__gnosys_list` with `category: decisions` and `limit: 8`, same `projectRoot` — the latest decisions.
    - `mcp__gnosys__gnosys_list` with `category: open-questions` and `limit: 5`, same `projectRoot` — anything parked.
@@ -33,14 +33,14 @@ Run all steps. Keep the report tight — this is a recap, not an audit.
 3. **Both repos' git state:**
    ```bash
    echo "=== monorepo ==="
-   git -C /Volumes/Dev/projects/paperboy status --short --branch
-   git -C /Volumes/Dev/projects/paperboy log --oneline -5
+   git status --short --branch
+   git log --oneline -5
    echo "=== site ==="
-   git -C /Volumes/Dev/projects/paperboy/paperboy-site status --short --branch
-   git -C /Volumes/Dev/projects/paperboy/paperboy-site log --oneline -5
+   git -C paperboy-site status --short --branch
+   git -C paperboy-site log --oneline -5
    ```
 
-4. **Any uncommitted work?** If `git status` shows modified files, list which files and group them by package (paperboy-converter / paperboy-cli / paperboy-app / paperboy-ext / paperboy-widget / paperboy-site).
+4. **Any uncommitted work?** If `git status` shows modified files, list which files and group them by package (paperboy-converter / paperboy-cli / paperboy-app / paperboy-ext / paperboy-site).
 
 5. **Background processes.** Quickly check if any long-running build/dev process is still alive that we should know about:
    ```bash
@@ -52,7 +52,7 @@ Run all steps. Keep the report tight — this is a recap, not an audit.
 ```
 ## Where we are
 
-**cwd**: /Volumes/Dev/projects/paperboy/paperboy-site
+**cwd**: paperboy-site
 
 **Recent decisions (Gnosys):**
 - 2026-05-17 — data-render=inline mode for widget; site uses it
