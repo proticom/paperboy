@@ -33,6 +33,8 @@ export type OcrFunction = (
 
 export interface ImageConversionOptions {
   includeLayoutTable?: boolean;
+  /** Local directory of gzipped language data. Disables the OCR disk cache. */
+  languageDataPath?: string;
   /**
    * Injectable OCR backend. When omitted, the handler lazy-loads tesseract.js
    * and runs OCR locally. Tests and alternate backends pass their own.

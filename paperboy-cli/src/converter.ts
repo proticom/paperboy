@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import {
   convertToMarkdown,
   shouldReadInputAsText,
@@ -22,5 +23,11 @@ export async function convertFileToMarkdown(
     ? await fs.readFile(filePath, "utf8")
     : await fs.readFile(filePath);
 
-  return convertToMarkdown(filePath, input, options);
+  return convertToMarkdown(filePath, input, {
+    ...options,
+    image: {
+      ...options?.image,
+      languageDataPath: fileURLToPath(new URL("./lang/", import.meta.url)),
+    },
+  });
 }

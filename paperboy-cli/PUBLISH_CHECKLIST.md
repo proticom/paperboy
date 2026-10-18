@@ -15,6 +15,7 @@ Use this checklist before publishing `@proticom/paperboy-cli`.
 - [ ] `npm install`
 - [ ] `npm run typecheck`
 - [ ] `npm run build`
+- [ ] Build copies `dist/lang/eng.traineddata.gz` from pinned `@tesseract.js-data/eng@1.0.0`
 - [ ] `npm run test:coverage`
 - [ ] `node dist/cli.js --help` runs successfully
 
@@ -28,6 +29,7 @@ Use this checklist before publishing `@proticom/paperboy-cli`.
 ## 4) OCR Behavior
 
 - [ ] Image OCR conversion works on a sample image
+- [ ] English OCR works with network access blocked and creates no language cache in the current directory
 - [ ] `--no-layout-table` removes positioning table
 
 ## 5) Documentation
@@ -41,6 +43,7 @@ Use this checklist before publishing `@proticom/paperboy-cli`.
 
 - [ ] `npm pack --dry-run` shows expected files only
 - [ ] Tarball contains `dist` output and README
+- [ ] Tarball contains `dist/lang/eng.traineddata.gz`
 
 ## 7) Publish
 

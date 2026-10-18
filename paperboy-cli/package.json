@@ -44,7 +44,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/copy-lang-data.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "doctor": "node ./dist/cli.js doctor",
     "test": "npm run build && vitest run",
@@ -60,6 +60,7 @@
     "commander": "^14.0.1"
   },
   "devDependencies": {
+    "@tesseract.js-data/eng": "1.0.0",
     "@types/node": "^24.6.1",
     "@vitest/coverage-v8": "^3.2.4",
     "typescript": "^5.9.3",

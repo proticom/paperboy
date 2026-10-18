@@ -91,6 +91,11 @@ paperboy-cli doctor --json
 
 ## OCR Output Shape (Images)
 
+English OCR works fully offline, including the first run. The build copies language
+data from the pinned `@tesseract.js-data/eng@1.0.0` package into `dist/lang/`, which
+ships with the CLI. OCR reads this local data without downloading or writing a
+language cache to the current directory.
+
 Image conversion can produce:
 - `## OCR Text`
 - `## Text Positioning` table with:

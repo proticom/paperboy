@@ -3,6 +3,7 @@ import type {
   ConvertInputData,
   ConvertOptions,
   ConvertResult,
+  ImageConversionOptions,
   OcrFunction,
   OcrResult,
   OcrWord,
@@ -89,12 +90,19 @@ function collectWordsFromTesseractBlocks(rawBlocks: unknown): OcrWord[] {
 async function defaultOcr(
   bytes: Uint8Array,
   language: string,
+  options?: ImageConversionOptions,
 ): Promise<OcrResult> {
   const { default: Tesseract } = await import("tesseract.js");
   const recognizeArg = bytes as unknown as Parameters<
     typeof Tesseract.recognize
   >[0];
-  const result = await Tesseract.recognize(recognizeArg, language);
+  const result = await Tesseract.recognize(
+    recognizeArg,
+    language,
+    options?.languageDataPath === undefined
+      ? undefined
+      : { langPath: options.languageDataPath, gzip: true, cacheMethod: "none" },
+  );
   return {
     text: result.data?.text ?? "",
     words: collectWordsFromTesseractBlocks(result.data?.blocks),
@@ -119,10 +127,14 @@ export async function convertImage(
 ): Promise<ConvertResult> {
   const fileBytes = toBytes(data);
   const warnings = [
-    "OCR runs locally and may take longer on large images. First run can download language data.",
+    options?.image?.languageDataPath === undefined
+      ? "OCR runs locally and may take longer on large images. First run can download language data."
+      : "OCR runs locally and may take longer on large images.",
   ];
 
-  const ocr: OcrFunction = options?.image?.ocr ?? defaultOcr;
+  const ocr: OcrFunction =
+    options?.image?.ocr ??
+    ((bytes, language) => defaultOcr(bytes, language, options?.image));
   const ocrResult = await ocr(fileBytes, "eng");
   const ocrText = (ocrResult.text ?? "").trim();
   const words = toOcrWordPositions(ocrResult.words ?? []);
