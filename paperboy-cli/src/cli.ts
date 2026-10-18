@@ -110,10 +110,11 @@ program
           console.log(`Wrote markdown to ${outputPath}`);
         }
         if (result.warnings.length > 0) {
-          console.log("");
-          console.log("Warnings:");
+          const writeWarning = options.stdout ? console.error : console.log;
+          writeWarning("");
+          writeWarning("Warnings:");
           for (const warning of result.warnings) {
-            console.log(`- ${warning}`);
+            writeWarning(`- ${warning}`);
           }
         }
       }

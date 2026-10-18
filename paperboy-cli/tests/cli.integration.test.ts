@@ -2,9 +2,11 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const cliPath = path.join(process.cwd(), "dist", "cli.js");
+const blockNetwork = fileURLToPath(new URL("./fixtures/block-network.cjs", import.meta.url));
 
 function runCli(args: string[], configDir: string) {
   return spawnSync(process.execPath, [cliPath, ...args], {
@@ -80,6 +82,31 @@ describe("cli integration", () => {
 
     const markdown = await fs.readFile(outputPath, "utf8");
     expect(markdown).toBe("Morning edition");
+  });
+
+  it("prints convert --stdout warnings on stderr", async () => {
+    const inputPath = path.join(tempDir, "scan.png");
+    await fs.copyFile(new URL("./fixtures/offline-ocr.png", import.meta.url), inputPath);
+    const networkLog = path.join(tempDir, "network.log");
+
+    const result = spawnSync(process.execPath, [
+      "--require", blockNetwork, cliPath, "convert", inputPath, "--stdout", "--no-layout-table",
+    ], {
+      cwd: tempDir,
+      env: {
+        ...process.env,
+        PAPERBOY_CLI_CONFIG_DIR: configDir,
+        PAPERBOY_TEST_NETWORK_LOG: networkLog,
+      },
+      encoding: "utf8",
+      timeout: 30000,
+    });
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("PAPERBOY OFFLINE");
+    expect(result.stdout).not.toContain("Warnings:");
+    expect(result.stderr).toContain("Warnings:");
+    expect(await fs.readFile(networkLog, "utf8").catch(() => "")).toBe("");
   });
 
   it("converts file with stdout JSON output", async () => {
