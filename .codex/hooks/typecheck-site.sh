@@ -10,7 +10,7 @@ input=$(cat)
 file=$(echo "$input" | jq -r '.tool_input.file_path // empty')
 case "$file" in
   */paperboy-site/*.tsx|*/paperboy-site/*.ts)
-    cd /Volumes/Dev/projects/paperboy/paperboy-site || exit 0
+    cd "$(dirname "$0")/../../paperboy-site" || exit 0
     out=$(npx --no-install tsc --noEmit -p tsconfig.json 2>&1)
     if [ $? -ne 0 ]; then
       echo "$out" | head -30

@@ -2,7 +2,7 @@
 
 `@proticom/paperboy-cli` converts files to Markdown from the command line.
 
-It supports deterministic conversion for documents/spreadsheets and local OCR for images, with optional AI image description when configured.
+It supports deterministic conversion for documents/spreadsheets and local OCR for images.
 
 ## Install
 
@@ -27,13 +27,7 @@ paperboy-cli doctor
 
 ### `paperboy-cli setup`
 
-Interactive setup for AI mode and credential storage.
-
-Modes:
-- Deterministic only (no AI)
-- Local Ollama model (optional `ollama pull` during setup)
-- Existing local endpoint (OpenAI-compatible API)
-- OpenRouter (cloud API key + model selection)
+Choose whether image conversion includes an OCR text-position table, then save the conversion defaults.
 
 ### `paperboy-cli convert <inputPath>`
 
@@ -42,7 +36,6 @@ Convert a supported file into Markdown.
 Options:
 - `-o, --output <path>`: write to a specific markdown path
 - `--stdout`: print markdown directly to stdout
-- `--describe-image`: include optional AI image description section
 - `--no-layout-table`: skip OCR text-position table
 - `--json`: emit JSON metadata
 
@@ -72,11 +65,12 @@ Runs diagnostics and prints what is healthy/missing.
 
 What it checks:
 - Node version compatibility
-- Config and dotenv locations
-- Active AI mode and required dependencies
-- Ollama/local endpoint connectivity (when enabled)
-- OpenRouter key presence/connectivity (when enabled)
-- Keychain/secret-tool availability on your platform
+- Config location and file presence
+- Converter smoke test
+- Internet reachability (skip with `--offline`)
+- Proxy environment
+- Output directory write access
+- Platform information
 
 Use JSON output for automation:
 
@@ -100,8 +94,7 @@ paperboy-cli doctor --json
 English OCR works fully offline, including the first run. The build copies language
 data from the pinned `@tesseract.js-data/eng@1.0.0` package into `dist/lang/`, which
 ships with the CLI. OCR reads this local data without downloading or writing a
-language cache to the current directory. Optional AI image descriptions need a
-network connection.
+language cache to the current directory.
 
 Image conversion can produce:
 - `## OCR Text`
@@ -113,24 +106,18 @@ Image conversion can produce:
   - `Width`
   - `Height`
 
-If AI description is enabled and available, output includes:
-- `## Image Description` (prepended before OCR sections)
+## Config
 
-## Config and Credentials
+Configuration is stored in `~/.config/paperboy-cli/config.json`. Set `PAPERBOY_CLI_CONFIG_DIR` to use another directory.
 
-Config location:
-- `~/.config/paperboy-cli/config.json`
-
-Dotenv fallback:
-- `~/.config/paperboy-cli/.env`
-
-OpenRouter key env var:
-- `PAPERBOY_OPENROUTER_API_KEY`
-
-Credential storage options during setup:
-- macOS Keychain (recommended on macOS)
-- GNOME Keyring via `secret-tool` (recommended on Linux when available)
-- dotenv file fallback
+```json
+{
+  "version": 1,
+  "defaults": {
+    "includeLayoutTable": true
+  }
+}
+```
 
 ## Exit Behavior
 

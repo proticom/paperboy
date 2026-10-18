@@ -31,19 +31,10 @@ export type OcrFunction = (
   language: string,
 ) => Promise<OcrResult>;
 
-export interface ImageDescriptionParams {
-  filename: string;
-  fileBytes: Uint8Array;
-  imageMimeType: string;
-  ocrText: string;
-  words: OcrWordPosition[];
-}
-
 export interface ImageConversionOptions {
   includeLayoutTable?: boolean;
   /** Local directory of gzipped language data. Disables the OCR disk cache. */
   languageDataPath?: string;
-  describeImage?: (params: ImageDescriptionParams) => Promise<string | null>;
   /**
    * Injectable OCR backend. When omitted, the handler lazy-loads tesseract.js
    * and runs OCR locally. Tests and alternate backends pass their own.

@@ -1,12 +1,12 @@
 ---
 name: release-cut
-description: Ship a release for ONE or more of the six paperboy packages (converter, cli, widget, ai, app, ext). Prompts the user for which package(s) and what version. Maps tag prefixes to workflows and watches the right publish/release run.
+description: Ship a release for ONE or more of the three paperboy packages (converter, cli, ext). Prompts the user for which package(s) and what version. Maps tag prefixes to workflows and watches the right publish/release run.
 disable-model-invocation: true
 ---
 
 # Cut a release
 
-End-to-end ship flow for the paperboy monorepo. Each package has its own **tag prefix** and **GitHub Actions workflow**. The spec named five tag types; the repo now has **six** because `paperboy-ai` was extracted after the plan was written (commit `81b4570` — `feat: extract paperboy-ai, wire app AI, and fix npm publish CI`).
+End-to-end ship flow for the paperboy monorepo. Each package has its own **tag prefix** and **GitHub Actions workflow**. There are **three** packages: converter, cli, and ext. The embeddable widget package, the AI package and the desktop app are no longer in this repo.
 
 Run all commands from the **monorepo root** (where `AGENTS.md` and `package.json` workspaces live).
 
@@ -16,9 +16,6 @@ Run all commands from the **monorepo root** (where `AGENTS.md` and `package.json
 |-------------|--------------|-----|----------|--------|
 | `paperboy-converter/` | `@proticom/paperboy-converter` | `v<version>` | `publish-paperboy-converter.yml` | npm (OIDC) |
 | `paperboy-cli/` | `@proticom/paperboy-cli` | `cli-v<version>` | `publish-paperboy.yml` | npm (OIDC) |
-| `paperboy-widget/` | `@proticom/paperboy-widget` | `widget-v<version>` | `publish-paperboy-widget.yml` | npm (OIDC) |
-| `paperboy-ai/` | `@proticom/paperboy-ai` | `ai-v<version>` | `publish-paperboy-ai.yml` | npm (OIDC) |
-| `paperboy-app/` | `paperboy-editor` (private) | `app-v<version>` | `release-desktop.yml` | GitHub Release (Tauri) |
 | `paperboy-ext/` | `@proticom/paperboy-ext` | `ext-v<version>` | `release-ext.yml` | GitHub Release zip + Chrome Web Store |
 
 ## Prerequisites (one-time)
@@ -28,13 +25,9 @@ Run all commands from the **monorepo root** (where `AGENTS.md` and `package.json
 - `gh` CLI authenticated to `github.com/proticom`.
 - Working tree clean (`git status` empty) before you start.
 
-**npm packages** (converter, cli, widget, ai)
+**npm packages** (converter, cli)
 
 - [npm Trusted Publisher](https://docs.npmjs.com/trusted-publishers) registered per package on npmjs.com (Proticom scope). Workflows use OIDC — **no `NPM_TOKEN`**.
-
-**Desktop app** (`paperboy-app`)
-
-- Tauri signing keys available to the workflow (or accept unsigned local-only builds if the workflow allows). See `paperboy-app` README / `release-desktop.yml`.
 
 **Extension** (`paperboy-ext`)
 
@@ -48,10 +41,7 @@ Run all commands from the **monorepo root** (where `AGENTS.md` and `package.json
 >
 > 1. **converter** — `@proticom/paperboy-converter` → tag `v*`
 > 2. **cli** — `@proticom/paperboy-cli` → tag `cli-v*`
-> 3. **widget** — `@proticom/paperboy-widget` → tag `widget-v*`
-> 4. **ai** — `@proticom/paperboy-ai` → tag `ai-v*`
-> 5. **app** (desktop) — `paperboy-editor` → tag `app-v*`
-> 6. **ext** (Chrome extension) — `@proticom/paperboy-ext` → tag `ext-v*`
+> 3. **ext** (Chrome extension) — `@proticom/paperboy-ext` → tag `ext-v*`
 
 For **each** selected package, ask for `X.Y.Z` (no prefix in the version string). Default: next patch from that package's `package.json`.
 
@@ -60,7 +50,6 @@ Record the choices in a small table (package → directory → tag → workflow)
 ## Step 2 — Validate the choice
 
 - **npm packages:** Remind the user Trusted Publisher must exist for that package (no runtime check unless they want `npm view`).
-- **app:** Confirm signing secrets / workflow expectations for `release-desktop.yml`.
 - **ext:** Confirm Chrome Web Store secrets for `release-ext.yml`.
 
 ## Step 3 — Bump versions
@@ -75,7 +64,7 @@ Record the choices in a small table (package → directory → tag → workflow)
 
 - **Single non-converter package:** Edit **only** that package's `package.json` `version` field (and its lockfile if you run `npm install` there).
 
-- **Multiple packages:** Bump in dependency order: **converter → ai → cli → widget → app / ext**. Use one version per package (they need not match).
+- **Multiple packages:** Bump in dependency order: **converter → cli → ext**. Use one version per package (they need not match).
 
 ## Step 4 — Build + test every released package
 
@@ -87,15 +76,6 @@ npm --workspace=@proticom/paperboy-converter test
 
 npm --workspace=@proticom/paperboy-cli run build
 npm --workspace=@proticom/paperboy-cli test
-
-npm --workspace=@proticom/paperboy-widget run build
-npm --workspace=@proticom/paperboy-widget test
-
-npm --workspace=@proticom/paperboy-ai run build
-npm --workspace=@proticom/paperboy-ai test
-
-# app: build web + Tauri prep as your release checklist requires
-npm --workspace=paperboy-editor run build
 
 # ext
 npm --workspace=@proticom/paperboy-ext run build
@@ -120,7 +100,7 @@ One commit for the whole release batch.
 2. `npm install --legacy-peer-deps && npm run build` inside `paperboy-site/`.
 3. Commit and push the site repo.
 
-Skip this step for cli / widget / ai / app / ext-only releases.
+Skip this step for cli / ext-only releases.
 
 ## Step 7 — Push monorepo
 
@@ -136,9 +116,6 @@ Push **one tag per package**, in order if multiple (see "What NOT to do"):
 |---------|----------|
 | converter | `git tag v<version> && git push origin v<version>` |
 | cli | `git tag cli-v<version> && git push origin cli-v<version>` |
-| widget | `git tag widget-v<version> && git push origin widget-v<version>` |
-| ai | `git tag ai-v<version> && git push origin ai-v<version>` |
-| app | `git tag app-v<version> && git push origin app-v<version>` |
 | ext | `git tag ext-v<version> && git push origin ext-v<version>` |
 
 Wrong prefix triggers the wrong workflow (e.g. `v*` always runs the **converter** publish).
@@ -154,15 +131,6 @@ gh run watch --exit-status $(gh run list --workflow=publish-paperboy-converter.y
 # cli
 gh run watch --exit-status $(gh run list --workflow=publish-paperboy.yml --limit 1 --json databaseId --jq '.[0].databaseId')
 
-# widget
-gh run watch --exit-status $(gh run list --workflow=publish-paperboy-widget.yml --limit 1 --json databaseId --jq '.[0].databaseId')
-
-# ai
-gh run watch --exit-status $(gh run list --workflow=publish-paperboy-ai.yml --limit 1 --json databaseId --jq '.[0].databaseId')
-
-# app (desktop)
-gh run watch --exit-status $(gh run list --workflow=release-desktop.yml --limit 1 --json databaseId --jq '.[0].databaseId')
-
 # ext
 gh run watch --exit-status $(gh run list --workflow=release-ext.yml --limit 1 --json databaseId --jq '.[0].databaseId')
 ```
@@ -171,11 +139,10 @@ On failure: `gh run view <id> --log-failed` (last ~40 lines).
 
 ## Step 10 — Verify
 
-- **npm** (`converter`, `cli`, `widget`, `ai`):
+- **npm** (`converter`, `cli`):
   ```bash
   npm view @proticom/<package-name>@<version> version
   ```
-- **app:** GitHub Release for `app-v<version>` with `.dmg` / `.app.tar.gz` / `.exe` / `.AppImage` (per workflow matrix).
 - **ext:** GitHub Release zip + Chrome Web Store upload success in workflow logs.
 
 ## Step 11 — Report
@@ -198,7 +165,7 @@ permissions:
 
 - Don't skip step 4. A bad tag forces a follow-up patch to undo.
 - Don't tag a non-converter package as `v<version>` — that only publishes the converter.
-- Don't push two related tags at once (e.g. `v0.2.3` and `cli-v0.2.7`). **Push converter first**, wait for npm publish, then cli/widget/ai that depend on it.
+- Don't push two related tags at once (e.g. `v0.2.3` and `cli-v0.2.7`). **Push converter first**, wait for npm publish, then cli that depends on it.
 - Don't force-push tags. Retry with a new patch version instead.
 - Don't vendor a converter `.tgz` into `paperboy-site/` (site uses npm registry).
 - Don't assume `paperboy-site` is in the monorepo push — it is a nested separate repo.

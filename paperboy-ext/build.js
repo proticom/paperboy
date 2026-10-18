@@ -17,6 +17,7 @@ const RUNTIME_FILES = [
   "lib/tesseract/worker.min.js",
   "lib/tesseract/tesseract-core-simd-lstm.wasm.js",
   "lib/tesseract/tesseract-core-simd-lstm.wasm",
+  "lib/tesseract/lang/eng.traineddata.gz",
   "icons/icon-16.png",
   "icons/icon-48.png",
   "icons/icon-128.png",
@@ -31,6 +32,20 @@ function resolvePackageDir(pkgName) {
 function prepareTesseractAssets() {
   const destDir = path.join(rootDir, "lib", "tesseract");
   fs.mkdirSync(destDir, { recursive: true });
+
+  const languageData = path.join(
+    resolvePackageDir("@tesseract.js-data/eng"),
+    "4.0.0_best_int",
+    "eng.traineddata.gz",
+  );
+  if (!fs.existsSync(languageData)) {
+    throw new Error(
+      "Missing @tesseract.js-data/eng 4.0.0_best_int/eng.traineddata.gz. Run npm install at the monorepo root.",
+    );
+  }
+  const langDir = path.join(destDir, "lang");
+  fs.mkdirSync(langDir, { recursive: true });
+  fs.copyFileSync(languageData, path.join(langDir, "eng.traineddata.gz"));
 
   // From tesseract.js: the JS library + the worker script.
   const tesseractJsDist = path.join(resolvePackageDir("tesseract.js"), "dist");

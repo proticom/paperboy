@@ -74,13 +74,10 @@ describe("shared converter", () => {
               },
             ],
           }),
-          describeImage: async () => "A scanned receipt.",
         },
       },
     );
 
-    expect(result.markdown).toContain("## Image Description");
-    expect(result.markdown).toContain("A scanned receipt.");
     expect(result.markdown).toContain("## OCR Text");
     expect(result.markdown).toContain("Detected text");
     expect(result.markdown).toContain("## Text Positioning");
@@ -124,6 +121,15 @@ describe("shared converter — binary handlers", () => {
     expect(result.markdown).toContain("Hello pdf world.");
     expect(Array.isArray(result.warnings)).toBe(true);
     expect(result.markdown).not.toMatch(/^## Page 1/m);
+  });
+
+  it("converts pdf files from a Node Buffer", async () => {
+    const bytes = readFileSync(new URL("./fixtures/sample.pdf", import.meta.url));
+    const result = await convertToMarkdown("sample.pdf", bytes);
+
+    expect(result.title).toBe("sample");
+    expect(result.markdown).toBe("Hello pdf world.");
+    expect(result.warnings).toEqual([]);
   });
 
   it("converts epub files to markdown", async () => {

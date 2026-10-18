@@ -1,6 +1,6 @@
 {
   "name": "@proticom/paperboy-cli",
-  "version": "0.2.6",
+  "version": "0.3.0",
   "description": "Command-line edition of Paperboy: convert files and crawl entire sites to clean Markdown — offline, deterministic, scriptable (PDF, DOCX, EPUB, HTML, OCR, and more).",
   "license": "MIT",
   "homepage": "https://github.com/proticom/paperboy/tree/main/paperboy-cli#readme",
@@ -55,11 +55,9 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@inquirer/prompts": "^7.8.4",
-    "@proticom/paperboy-ai": "*",
     "@proticom/paperboy-converter": "*",
-    "commander": "^14.0.1",
-    "dotenv": "^17.2.3"
+    "@inquirer/prompts": "^7.8.4",
+    "commander": "^14.0.1"
   },
   "devDependencies": {
     "@tesseract.js-data/eng": "1.0.0",

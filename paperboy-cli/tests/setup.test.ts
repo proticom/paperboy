@@ -4,17 +4,11 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const promptMocks = vi.hoisted(() => ({
-  select: vi.fn(),
-  input: vi.fn(),
   confirm: vi.fn(),
-  password: vi.fn(),
 }));
 
 vi.mock("@inquirer/prompts", () => ({
-  select: promptMocks.select,
-  input: promptMocks.input,
   confirm: promptMocks.confirm,
-  password: promptMocks.password,
 }));
 
 let tempDir = "";
@@ -32,10 +26,7 @@ describe("setup flow", () => {
   beforeEach(async () => {
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "paperboy-cli-setup-"));
     process.env.PAPERBOY_CLI_CONFIG_DIR = tempDir;
-    promptMocks.select.mockReset();
-    promptMocks.input.mockReset();
     promptMocks.confirm.mockReset();
-    promptMocks.password.mockReset();
   });
 
   afterEach(async () => {
@@ -43,9 +34,7 @@ describe("setup flow", () => {
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 
-  it("writes deterministic setup choices to config", async () => {
-    promptMocks.select.mockResolvedValueOnce("disabled");
-    promptMocks.confirm.mockResolvedValueOnce(true);
+  it("writes the OCR layout choice to config", async () => {
     promptMocks.confirm.mockResolvedValueOnce(false);
 
     const setupModule = await importSetupModule();
@@ -54,8 +43,10 @@ describe("setup flow", () => {
     const configModule = await importConfigModule();
     const config = await configModule.loadConfig();
 
-    expect(config.ai.mode).toBe("disabled");
-    expect(config.defaults.includeLayoutTable).toBe(true);
-    expect(config.defaults.describeImagesWithAi).toBe(false);
+    expect(config).toEqual({
+      version: 1,
+      defaults: { includeLayoutTable: false },
+    });
+    expect(JSON.parse(await fs.readFile(configModule.CONFIG_PATH, "utf8"))).toEqual(config);
   });
 });
