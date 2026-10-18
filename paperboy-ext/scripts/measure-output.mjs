@@ -30,7 +30,16 @@ const result = convertHtmlToMarkdown({
   title: document.title,
   fromPicker: Boolean(selector),
 }, { DOMParser, Readability });
-const fences = new MarkdownIt().parse(result.markdown, {}).filter((token) => token.type === "fence");
+const tokens = new MarkdownIt().parse(result.markdown, {});
+const fences = tokens.filter((token) => token.type === "fence");
+const lines = result.markdown.split("\n");
+const outsideFence = (index) => !fences.some((token) => index >= token.map[0] && index < token.map[1]);
+const copyNearFence = lines.filter((line, index) => /\bCopy\b/i.test(line) && outsideFence(index)
+  && fences.some((token) => Math.abs(index - token.map[0]) <= 2 || Math.abs(index - (token.map[1] - 1)) <= 2)).length;
+const links = tokens.flatMap((token) => token.children || []).filter((token) => token.type === "link_open")
+  .map((token) => token.attrGet("href"));
+const junkPhrases = ["Was this page helpful", "View this page on GitHub", "Subscribe", "Related posts", "Advertise", "newsletter", "Privacy policy"]
+  .filter((phrase) => result.markdown.replace(/[\[\]_*`]/g, "").toLowerCase().includes(phrase.toLowerCase()));
 const compact = (text) => text.replace(/\s+/g, "");
 const outputLines = result.markdown.split("\n").map(compact);
 const pres = [...input.querySelectorAll("pre")];
@@ -47,6 +56,11 @@ console.log(JSON.stringify({
   fencedBlockCount: fences.length,
   linesInsideFences: fences.reduce((sum, token) => sum + token.content.replace(/\n$/, "").split("\n").length, 0),
   copyLines: result.markdown.split("\n").filter((line) => /^(?:Copy|Copied|Copy code|Copy to clipboard)$/i.test(line.trim())).length,
+  copyNearFence,
+  conversionPath: result.conversionPath,
+  absoluteLinks: links.filter((url) => /^https?:\/\//i.test(url)).length,
+  relativeLinks: links.filter((url) => !/^(?:[a-z][a-z\d+.-]*:|#)/i.test(url)).length,
+  junkPhrases,
   collapsedBlocks: collapsed,
   outputLength: result.markdown.length,
 }, null, 2));

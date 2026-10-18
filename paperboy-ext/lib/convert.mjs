@@ -3,8 +3,24 @@ import { createTurndownService, prepareCodeBlocks } from "@proticom/paperboy-con
 const turndownService = createTurndownService();
 
 function flattenShadowRoots(root) {
-  root.querySelectorAll('template[shadowrootmode="closed"]').forEach((template) => template.remove());
-  for (const template of root.querySelectorAll('template[shadowrootmode="open"]')) {
+  for (const template of [...root.children]) {
+    if (template.localName !== "template" || !template.hasAttribute("shadowrootmode")) {
+      flattenShadowRoots(template);
+      continue;
+    }
+    if (template.getAttribute("shadowrootmode") !== "open") {
+      template.remove();
+      continue;
+    }
+    const host = root;
+    const light = [...host.childNodes].filter((node) => node !== template);
+    for (const slot of template.content.querySelectorAll("slot")) {
+      const name = slot.getAttribute("name") || "";
+      const assigned = light.filter((node) => (node.nodeType === 1 || node.nodeType === 3) && node.parentNode === host
+        && (node.nodeType === 1 ? node.getAttribute("slot") || "" : "") === name);
+      slot.replaceWith(...(assigned.length ? assigned : [...slot.childNodes]));
+    }
+    light.filter((node) => node.parentNode === host).forEach((node) => node.remove());
     flattenShadowRoots(template.content);
     template.replaceWith(template.content);
   }
@@ -16,7 +32,7 @@ function parseHtmlToDocument(html, url, DOMParser) {
 
   if (documentClone.head && url) {
     const base = documentClone.createElement("base");
-    base.href = url;
+    base.setAttribute("href", url);
     documentClone.head.prepend(base);
   }
 
@@ -25,9 +41,15 @@ function parseHtmlToDocument(html, url, DOMParser) {
   return documentClone;
 }
 
-function readabilityOverCollapsed(article, body) {
-  const articleText = (article?.textContent ?? "").length;
-  const bodyText = (body?.textContent ?? "").length;
+function readabilityOverCollapsed(article, body, DOMParser) {
+  const textLength = (root) => {
+    const clone = root.cloneNode(true);
+    clone.querySelectorAll("style, script, noscript, template").forEach((node) => node.remove());
+    return (clone.textContent || "").length;
+  };
+  const articleRoot = new DOMParser().parseFromString(`<html><body>${article?.content || ""}</body></html>`, "text/html");
+  const articleText = textLength(articleRoot.body);
+  const bodyText = body ? textLength(body) : 0;
   if (bodyText < 1000) return false;
   return articleText < bodyText * 0.3;
 }
@@ -71,6 +93,71 @@ function stripPageChrome(documentClone) {
     });
 }
 
+const anchorAttribute = "data-paperboy-anchor";
+const anchorSelector = "h1, h2, h3, h4, h5, h6, p, pre";
+
+function excludedCode(node) {
+  for (let parent = node; parent && !parent.matches("html, body"); parent = parent.parentElement) {
+    if (parent.matches("main, [role=main], article")) continue;
+    if (parent.matches("footer, aside, nav, [role=navigation], [role=banner], [role=complementary], [role=contentinfo]")) return true;
+    const identity = `${parent.id} ${parent.getAttribute("class") || ""}`;
+    if (/(?:^|[\s_-])(?:comments?|related|footer|sidebar|newsletter|promo|share|sharing|subscribe|nav(?:bar|igation)?)(?=$|[\s_-])/i.test(identity)) return true;
+  }
+  return false;
+}
+
+function reinsertCode(article, source) {
+  const anchors = [...source.querySelectorAll(`[${anchorAttribute}]`)];
+  const retained = new Map([...article.querySelectorAll(`[${anchorAttribute}]`)]
+    .map((node) => [node.getAttribute(anchorAttribute), node]));
+  const surviving = anchors.filter((node) => retained.has(node.getAttribute(anchorAttribute)));
+  if (!surviving.length) return 0;
+  let region = surviving[0].parentElement;
+  while (region && !surviving.every((node) => region.contains(node))) region = region.parentElement;
+  let previous = null;
+  let inserted = 0;
+  for (let index = 0; index < anchors.length; index++) {
+    const original = anchors[index];
+    const id = original.getAttribute(anchorAttribute);
+    if (retained.has(id)) {
+      previous = retained.get(id);
+      continue;
+    }
+    if (original.localName !== "pre" || !original.textContent.trim() || excludedCode(original)) continue;
+    const following = anchors.slice(index + 1).find((node) => retained.has(node.getAttribute(anchorAttribute)));
+    let branch = original;
+    while (branch.parentElement && branch.parentElement !== region?.parentElement) branch = branch.parentElement;
+    const adjacentIntro = branch === region?.previousElementSibling && !branch.querySelector("h2, h3, h4, h5, h6");
+    const adjacentCode = branch === region?.nextElementSibling
+      && (branch.localName === "pre" || branch.matches("mdn-code-example, .code-example, .highlight, .code-block"));
+    if (!(previous && following) && !region?.contains(original) && !adjacentIntro && !adjacentCode) continue;
+    const clone = article.importNode(original, true);
+    if (previous) previous.after(clone);
+    else if (following) retained.get(following.getAttribute(anchorAttribute)).before(clone);
+    else continue;
+    retained.set(id, clone);
+    previous = clone;
+    inserted++;
+  }
+  return inserted;
+}
+
+function absolutizeUrls(root, base) {
+  const absolute = (value) => {
+    if (!value || /^(?:#|mailto:|tel:|data:)/i.test(value)) return value;
+    try { return new URL(value, base).href; } catch { return value; }
+  };
+  for (const node of root.querySelectorAll("[href], [src], [srcset]")) {
+    for (const attribute of ["href", "src"]) {
+      if (node.hasAttribute(attribute)) node.setAttribute(attribute, absolute(node.getAttribute(attribute)));
+    }
+    if (node.hasAttribute("srcset")) {
+      node.setAttribute("srcset", node.getAttribute("srcset").replace(/(^|,)(\s*)(data:[^\s]+|[^,\s]+)([^,]*)/gi,
+        (_match, separator, space, value, descriptor) => separator + space + absolute(value) + descriptor));
+    }
+  }
+}
+
 export function convertHtmlToMarkdown(payload, {
   DOMParser = globalThis.DOMParser,
   Readability = globalThis.Readability,
@@ -87,6 +174,7 @@ export function convertHtmlToMarkdown(payload, {
       markdown: `${markdownLines.join("\n").trim()}\n`,
       title,
       length: markdownBody.length,
+      conversionPath: "picker",
     };
   }
 
@@ -95,26 +183,33 @@ export function convertHtmlToMarkdown(payload, {
   const documentClone = parseHtmlToDocument(payload.html, payload.url, DOMParser);
   const fallbackClone = parseHtmlToDocument(payload.html, payload.url, DOMParser);
 
+  for (const document of [documentClone, fallbackClone]) {
+    document.querySelectorAll(anchorSelector).forEach((node, index) => node.setAttribute(anchorAttribute, String(index)));
+  }
   const reader = new Readability(documentClone, {
     charThreshold: 40,
     keepClasses: false,
     nbTopCandidates: 5,
   });
   const article = reader.parse();
-  const overCollapsed = readabilityOverCollapsed(article, fallbackClone.body);
+  const overCollapsed = readabilityOverCollapsed(article, fallbackClone.body, DOMParser);
   stripPageChrome(fallbackClone);
   const fallbackContent = pickMainContainer(fallbackClone);
 
-  const countCode = (root) => [...root.querySelectorAll("pre")]
-    .filter((pre) => pre.textContent.trim()).length;
-  const articleDocument = new DOMParser().parseFromString(article?.content || "", "text/html");
-  const droppedCode = fallbackContent && countCode(articleDocument) < countCode(fallbackContent);
+  const articleDocument = new DOMParser().parseFromString(`<html><body>${article?.content || ""}</body></html>`, "text/html");
   let contentHtml;
-  if (article?.content && !droppedCode && !overCollapsed) {
-    contentHtml = article.content;
+  let conversionPath = "fallback";
+  if (article?.content && !overCollapsed) {
+    const inserted = reinsertCode(articleDocument, fallbackClone);
+    contentHtml = articleDocument.body.innerHTML;
+    conversionPath = inserted ? `readability+reinserted ${inserted}` : "readability";
   } else {
+    if (fallbackContent) absolutizeUrls(fallbackContent, fallbackClone.querySelector("base")?.getAttribute("href") || payload.url);
     contentHtml = fallbackContent?.innerHTML ?? "";
   }
+  const outputDocument = new DOMParser().parseFromString(`<html><body>${contentHtml}</body></html>`, "text/html");
+  outputDocument.querySelectorAll(`[${anchorAttribute}]`).forEach((node) => node.removeAttribute(anchorAttribute));
+  contentHtml = outputDocument.body.innerHTML;
 
   if (!contentHtml.trim()) {
     throw new Error(
@@ -141,5 +236,6 @@ export function convertHtmlToMarkdown(payload, {
     markdown: `${markdownLines.join("\n").trim()}\n`,
     title,
     length: article?.length ?? markdownBody.length,
+    conversionPath,
   };
 }

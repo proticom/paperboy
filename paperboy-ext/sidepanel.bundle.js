@@ -777,14 +777,30 @@ var PAPERBOY_CONVERTER_VERSION = "0.3.0";
 
   // ../paperboy-converter/dist/turndown.js
   var copyLabel = /^(?:copy|copied|copy code|copy to clipboard|copied to clipboard)[.!]?$/i;
-  var lineWrapper = /^(?:DIV|P|LI)$/;
-  var toolbarSelector = "button, label, [role=button], [role=status], [aria-live], [hidden], .sr-only, .visually-hidden";
-  function isCodeToolbar(node) {
+  var lineWrapper = /^(?:DIV|P|LI|PRE)$/;
+  var toolbarSelector = "button, label, [role=button], [role=status], [aria-live], [hidden], .sr-only, .visually-hidden, [class*=copy-button]";
+  function isCopyControl(node) {
+    if (node.tagName.toLowerCase().endsWith("-copy-button") || node.matches("[class*=copy-button]"))
+      return true;
     const text2 = node.textContent?.trim() ?? "";
     const label = node.getAttribute("aria-label") || node.getAttribute("title") || text2;
-    if (!copyLabel.test(text2) && !copyLabel.test(label))
-      return false;
-    if (!node.matches(toolbarSelector))
+    return node.matches(toolbarSelector) && (copyLabel.test(text2) || copyLabel.test(label));
+  }
+  function isCodeToolbar(node) {
+    const adjacentPre = [node.previousElementSibling, node.nextElementSibling].find((sibling) => sibling?.nodeName === "PRE");
+    if (adjacentPre && Array.from(node.querySelectorAll("*")).some(isCopyControl)) {
+      const header = node.ownerDocument.createElement("div");
+      header.innerHTML = node.innerHTML;
+      for (const control of Array.from(header.querySelectorAll("*"))) {
+        if (isCopyControl(control))
+          control.remove();
+      }
+      const language = header.textContent?.trim() ?? "";
+      const authoredLabel = header.querySelector(".language-name")?.textContent?.trim();
+      if (language && (language === authoredLabel || language === codeLanguage(adjacentPre)))
+        return true;
+    }
+    if (!isCopyControl(node))
       return false;
     if (node.closest("pre"))
       return true;
@@ -807,9 +823,12 @@ var PAPERBOY_CONVERTER_VERSION = "0.3.0";
         continue;
       const data = node.getAttribute("data-language");
       const classes = node.getAttribute("class") ?? "";
-      const hint = data || classes.match(/(?:^|\s)(?:language-|lang-|highlight-(?:source|text)-|brush:\s*)([\w#+.-]+)/i)?.[1];
+      const explicit = classes.match(/(?:^|\s)(?:lang-|highlight-source-|brush:\s*)([\w#+.-]+)/i)?.[1];
+      const language = node.matches("code.hljs") ? "" : classes.match(/(?:^|\s)language-([\w#+.-]+)/i)?.[1];
+      const sandpack = node === pre ? classes.match(/(?:^|\s)sp-(javascript|typescript|jsx|tsx|css|html|json|python|bash|shell|vue|svelte|markdown|yaml)(?=\s|$)/i)?.[1] : "";
+      const hint = data || explicit || language || sandpack || (node === pre && /(?:^|\s)default(?:\s|$)/i.test(classes) ? "default" : "");
       if (hint && /^[\w#+.-]+$/.test(hint))
-        return hint;
+        return /^(?:none|default)$/i.test(hint) ? "" : hint;
     }
     return "";
   }
@@ -844,6 +863,15 @@ var PAPERBOY_CONVERTER_VERSION = "0.3.0";
     const code2 = codeText(pre).replace(/\r\n?/g, "\n").replace(/\n$/, "");
     if (!code2.trim())
       return "";
+    if (pre.closest("td, th")) {
+      return code2.split("\n").map((line) => {
+        if (!line)
+          return "";
+        const ticks = "`".repeat(Math.max(0, ...Array.from(line.matchAll(/`+/g), (match2) => match2[0].length)) + 1);
+        const pad = /^`|`$|^ .* $/.test(line) ? " " : "";
+        return `${ticks}${pad}${line}${pad}${ticks}`;
+      }).join("<br>");
+    }
     const longest = Math.max(2, ...Array.from(code2.matchAll(/`+/g), (match2) => match2[0].length));
     const fence2 = "`".repeat(longest + 1);
     return `
@@ -862,14 +890,12 @@ ${fence2}
         pre.setAttribute("data-language", language);
       pre.textContent = text2;
     }
-    for (const node of Array.from(root2.querySelectorAll(toolbarSelector))) {
-      if (isCodeToolbar(node))
-        node.remove();
-    }
+    const toolbars = Array.from(root2.querySelectorAll("*")).filter(isCodeToolbar);
+    toolbars.forEach((node) => node.remove());
   }
   function cellToMarkdown(cell2, service) {
-    const html = cell2.querySelector("table") ? cell2.textContent ?? "" : service.turndown(cell2.innerHTML);
-    return html.replace(/\s+/g, " ").trim().replace(/\|/g, "\\|");
+    const html = cell2.querySelector("table") ? cell2.textContent ?? "" : service.turndown(cell2);
+    return html.replace(cell2.querySelector("pre") ? /\r?\n/g : /\s+/g, " ").trim().replace(/\|/g, "\\|");
   }
   function tableToMarkdown(table2, service) {
     const matrix = [];
@@ -996,8 +1022,23 @@ ${content}
   // lib/convert.mjs
   var turndownService = createTurndownService();
   function flattenShadowRoots(root2) {
-    root2.querySelectorAll('template[shadowrootmode="closed"]').forEach((template) => template.remove());
-    for (const template of root2.querySelectorAll('template[shadowrootmode="open"]')) {
+    for (const template of [...root2.children]) {
+      if (template.localName !== "template" || !template.hasAttribute("shadowrootmode")) {
+        flattenShadowRoots(template);
+        continue;
+      }
+      if (template.getAttribute("shadowrootmode") !== "open") {
+        template.remove();
+        continue;
+      }
+      const host = root2;
+      const light = [...host.childNodes].filter((node) => node !== template);
+      for (const slot of template.content.querySelectorAll("slot")) {
+        const name = slot.getAttribute("name") || "";
+        const assigned = light.filter((node) => (node.nodeType === 1 || node.nodeType === 3) && node.parentNode === host && (node.nodeType === 1 ? node.getAttribute("slot") || "" : "") === name);
+        slot.replaceWith(...assigned.length ? assigned : [...slot.childNodes]);
+      }
+      light.filter((node) => node.parentNode === host).forEach((node) => node.remove());
       flattenShadowRoots(template.content);
       template.replaceWith(template.content);
     }
@@ -1007,16 +1048,22 @@ ${content}
     const documentClone = parser.parseFromString(html, "text/html");
     if (documentClone.head && url) {
       const base2 = documentClone.createElement("base");
-      base2.href = url;
+      base2.setAttribute("href", url);
       documentClone.head.prepend(base2);
     }
     flattenShadowRoots(documentClone);
     prepareCodeBlocks(documentClone);
     return documentClone;
   }
-  function readabilityOverCollapsed(article, body) {
-    const articleText = (article?.textContent ?? "").length;
-    const bodyText = (body?.textContent ?? "").length;
+  function readabilityOverCollapsed(article, body, DOMParser) {
+    const textLength = (root2) => {
+      const clone = root2.cloneNode(true);
+      clone.querySelectorAll("style, script, noscript, template").forEach((node) => node.remove());
+      return (clone.textContent || "").length;
+    };
+    const articleRoot = new DOMParser().parseFromString(`<html><body>${article?.content || ""}</body></html>`, "text/html");
+    const articleText = textLength(articleRoot.body);
+    const bodyText = body ? textLength(body) : 0;
     if (bodyText < 1e3) return false;
     return articleText < bodyText * 0.3;
   }
@@ -1048,6 +1095,71 @@ ${content}
       if (!closestArticleOrSection) el.remove();
     });
   }
+  var anchorAttribute = "data-paperboy-anchor";
+  var anchorSelector = "h1, h2, h3, h4, h5, h6, p, pre";
+  function excludedCode(node) {
+    for (let parent = node; parent && !parent.matches("html, body"); parent = parent.parentElement) {
+      if (parent.matches("main, [role=main], article")) continue;
+      if (parent.matches("footer, aside, nav, [role=navigation], [role=banner], [role=complementary], [role=contentinfo]")) return true;
+      const identity = `${parent.id} ${parent.getAttribute("class") || ""}`;
+      if (/(?:^|[\s_-])(?:comments?|related|footer|sidebar|newsletter|promo|share|sharing|subscribe|nav(?:bar|igation)?)(?=$|[\s_-])/i.test(identity)) return true;
+    }
+    return false;
+  }
+  function reinsertCode(article, source) {
+    const anchors = [...source.querySelectorAll(`[${anchorAttribute}]`)];
+    const retained = new Map([...article.querySelectorAll(`[${anchorAttribute}]`)].map((node) => [node.getAttribute(anchorAttribute), node]));
+    const surviving = anchors.filter((node) => retained.has(node.getAttribute(anchorAttribute)));
+    if (!surviving.length) return 0;
+    let region = surviving[0].parentElement;
+    while (region && !surviving.every((node) => region.contains(node))) region = region.parentElement;
+    let previous = null;
+    let inserted = 0;
+    for (let index = 0; index < anchors.length; index++) {
+      const original = anchors[index];
+      const id = original.getAttribute(anchorAttribute);
+      if (retained.has(id)) {
+        previous = retained.get(id);
+        continue;
+      }
+      if (original.localName !== "pre" || !original.textContent.trim() || excludedCode(original)) continue;
+      const following = anchors.slice(index + 1).find((node) => retained.has(node.getAttribute(anchorAttribute)));
+      let branch = original;
+      while (branch.parentElement && branch.parentElement !== region?.parentElement) branch = branch.parentElement;
+      const adjacentIntro = branch === region?.previousElementSibling && !branch.querySelector("h2, h3, h4, h5, h6");
+      const adjacentCode = branch === region?.nextElementSibling && (branch.localName === "pre" || branch.matches("mdn-code-example, .code-example, .highlight, .code-block"));
+      if (!(previous && following) && !region?.contains(original) && !adjacentIntro && !adjacentCode) continue;
+      const clone = article.importNode(original, true);
+      if (previous) previous.after(clone);
+      else if (following) retained.get(following.getAttribute(anchorAttribute)).before(clone);
+      else continue;
+      retained.set(id, clone);
+      previous = clone;
+      inserted++;
+    }
+    return inserted;
+  }
+  function absolutizeUrls(root2, base2) {
+    const absolute = (value) => {
+      if (!value || /^(?:#|mailto:|tel:|data:)/i.test(value)) return value;
+      try {
+        return new URL(value, base2).href;
+      } catch {
+        return value;
+      }
+    };
+    for (const node of root2.querySelectorAll("[href], [src], [srcset]")) {
+      for (const attribute2 of ["href", "src"]) {
+        if (node.hasAttribute(attribute2)) node.setAttribute(attribute2, absolute(node.getAttribute(attribute2)));
+      }
+      if (node.hasAttribute("srcset")) {
+        node.setAttribute("srcset", node.getAttribute("srcset").replace(
+          /(^|,)(\s*)(data:[^\s]+|[^,\s]+)([^,]*)/gi,
+          (_match, separator, space, value, descriptor) => separator + space + absolute(value) + descriptor
+        ));
+      }
+    }
+  }
   function convertHtmlToMarkdown(payload, {
     DOMParser = globalThis.DOMParser,
     Readability = globalThis.Readability
@@ -1064,29 +1176,38 @@ ${content}
         markdown: `${markdownLines2.join("\n").trim()}
 `,
         title: title2,
-        length: markdownBody2.length
+        length: markdownBody2.length,
+        conversionPath: "picker"
       };
     }
     const documentClone = parseHtmlToDocument2(payload.html, payload.url, DOMParser);
     const fallbackClone = parseHtmlToDocument2(payload.html, payload.url, DOMParser);
+    for (const document2 of [documentClone, fallbackClone]) {
+      document2.querySelectorAll(anchorSelector).forEach((node, index) => node.setAttribute(anchorAttribute, String(index)));
+    }
     const reader = new Readability(documentClone, {
       charThreshold: 40,
       keepClasses: false,
       nbTopCandidates: 5
     });
     const article = reader.parse();
-    const overCollapsed = readabilityOverCollapsed(article, fallbackClone.body);
+    const overCollapsed = readabilityOverCollapsed(article, fallbackClone.body, DOMParser);
     stripPageChrome(fallbackClone);
     const fallbackContent = pickMainContainer(fallbackClone);
-    const countCode = (root2) => [...root2.querySelectorAll("pre")].filter((pre) => pre.textContent.trim()).length;
-    const articleDocument = new DOMParser().parseFromString(article?.content || "", "text/html");
-    const droppedCode = fallbackContent && countCode(articleDocument) < countCode(fallbackContent);
+    const articleDocument = new DOMParser().parseFromString(`<html><body>${article?.content || ""}</body></html>`, "text/html");
     let contentHtml;
-    if (article?.content && !droppedCode && !overCollapsed) {
-      contentHtml = article.content;
+    let conversionPath = "fallback";
+    if (article?.content && !overCollapsed) {
+      const inserted = reinsertCode(articleDocument, fallbackClone);
+      contentHtml = articleDocument.body.innerHTML;
+      conversionPath = inserted ? `readability+reinserted ${inserted}` : "readability";
     } else {
+      if (fallbackContent) absolutizeUrls(fallbackContent, fallbackClone.querySelector("base")?.getAttribute("href") || payload.url);
       contentHtml = fallbackContent?.innerHTML ?? "";
     }
+    const outputDocument = new DOMParser().parseFromString(`<html><body>${contentHtml}</body></html>`, "text/html");
+    outputDocument.querySelectorAll(`[${anchorAttribute}]`).forEach((node) => node.removeAttribute(anchorAttribute));
+    contentHtml = outputDocument.body.innerHTML;
     if (!contentHtml.trim()) {
       throw new Error(
         "No readable content was found. Try another page or scroll the page first."
@@ -1106,7 +1227,8 @@ ${content}
       markdown: `${markdownLines.join("\n").trim()}
 `,
       title,
-      length: article?.length ?? markdownBody.length
+      length: article?.length ?? markdownBody.length,
+      conversionPath
     };
   }
 

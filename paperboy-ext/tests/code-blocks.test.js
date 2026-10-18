@@ -14,7 +14,7 @@ const cases = [
     code: 'const response = await fetch("https://example.org/post", {\n  method: "POST",\n  // …\n});\n',
   },
   {
-    name: "react-learn", count: 1, language: "", selector: ".sandpack",
+    name: "react-learn", count: 1, language: "javascript", selector: ".sandpack",
     code: "function MyButton() {\n  return (\n    <button>I'm a button</button>\n  );\n}\n",
   },
   {
@@ -67,7 +67,8 @@ for (const [file, selector, lines] of [["mdn-fetch", "mdn-code-example", 4], ["r
       path.join(__dirname, "../scripts/measure-output.mjs"),
       path.join(fixtures, `${file}.html`), "https://example.org/", "--pick", selector,
     ], { encoding: "utf8" });
-    const { outputLength, ...counts } = JSON.parse(output);
+    const { outputLength, conversionPath, absoluteLinks, relativeLinks, junkPhrases, copyNearFence, ...counts } = JSON.parse(output);
+    assert.equal(copyNearFence, 0);
     assert.deepEqual(counts, { inputPreCount: 1, fencedBlockCount: 1, linesInsideFences: lines, copyLines: 0, collapsedBlocks: 0 });
   });
 }

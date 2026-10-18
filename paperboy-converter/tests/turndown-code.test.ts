@@ -16,8 +16,20 @@ describe("code blocks", () => {
     ['<pre data-language="python">a\nb</pre>', "python"],
     ['<pre class="brush: js notranslate"><code>a\nb</code></pre>', "js"],
     ['<pre><code class="language-sh">a\nb</code></pre>', "sh"],
+    ['<pre class="sp-cm sp-pristine sp-javascript"><code>a\nb</code></pre>', "javascript"],
+    ['<div class="highlight-source-ruby"><pre>a\nb</pre></div>', "ruby"],
+    ['<pre class="lang-cpp"><code class="hljs language-haskell">a\nb</code></pre>', "cpp"],
   ])("retains language hints in %s", (html, language) => {
     expect(convert(html)).toBe(`\`\`\`${language}\na\nb\n\`\`\``);
+  });
+
+  it.each([
+    '<pre class="default s-code-block"><code class="hljs language-haskell">a\nb</code></pre>',
+    '<pre class="lang-none"><code class="language-haskell">a\nb</code></pre>',
+    '<pre class="default"><code class="language-haskell">a\nb</code></pre>',
+    '<pre class="sp-cm sp-pristine sp-pre-placeholder">a\nb</pre>',
+  ])("does not invent languages from auto-detection or editor classes in %s", (html) => {
+    expect(convert(html)).toBe("```\na\nb\n```");
   });
 
   it.each([
@@ -75,6 +87,30 @@ describe("code blocks", () => {
       .toBe("```\na\nb\n```");
   });
 
+  it.each([
+    '<mdn-copy-button><button>Copy</button></mdn-copy-button>',
+    '<widget-copy-button>Copy</widget-copy-button>',
+    '<div class="code-copy-button">Copy</div>',
+  ])("removes custom copy controls and their language header in %s", (control) => {
+    expect(convert(`<div><div class="example-header"><span class="language-name">js</span>${control}</div><pre class="language-js">Copy\n  next();</pre></div>`))
+      .toBe("```js\nCopy\n  next();\n```");
+    expect(convert(`<div><pre class="language-js">Copy\n  next();</pre><div><span>js</span>${control}</div></div>`))
+      .toBe("```js\nCopy\n  next();\n```");
+  });
+
+  it("keeps prose beside a copy control instead of treating it as a language header", () => {
+    expect(convert('<div><div><p>Copy this example.</p><button>Copy</button></div><pre>a\nb</pre></div>'))
+      .toBe("Copy this example.\n\n```\na\nb\n```");
+  });
+
+  it("removes entire language headers before article extraction", () => {
+    const document = new DOMParser().parseFromString('<html><body><div><div class="example-header"><span class="language-name">js</span><mdn-copy-button><button>Copy</button></mdn-copy-button></div><pre class="brush: js">a\nb</pre></div></body></html>', "text/html");
+    prepareCodeBlocks(document);
+    expect(document.body.innerHTML).toBe('<div><pre data-language="js" class="brush: js">a\nb</pre></div>');
+    prepareCodeBlocks(document);
+    expect(document.body.innerHTML).toBe('<div><pre data-language="js" class="brush: js">a\nb</pre></div>');
+  });
+
   it("retains Copy prose, unrelated controls and code containing Copy", () => {
     expect(convert('<article><p>Copy the text.</p><button>Copy</button><p>Continue reading.</p><div><pre>Copy\nCopied</pre></div></article>'))
       .toBe("Copy the text.\n\nCopy\n\nContinue reading.\n\n```\nCopy\nCopied\n```");
@@ -93,6 +129,21 @@ describe("code blocks", () => {
   it("preserves inline code, README fences, headings, images and tables", () => {
     expect(convert('<h2>Usage</h2><p>Call <code>run()</code>.</p><div class="highlight highlight-source-js"><pre><code class="language-js">run();\n  next();\n</code></pre></div><img src="logo.png" alt="Logo"><table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>'))
       .toBe('## Usage\n\nCall `run()`.\n\n```js\nrun();\n  next();\n```\n\n![Logo](logo.png)\n\n| A | B |\n| --- | --- |\n| 1 | 2 |');
+  });
+
+  it("keeps pre lines as separate inline code spans inside table cells", () => {
+    expect(convert('<table><thead><tr><th>Cmd</th><th>Example</th></tr></thead><tbody><tr><td>ls</td><td><pre>ls -la\nls -R</pre></td></tr></tbody></table>'))
+      .toBe("| Cmd | Example |\n| --- | --- |\n| ls | `ls -la`<br>`ls -R` |");
+  });
+
+  it("keeps inline code delimiters literal within table pre lines", () => {
+    expect(convert('<table><tr><td>Example</td></tr><tr><td><pre>`name`\n\n  next</pre></td></tr></table>'))
+      .toBe("| Example |\n| --- |\n| `` `name` ``<br><br>`  next` |");
+  });
+
+  it("puts a literal nested pre on its own lines", () => {
+    expect(convert('<pre>outer<pre>nested inner</pre>tail</pre>'))
+      .toBe("```\nouter\nnested inner\ntail\n```");
   });
 
   it("normalizes before article extraction and can run twice", () => {
