@@ -10,7 +10,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
 test("parseHtmlToDocument is exported and parses with the global DOMParser", async () => {
   const source = read("lib/convert.mjs");
-  assert.match(source, /export function parseHtmlToDocument\(html, url, DOMParser = globalThis\.DOMParser\)/);
+  assert.match(source, /export function parseHtmlToDocument\(html, (?:url|baseUrl), DOMParser = globalThis\.DOMParser\)/);
   const previous = globalThis.DOMParser;
   globalThis.DOMParser = DOMParser;
   try {
