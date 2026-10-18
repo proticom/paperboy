@@ -286,8 +286,21 @@ body {
 }
 
 .markdown-output[hidden],
+.load-images-btn[hidden],
 .preview-output[hidden] {
   display: none;
+}
+
+.load-images-btn {
+  margin-bottom: 10px;
+}
+
+.deferred-image {
+  overflow-wrap: anywhere;
+}
+
+.deferred-image[data-image-state="failed"]::after {
+  content: " (load failed)";
 }
 
 .preview-output {
