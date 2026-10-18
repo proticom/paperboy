@@ -52,7 +52,7 @@ test("picker template round-trip preserves orphan table cells and resolves their
 
   assert.deepEqual(Array.from(templates[0].content.querySelectorAll("td"), (cell) => cell.textContent),
     ["Cell", "Two"]);
-  assert.equal(result.markdown, "# Picked\n\nSource: https://example.org/articles/current\n\n[Cell](https://example.org/cell)Two\n");
+  assert.equal(result.markdown, "# Picked\n\nSource: https://example.org/articles/current\n\n| [Cell](https://example.org/cell) | Two |\n| --- | --- |\n");
 });
 
 test("picker without a URL processes the template and retains relative links", async () => {
