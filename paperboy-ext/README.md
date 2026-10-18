@@ -144,3 +144,7 @@ npm run build
 ```
 
 Then reload the extension in `chrome://extensions`.
+
+## Known issues
+
+Article asides with note/callout tokens keep their code even with sidebar-like class words (e.g. `sidebar-note`, `release-notes-widget`), because notes win the aside exclusion rule.
