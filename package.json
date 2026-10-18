@@ -2,14 +2,13 @@
   "name": "paperboy-monorepo",
   "version": "0.0.0",
   "private": true,
-  "description": "Paperboy monorepo: shared converter library, CLI, desktop app, Chrome extension, and embeddable widget.",
+  "description": "Paperboy monorepo: shared converter library, CLI, desktop app and Chrome extension.",
   "workspaces": [
     "paperboy-converter",
     "paperboy-ai",
     "paperboy-cli",
     "paperboy-app",
-    "paperboy-ext",
-    "paperboy-widget"
+    "paperboy-ext"
   ],
   "scripts": {
     "build:converter": "npm run build --workspace=@proticom/paperboy-converter",
