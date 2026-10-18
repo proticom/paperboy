@@ -6,7 +6,6 @@
   "scripts": {
     "build": "node build.js",
     "test": "node --test --test-timeout=30000 tests/*.test.js",
-    "icons": "node scripts/generate-icons.js",
     "package:store": "node build.js && node package-for-store.js"
   },
   "dependencies": {
@@ -16,7 +15,6 @@
     "tesseract.js-core": "^5.1.1"
   },
   "devDependencies": {
-    "@napi-rs/canvas": "^0.1.97",
     "@tesseract.js-data/eng": "1.0.0",
     "adm-zip": "^0.5.16",
     "esbuild": "^0.27.4"

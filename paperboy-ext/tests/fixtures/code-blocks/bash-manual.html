@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><title>Bash Reference Manual</title></head><body>
+<main><article>
+<h1>Conditional constructs</h1>
+<p>The if command tests commands and executes the corresponding consequent commands. Optional clauses are shown in square brackets. The manual uses preformatted examples with variable elements rather than nested code elements.</p>
+<div class="example"><pre class="example-preformatted">if <var class="var">test-commands</var>; then
+  <var class="var">consequent-commands</var>;
+[elif <var class="var">more-test-commands</var>; then
+  <var class="var">more-consequents</var>;]
+[else <var class="var">alternate-consequents</var>;]
+fi
+</pre></div>
+<p>A pipeline is a sequence of one or more commands separated by a control operator. The following syntax shows optional timing and negation before the first command, followed by additional pipeline commands.</p>
+<div class="example"><pre class="example-preformatted">[time [-p]] [!] <var class="var">command1</var> [ | or |&amp; <var class="var">command2</var> ] ...
+</pre></div>
+</article></main>
+</body></html>
