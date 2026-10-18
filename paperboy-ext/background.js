@@ -374,7 +374,7 @@ function startPickerInPage() {
   function finalize() {
     if (pickedElements.length === 0) return;
     // Sort by DOM order so combined output reads top-to-bottom.
-    const sorted = [...pickedElements].sort((a, b) => {
+    const sorted = pickedElements.filter((el) => !pickedElements.some((other) => other !== el && other.contains(el))).sort((a, b) => {
       const pos = a.compareDocumentPosition(b);
       if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
       if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
@@ -409,6 +409,15 @@ function startPickerInPage() {
         pickedOverlays.delete(currentFrame);
       }
     } else {
+      if (pickedElements.some((el) => el.contains(currentFrame))) return;
+      for (let i = pickedElements.length - 1; i >= 0; i--) {
+        const el = pickedElements[i];
+        if (currentFrame.contains(el)) {
+          pickedElements.splice(i, 1);
+          pickedOverlays.get(el).remove();
+          pickedOverlays.delete(el);
+        }
+      }
       pickedElements.push(currentFrame);
       pickedOverlays.set(currentFrame, makePickedOverlay(currentFrame));
     }
