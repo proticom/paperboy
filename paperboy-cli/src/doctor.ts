@@ -255,7 +255,7 @@ export async function runDoctor(
     checks.push({
       name: "Config file",
       status: "warn",
-      details: "Config file not found yet. Run `paperboy-cli setup`.",
+      details: "Config file not found yet. Run `paperboy setup`.",
     });
   }
 
