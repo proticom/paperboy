@@ -85,6 +85,7 @@ program
         : path.join(path.dirname(absoluteInputPath), `${result.title}.md`);
 
       if (!options.stdout) {
+        await fs.mkdir(path.dirname(outputPath), { recursive: true });
         await fs.writeFile(outputPath, result.markdown, "utf8");
       }
 

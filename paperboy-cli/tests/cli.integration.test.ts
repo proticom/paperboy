@@ -64,6 +64,18 @@ describe("cli integration", () => {
     expect(markdown).toBe("Local\nEdition");
   });
 
+  it("creates missing parent directories for -o output", async () => {
+    const inputPath = path.join(tempDir, "scan.txt");
+    await fs.writeFile(inputPath, "Morning edition", "utf8");
+    const outputPath = path.join(tempDir, "nested", "deeper", "out.md");
+
+    const result = runCli(["convert", inputPath, "-o", outputPath], configDir);
+    expect(result.status).toBe(0);
+
+    const markdown = await fs.readFile(outputPath, "utf8");
+    expect(markdown).toBe("Morning edition");
+  });
+
   it("converts file with stdout JSON output", async () => {
     const inputPath = path.join(tempDir, "note.txt");
     await fs.writeFile(inputPath, "Hello world", "utf8");
