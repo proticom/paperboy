@@ -3,7 +3,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const { test } = require("node:test");
-const { parseHTML } = require("linkedom");
+const { parseHTML, DOMParser } = require("linkedom");
+const Readability = require("../lib/readability.js");
 
 const background = fs.readFileSync(path.join(__dirname, "../background.js"), "utf8");
 const start = background.indexOf("function startPickerInPage()");
@@ -21,8 +22,8 @@ assert.notEqual(end, -1);
 const pickerSource = background.slice(start, end);
 const fixture = fs.readFileSync(path.join(__dirname, "fixtures/nested-picks/article.html"), "utf8");
 
-function picker() {
-  const { window, document } = parseHTML(fixture);
+function picker(html = fixture) {
+  const { window, document } = parseHTML(html);
   window.Element.prototype.getBoundingClientRect = () => ({ top: 0, left: 0, width: 100, height: 20 });
   let target;
   document.elementFromPoint = () => target;
@@ -48,6 +49,10 @@ function picker() {
     document,
     messages,
     badge,
+    installSerializer() {
+      vm.runInContext(background.slice(background.indexOf("function installPaperboySerializerInPage()"), background.indexOf("async function capturePageInPage()")), context);
+      context.installPaperboySerializerInPage();
+    },
     hover(selector) {
       target = document.querySelector(selector);
       assert.notEqual(target, null, selector);
@@ -170,4 +175,42 @@ test("clicking a second paragraph in the same frame still toggles it off", () =>
   assert.equal(session.messages.length, 0);
   assert.equal(session.badge.style.display, "none");
   assert.equal(session.overlays().length, 0);
+});
+
+for (const parentFirst of [false, true]) {
+  test(`layout cell and article picks keep one region (${parentFirst ? "parent first" : "child first"})`, () => {
+    const session = picker('<html><body><main><table role="presentation"><tr><td><article id="child"><p>Child prose.</p></article></td></tr></table></main></body></html>');
+    session.hover("#child > p");
+    if (parentFirst) session.key("Tab");
+    session.click();
+    if (parentFirst) session.hover("#child > p");
+    else session.key("Tab");
+    session.click();
+    assert.equal(session.overlays().length, 1);
+    assert.equal(session.badge.textContent, "Done · 1 region (Enter)");
+    session.key("Enter");
+    assert.equal(session.messages.length, 1);
+    assert.equal(session.messages[0].data.regionCount, 1);
+    assert.equal(session.messages[0].data.html, '<div><article id="child"><p>Child prose.</p></article></div>');
+  });
+}
+
+test("layout cell serialization keeps shadow prose, code and the document base", async () => {
+  const session = picker('<html><head><title>Layout</title></head><body><table role="presentation"><tr><td><p id="lead">Lead <a href="guide">Guide</a></p><x-layout></x-layout></td></tr></table></body></html>');
+  Object.defineProperty(session.document, "baseURI", { value: "https://example.org/assets/" });
+  const shadow = session.document.querySelector("x-layout").attachShadow({ mode: "open" });
+  Object.defineProperty(shadow, "mode", { value: "open" });
+  shadow.innerHTML = '<p>Shadow prose.</p><pre class="language-js">first();\n  second();</pre>';
+  session.installSerializer();
+  session.hover("#lead");
+  session.click();
+  session.key("Enter");
+  assert.equal(session.messages.length, 1);
+  const payload = session.messages[0].data;
+  assert.equal(payload.regionCount, 1);
+  assert.equal(payload.baseUrl, "https://example.org/assets/");
+  assert.equal(payload.html, '<div><p id="lead">Lead <a href="guide">Guide</a></p><x-layout><template shadowrootmode="open"><p>Shadow prose.</p><pre class="language-js">first();\n  second();</pre></template></x-layout></div>');
+  const { convertHtmlToMarkdown } = await import("../lib/convert.mjs");
+  assert.equal(convertHtmlToMarkdown({ ...payload, fromPicker: true }, { DOMParser, Readability }).markdown,
+    "# Layout\n\nSource: https://example.org/article\n\nLead [Guide](https://example.org/assets/guide)\n\nShadow prose.\n\n```js\nfirst();\n  second();\n```\n");
 });
