@@ -1019,6 +1019,47 @@ ${content}
     return service;
   }
 
+  // ../paperboy-converter/dist/helpers.js
+  var textEncoder = new TextEncoder();
+  var textDecoder = new TextDecoder("utf-8");
+  function unwrapScriptLinks(root2) {
+    for (const link2 of root2.querySelectorAll("a[href]")) {
+      const href = (link2.getAttribute("href") ?? "").replace(/[\x00-\x20\x7f]/g, "");
+      if (/^(?:javascript|vbscript):/i.test(href)) {
+        link2.replaceWith(...link2.childNodes);
+      }
+    }
+  }
+  function absolutizeUrls(root2, baseUrl) {
+    try {
+      new URL(baseUrl);
+    } catch {
+      return;
+    }
+    function resolve(value) {
+      const trimmed = value.trim();
+      if (!trimmed || trimmed.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
+        return value;
+      }
+      try {
+        return new URL(value, baseUrl).href;
+      } catch {
+        return value;
+      }
+    }
+    for (const element of root2.querySelectorAll("[href], [src], [srcset]")) {
+      for (const attribute2 of ["href", "src"]) {
+        const value = element.getAttribute(attribute2);
+        if (value !== null)
+          element.setAttribute(attribute2, resolve(value));
+      }
+      const srcset = element.getAttribute("srcset");
+      if (srcset !== null) {
+        element.setAttribute("srcset", srcset.replace(/(\S+?)(\s+[^,]*(?:,|$)|,+(?=\s|$)|$)/g, (_candidate, url, descriptor) => resolve(url) + descriptor));
+      }
+    }
+  }
+
   // lib/convert.mjs
   var turndownService = createTurndownService();
   function flattenShadowRoots(root2) {
@@ -1155,7 +1196,7 @@ ${content}
     }
     return inserted;
   }
-  function absolutizeUrls(root2, base2) {
+  function absolutizeUrls2(root2, base2) {
     const absolute = (value) => {
       if (!value || /^(?:#|mailto:|tel:|data:)/i.test(value)) return value;
       try {
@@ -1181,6 +1222,18 @@ ${content}
     Readability = globalThis.Readability
   } = {}) {
     if (payload.fromPicker) {
+      if (payload.html) {
+        const document2 = new DOMParser().parseFromString("<html><body></body></html>", "text/html");
+        const template = document2.createElement("template");
+        template.innerHTML = payload.html;
+        unwrapScriptLinks(template.content);
+        if (payload.baseUrl || payload.url) {
+          absolutizeUrls(template.content, payload.baseUrl || payload.url);
+        }
+        const wrapper = document2.createElement("div");
+        wrapper.append(template.content.cloneNode(true));
+        payload = { ...payload, html: wrapper.innerHTML };
+      }
       const markdownBody2 = turndownService.turndown(
         parseHtmlToDocument2(`<html><body>${payload.html ?? ""}</body></html>`, payload.url, DOMParser).body.innerHTML
       ).trim();
@@ -1218,7 +1271,7 @@ ${content}
     } else {
       stripPageChrome(fallbackClone);
       const fallbackContent = pickMainContainer(fallbackClone);
-      if (fallbackContent) absolutizeUrls(fallbackContent, fallbackClone.querySelector("base")?.getAttribute("href") || payload.url);
+      if (fallbackContent) absolutizeUrls2(fallbackContent, fallbackClone.querySelector("base")?.getAttribute("href") || payload.url);
       contentHtml = fallbackContent?.innerHTML ?? "";
     }
     const outputDocument = new DOMParser().parseFromString(`<html><body>${contentHtml}</body></html>`, "text/html");

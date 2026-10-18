@@ -1,4 +1,5 @@
 import { createTurndownService, prepareCodeBlocks } from "@proticom/paperboy-converter/turndown";
+import { absolutizeUrls as absolutizePickedUrls, unwrapScriptLinks } from "@proticom/paperboy-converter/helpers";
 
 const turndownService = createTurndownService();
 
@@ -184,6 +185,18 @@ export function convertHtmlToMarkdown(payload, {
   Readability = globalThis.Readability,
 } = {}) {
   if (payload.fromPicker) {
+    if (payload.html) {
+      const document = new DOMParser().parseFromString("<html><body></body></html>", "text/html");
+      const template = document.createElement("template");
+      template.innerHTML = payload.html;
+      unwrapScriptLinks(template.content);
+      if (payload.baseUrl || payload.url) {
+        absolutizePickedUrls(template.content, payload.baseUrl || payload.url);
+      }
+      const wrapper = document.createElement("div");
+      wrapper.append(template.content.cloneNode(true));
+      payload = { ...payload, html: wrapper.innerHTML };
+    }
     const markdownBody = turndownService.turndown(
       parseHtmlToDocument(`<html><body>${payload.html ?? ""}</body></html>`, payload.url, DOMParser).body.innerHTML,
     ).trim();
