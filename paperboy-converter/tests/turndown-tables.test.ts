@@ -11,7 +11,56 @@ describe("table output", () => {
 
   it("drops internal columns made only of span placeholders", () => {
     expect(convert('<table><tr><th colspan="2">Name</th><th>Name</th><th>Last commit message</th><th>Last commit date</th></tr><tr><td colspan="2">docs</td><td>docs</td><td>Update docs</td><td>Sep 3, 2026</td></tr></table>'))
-      .toBe('| Name | Name | Last commit message | Last commit date |\n| --- | --- | --- | --- |\n| docs | docs | Update docs | Sep 3, 2026 |');
+      .toBe('| Name | Last commit message | Last commit date |\n| --- | --- | --- |\n| docs | Update docs | Sep 3, 2026 |');
+  });
+
+  it("drops adjacent duplicate columns including repeated runs", () => {
+    expect(convert('<table><tr><th>Name</th><th>Name</th><th>Name</th><th>Value</th></tr><tr><td>A</td><td>A</td><td>A</td><td>1</td></tr></table>'))
+      .toBe('| Name | Value |\n| --- | --- |\n| A | 1 |');
+  });
+
+  it("keeps columns with different headers or any different body cell", () => {
+    expect(convert('<table><tr><th>Name</th><th>Name</th><th>Other</th></tr><tr><td>A</td><td>A</td><td>A</td></tr><tr><td>B</td><td>C</td><td>C</td></tr></table>'))
+      .toBe('| Name | Name | Other |\n| --- | --- | --- |\n| A | A | A |\n| B | C | C |');
+  });
+
+  it("drops duplicate columns when a full-width spanning row covers them", () => {
+    expect(convert('<table><tr><th>Name</th><th>Name</th><th>Value</th></tr><tr><td>A</td><td>A</td><td>1</td></tr><tr><td colspan="3">View all files</td></tr></table>'))
+      .toBe('| Name | Value |\n| --- | --- |\n| A | 1 |\n| View all files |  |');
+  });
+
+  it("keeps a real right cell that differs from a left rowspan placeholder", () => {
+    expect(convert('<table><tr><th>Name</th><th>Name</th><th>Value</th></tr><tr><td rowspan="2">A</td><td>A</td><td>1</td></tr><tr><td>B</td><td>2</td></tr></table>'))
+      .toBe('| Name | Name | Value |\n| --- | --- | --- |\n| A | A | 1 |\n|  | B | 2 |');
+  });
+
+  it("compares duplicates against the kept column to the left", () => {
+    expect(convert('<table><tr><th>Name</th><th>Name</th><th>Name</th></tr><tr><td>A</td><td>A</td><td>A</td></tr><tr><td colspan="2">B</td><td></td></tr></table>'))
+      .toBe('| Name | Name |\n| --- | --- |\n| A | A |\n| B |  |');
+  });
+
+  it.each(['<table><tr><th>Name</th><th>Name</th></tr></table>', '<table><tr><th>Name</th><th>Name</th></tr><tr><td></td><td></td></tr></table>'])("requires matching non-empty originating body cells: %s", (html) => {
+    expect(convert(html)).toBe(html.includes("<td>") ? '| Name | Name |\n| --- | --- |\n|  |  |' : '| Name | Name |\n| --- | --- |');
+  });
+
+  it("requires matching body origins rather than additional header rows", () => {
+    expect(convert('<table><thead><tr><th>Name</th><th>Name</th></tr><tr><th>Label</th><th>Label</th></tr></thead><tbody><tr><td colspan="2">A</td></tr></tbody></table>'))
+      .toBe('| Name | Name |\n| --- | --- |\n| Label | Label |\n| A |  |');
+  });
+
+  it("keeps adjacent empty columns where real cells originate", () => {
+    expect(convert('<table><tr><th>Name</th><th></th><th></th><th>Value</th></tr><tr><td>A</td><td></td><td></td><td>1</td></tr></table>'))
+      .toBe('| Name |  |  | Value |\n| --- | --- | --- | --- |\n| A |  |  | 1 |');
+  });
+
+  it("drops empty rows after accounting for rowspans", () => {
+    expect(convert('<table><tr></tr><tr><th>Name</th><th>Value</th></tr><tr><td rowspan="3">A</td><td>1</td></tr><tr></tr><tr><td>3</td></tr><tr><td>B</td><td>4</td></tr><tr></tr></table>'))
+      .toBe('| Name | Value |\n| --- | --- |\n| A | 1 |\n|  | 3 |\n| B | 4 |');
+  });
+
+  it("keeps an empty row where a real cell originates", () => {
+    expect(convert('<table><tr><th>Name</th></tr><tr><td></td></tr></table>'))
+      .toBe('| Name |\n| --- |\n|  |');
   });
 
   it("keeps a column with real content below a spanning header", () => {
@@ -32,7 +81,7 @@ describe("table output", () => {
     expect(convert('<table><tr><th colspan="3">Group</th></tr><tr><td>A</td></tr></table>'))
       .toBe('| Group |\n| --- |\n| A |');
     expect(convert('<table><tr><th>Name</th><th></th><th rowspan="2"></th></tr><tr></tr><tr><td>A</td></tr></table>'))
-      .toBe('| Name |\n| --- |\n|  |\n| A |');
+      .toBe('| Name |\n| --- |\n| A |');
   });
 
   it("keeps trailing columns with real content under a spanning header", () => {

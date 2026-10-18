@@ -31,6 +31,8 @@ function tableToMarkdown(
   const rows = Array.from(table.rows).filter((row) => row.closest("table") === table);
   const matrix: (string | undefined)[][] = rows.map(() => []);
   const originatingColumns = new Set<number>();
+  const originatingRows = new Set<number>();
+  const originatingCells = rows.map(() => new Set<number>());
   for (let r = 0; r < rows.length; r++) {
     const row = rows[r]!;
     let column = 0;
@@ -43,16 +45,28 @@ function tableToMarkdown(
         for (let x = column; x < column + cell.colSpan; x++) matrix[y]![x] = "";
       }
       originatingColumns.add(column);
+      originatingRows.add(r);
+      originatingCells[r]!.add(column);
       matrix[r]![column] = cellToMarkdown(cell, service);
       column += cell.colSpan;
     });
   }
   if (matrix.length === 0 || matrix.every((row) => row.length === 0)) return "";
 
-  const columns = Array.from({ length: Math.max(...matrix.map((row) => row.length)) }, (_, column) => column)
-    .filter((column) => originatingColumns.has(column));
+  const columns: number[] = [];
+  const headerRow = rows.findIndex((_, row) => originatingRows.has(row));
+  for (const column of Array.from(originatingColumns).sort((a, b) => a - b)) {
+    const left = columns.at(-1);
+    if (left !== undefined) {
+      const matches = (row: number) => originatingCells[row]!.has(left) && originatingCells[row]!.has(column) &&
+        Boolean(matrix[row]![column]) && matrix[row]![column] === matrix[row]![left];
+      if (matches(headerRow) && rows.some((row, r) => r > headerRow && row.parentElement?.tagName !== "THEAD" && row.parentElement?.tagName !== "TFOOT" && matches(r)) &&
+        matrix.every((row, r) => !originatingCells[r]!.has(column) || row[column] === (row[left] ?? ""))) continue;
+    }
+    columns.push(column);
+  }
   let colCount = columns.length;
-  const padded = matrix.map((row) => columns.map((column) => row[column] ?? ""));
+  const padded = matrix.map((row) => columns.map((column) => row[column] ?? "")).filter((_, row) => originatingRows.has(row));
 
   // Drop trailing columns that are entirely empty across every row.
   while (colCount > 1 && padded.every((row) => row[colCount - 1] === "")) {

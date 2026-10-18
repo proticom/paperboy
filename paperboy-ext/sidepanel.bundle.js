@@ -794,6 +794,8 @@ var PAPERBOY_CONVERTER_VERSION = "0.3.0";
     const rows = Array.from(table2.rows).filter((row) => row.closest("table") === table2);
     const matrix = rows.map(() => []);
     const originatingColumns = /* @__PURE__ */ new Set();
+    const originatingRows = /* @__PURE__ */ new Set();
+    const originatingCells = rows.map(() => /* @__PURE__ */ new Set());
     for (let r = 0; r < rows.length; r++) {
       const row = rows[r];
       let column = 0;
@@ -809,15 +811,27 @@ var PAPERBOY_CONVERTER_VERSION = "0.3.0";
             matrix[y][x] = "";
         }
         originatingColumns.add(column);
+        originatingRows.add(r);
+        originatingCells[r].add(column);
         matrix[r][column] = cellToMarkdown(cell2, service);
         column += cell2.colSpan;
       });
     }
     if (matrix.length === 0 || matrix.every((row) => row.length === 0))
       return "";
-    const columns = Array.from({ length: Math.max(...matrix.map((row) => row.length)) }, (_, column) => column).filter((column) => originatingColumns.has(column));
+    const columns = [];
+    const headerRow = rows.findIndex((_, row) => originatingRows.has(row));
+    for (const column of Array.from(originatingColumns).sort((a, b) => a - b)) {
+      const left = columns.at(-1);
+      if (left !== void 0) {
+        const matches = (row) => originatingCells[row].has(left) && originatingCells[row].has(column) && Boolean(matrix[row][column]) && matrix[row][column] === matrix[row][left];
+        if (matches(headerRow) && rows.some((row, r) => r > headerRow && row.parentElement?.tagName !== "THEAD" && row.parentElement?.tagName !== "TFOOT" && matches(r)) && matrix.every((row, r) => !originatingCells[r].has(column) || row[column] === (row[left] ?? "")))
+          continue;
+      }
+      columns.push(column);
+    }
     let colCount = columns.length;
-    const padded = matrix.map((row) => columns.map((column) => row[column] ?? ""));
+    const padded = matrix.map((row) => columns.map((column) => row[column] ?? "")).filter((_, row) => originatingRows.has(row));
     while (colCount > 1 && padded.every((row) => row[colCount - 1] === "")) {
       padded.forEach((row) => row.pop());
       colCount -= 1;

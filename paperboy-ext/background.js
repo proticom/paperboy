@@ -171,10 +171,25 @@ function startPickerInPage() {
     return false;
   }
 
+  function isLayoutTable(table) {
+    const role = (table.getAttribute("role") || "").toLowerCase();
+    if (role === "presentation" || role === "none") return true;
+    if (Array.from(table.querySelectorAll("th")).some((cell) => cell.closest("table") === table)) return false;
+    if (table.querySelector("table") || table.parentElement?.closest("td, th")) return true;
+    return Array.from(table.querySelectorAll("td, th")).some((cell) => cell.closest("table") === table && (
+      cell.textContent.trim().length >= 300 || cell.querySelectorAll("p").length >= 2 || /<br\b[^>]*>\s*<br\b/i.test(cell.innerHTML)
+    ));
+  }
+
   function findFrame(start) {
     let node = start;
+    let cell = null;
     while (node && node !== document.body && node !== document.documentElement) {
-      if (node.tagName === "TABLE" || (!TABLE_PART_TAGS.has(node.tagName) && isFrame(node))) return node;
+      if (node.tagName === "TD" || node.tagName === "TH") cell = node;
+      if (node.tagName === "TABLE") {
+        if (!isLayoutTable(node)) return node;
+        if (cell?.textContent.trim()) return cell;
+      } else if (!TABLE_PART_TAGS.has(node.tagName) && isFrame(node)) return node;
       node = node.parentElement;
     }
     return document.body;
@@ -380,7 +395,7 @@ function startPickerInPage() {
       if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
       return 0;
     });
-    const html = sorted.map((el) => el.outerHTML || "").join("\n");
+    const html = sorted.map((el) => (el.tagName === "TD" || el.tagName === "TH") && isLayoutTable(el.closest("table")) ? `<div>${el.innerHTML}</div>` : el.outerHTML || "").join("\n");
     teardown();
     chrome.runtime.sendMessage({
       type: PICKED,
@@ -399,7 +414,7 @@ function startPickerInPage() {
     if (event.target === doneBadge) return; // doneBadge has its own handler
     if (!expandedByKeyboard) {
       const frame = findFrame(event.target);
-      if (frame.tagName === "TABLE") highlight(frame);
+      if (frame.tagName === "TABLE" || frame.tagName === "TD" || frame.tagName === "TH") highlight(frame);
     }
     if (!currentFrame) return;
     event.preventDefault();
