@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README uses `paperboy` as the command name and documents `crawl` and the `paperboy-cli` / `paperboy-dispatch` aliases.
 - Publish checklist checks `paperboy` and the `paperboy-cli` alias.
 
+### Fixed
+- `convert -o` now creates missing parent directories for the output file instead of failing with ENOENT.
+- `config show` is now a real sub-command: `paperboy config <anything else>` fails with exit code 1 instead of printing the config, and help shows `config` correctly.
+- `convert --stdout` now prints conversion warnings to stderr, so piped or redirected Markdown stays clean.
+
 ## [0.3.0] - 2026-10-18
 
 ### Removed

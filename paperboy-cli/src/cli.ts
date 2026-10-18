@@ -85,6 +85,7 @@ program
         : path.join(path.dirname(absoluteInputPath), `${result.title}.md`);
 
       if (!options.stdout) {
+        await fs.mkdir(path.dirname(outputPath), { recursive: true });
         await fs.writeFile(outputPath, result.markdown, "utf8");
       }
 
@@ -109,10 +110,11 @@ program
           console.log(`Wrote markdown to ${outputPath}`);
         }
         if (result.warnings.length > 0) {
-          console.log("");
-          console.log("Warnings:");
+          const writeWarning = options.stdout ? console.error : console.log;
+          writeWarning("");
+          writeWarning("Warnings:");
           for (const warning of result.warnings) {
-            console.log(`- ${warning}`);
+            writeWarning(`- ${warning}`);
           }
         }
       }
@@ -245,8 +247,12 @@ program
     },
   );
 
-program
-  .command("config show")
+const configCommand = program
+  .command("config")
+  .description("Show or manage Paperboy CLI configuration");
+
+configCommand
+  .command("show")
   .description("Show current Paperboy CLI configuration")
   .action(async () => {
     const config = await loadConfig();
