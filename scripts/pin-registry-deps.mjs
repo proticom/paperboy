@@ -29,15 +29,9 @@ const target = process.argv[2];
 if (target === "cli") {
   console.log("Pinning @proticom/paperboy-cli registry deps:");
   pinPkg("paperboy-cli/package.json", {
-    "@proticom/paperboy-ai": "paperboy-ai/package.json",
-    "@proticom/paperboy-converter": "paperboy-converter/package.json",
-  });
-} else if (target === "ai") {
-  console.log("Pinning @proticom/paperboy-ai registry deps:");
-  pinPkg("paperboy-ai/package.json", {
     "@proticom/paperboy-converter": "paperboy-converter/package.json",
   });
 } else {
-  console.error("Usage: node scripts/pin-registry-deps.mjs cli|ai");
+  console.error("Usage: node scripts/pin-registry-deps.mjs cli");
   process.exit(1);
 }

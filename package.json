@@ -5,7 +5,6 @@
   "description": "Paperboy monorepo: shared converter library, CLI, Chrome extension, and embeddable widget.",
   "workspaces": [
     "paperboy-converter",
-    "paperboy-ai",
     "paperboy-cli",
     "paperboy-ext",
     "paperboy-widget"
