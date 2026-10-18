@@ -35,6 +35,68 @@ const PROXY_ENV_VARS = [
   "no_proxy",
 ];
 
+const SCHEME_PREFIX = /^\s*[a-z][a-z0-9+.-]*:\/\//i;
+
+/** Replace proxy userinfo with `***@`. Never throws. */
+export function redactProxyValue(value: string): string {
+  try {
+    const url = new URL(value);
+    if (url.username || url.password) {
+      return redactAuthorityUserinfo(value);
+    }
+    // WHATWG accepts `user:secret@host` as an opaque URL with empty userinfo.
+    // Treat that as unparsed so the credentials still get redacted.
+    const at = value.indexOf("@");
+    const schemeSlashes = value.search(/:\/\//);
+    if (at >= 0 && (schemeSlashes < 0 || schemeSlashes > at)) {
+      return redactUnparsedUserinfo(value);
+    }
+    return value;
+  } catch {
+    return redactUnparsedUserinfo(value);
+  }
+}
+
+/** Parsed URL: redact only the authority userinfo, not a later `@` in the path. */
+function redactAuthorityUserinfo(value: string): string {
+  const scheme = SCHEME_PREFIX.exec(value);
+  if (!scheme) return redactUnparsedUserinfo(value);
+  const schemeEnd = scheme[0].length;
+  const rest = value.slice(schemeEnd);
+  const authorityEnd = indexOfAuthorityEnd(rest);
+  const authority = rest.slice(0, authorityEnd);
+  const at = authority.lastIndexOf("@");
+  if (at < 0) return value;
+  return `${value.slice(0, schemeEnd)}***@${authority.slice(at + 1)}${rest.slice(authorityEnd)}`;
+}
+
+function indexOfAuthorityEnd(authorityAndRest: string): number {
+  const slash = authorityAndRest.indexOf("/");
+  const query = authorityAndRest.indexOf("?");
+  const hash = authorityAndRest.indexOf("#");
+  let end = authorityAndRest.length;
+  for (const index of [slash, query, hash]) {
+    if (index >= 0 && index < end) end = index;
+  }
+  return end;
+}
+
+/** Unparsed value: per comma-separated entry, keep scheme:// or leading space. */
+function redactUnparsedUserinfo(value: string): string {
+  return value
+    .split(",")
+    .map((entry) => {
+      const at = entry.lastIndexOf("@");
+      if (at < 0) return entry;
+      const scheme = SCHEME_PREFIX.exec(entry);
+      const keepEnd = scheme
+        ? scheme[0].length
+        : (/^\s*/.exec(entry)?.[0].length ?? 0);
+      return `${entry.slice(0, keepEnd)}***@${entry.slice(at + 1)}`;
+    })
+    .join(",");
+}
+
 function parseMajorVersion(version: string): number {
   const major = Number(version.replace(/^v/, "").split(".")[0] ?? "0");
   return Number.isFinite(major) ? major : 0;
@@ -119,7 +181,7 @@ async function checkCrawlReadiness(
 
   const setProxies = PROXY_ENV_VARS.filter(
     (name) => typeof process.env[name] === "string" && process.env[name] !== "",
-  ).map((name) => `${name}=${process.env[name]}`);
+  ).map((name) => `${name}=${redactProxyValue(process.env[name] ?? "")}`);
   checks.push({
     name: "Proxy environment",
     status: setProxies.length > 0 ? "warn" : "ok",

@@ -61,4 +61,103 @@ describe("doctor", () => {
     );
     expect(writable?.status).toBe("ok");
   });
+
+  it("redacts proxy credentials in the proxy environment check", async () => {
+    const names = [
+      "HTTP_PROXY",
+      "HTTPS_PROXY",
+      "NO_PROXY",
+      "http_proxy",
+      "https_proxy",
+      "no_proxy",
+    ];
+    const saved = new Map(names.map((name) => [name, process.env[name]]));
+    try {
+      for (const name of names) delete process.env[name];
+      process.env.HTTPS_PROXY = "http://user:secret@proxy.example:8080";
+
+      const configModule = await importConfigModule();
+      await configModule.saveConfig(configModule.DEFAULT_CONFIG);
+      const doctorModule = await importDoctorModule();
+      const report = await doctorModule.runDoctor({ offline: true });
+      const proxy = report.checks.find(
+        (check) => check.name === "Proxy environment",
+      );
+      expect(proxy?.details).toContain("***@");
+      expect(proxy?.details).not.toContain("user");
+      expect(proxy?.details).not.toContain("secret");
+    } finally {
+      for (const name of names) {
+        const previous = saved.get(name);
+        if (previous === undefined) delete process.env[name];
+        else process.env[name] = previous;
+      }
+    }
+  });
+});
+
+describe("redactProxyValue", () => {
+  it("redacts userinfo and leaves values without credentials unchanged", async () => {
+    const { redactProxyValue } = await import("../src/doctor.ts");
+
+    expect(redactProxyValue("http://user:secret@proxy.example:8080")).toBe(
+      "http://***@proxy.example:8080",
+    );
+    expect(redactProxyValue("http://user@proxy.example:8080")).toBe(
+      "http://***@proxy.example:8080",
+    );
+    expect(redactProxyValue("http://proxy.example:8080")).toBe(
+      "http://proxy.example:8080",
+    );
+    expect(
+      redactProxyValue("localhost,127.0.0.1,.example.com"),
+    ).toBe("localhost,127.0.0.1,.example.com");
+
+    const malformed = [
+      "user:secret@proxy.example:8080",
+      "http://user:p@ss@host.example",
+      "::not a url::",
+      "",
+    ];
+    for (const value of malformed) {
+      const redacted = redactProxyValue(value);
+      expect(redacted).not.toContain("user");
+      expect(redacted).not.toContain("secret");
+      expect(redacted).not.toContain("p@ss");
+    }
+    expect(redactProxyValue("user:secret@proxy.example:8080")).toBe(
+      "***@proxy.example:8080",
+    );
+    expect(redactProxyValue("http://user:p@ss@host.example")).toBe(
+      "http://***@host.example",
+    );
+    expect(redactProxyValue("::not a url::")).toBe("::not a url::");
+    expect(redactProxyValue("")).toBe("");
+
+    expect(
+      redactProxyValue("http://user:secret@proxy.example:8080/a@b"),
+    ).toBe("http://***@proxy.example:8080/a@b");
+    expect(
+      redactProxyValue("socks5://user:secret@proxy.example:1080"),
+    ).toBe("socks5://***@proxy.example:1080");
+    expect(redactProxyValue("http://user:pa/ss@host.example")).toBe(
+      "http://***@host.example",
+    );
+    expect(redactProxyValue("user:pa ss@host.example")).toBe(
+      "***@host.example",
+    );
+
+    for (const value of [
+      "http://user:secret@proxy.example:8080/a@b",
+      "socks5://user:secret@proxy.example:1080",
+      "http://user:pa/ss@host.example",
+      "user:pa ss@host.example",
+    ]) {
+      const redacted = redactProxyValue(value);
+      expect(redacted).not.toContain("user");
+      expect(redacted).not.toContain("secret");
+      expect(redacted).not.toContain("pa/ss");
+      expect(redacted).not.toContain("pa ss");
+    }
+  });
 });
