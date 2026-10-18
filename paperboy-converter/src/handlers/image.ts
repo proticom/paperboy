@@ -94,11 +94,23 @@ async function defaultOcr(
   const recognizeArg = bytes as unknown as Parameters<
     typeof Tesseract.recognize
   >[0];
-  const result = await Tesseract.recognize(recognizeArg, language);
-  return {
-    text: result.data?.text ?? "",
-    words: collectWordsFromTesseractBlocks(result.data?.blocks),
-  };
+  // tesseract.js v6 returns only text unless output formats are requested.
+  // The convenience recognize() cannot pass that third argument, so words
+  // never arrive and the positioning table stays empty.
+  const worker = await Tesseract.createWorker(language);
+  try {
+    const result = await worker.recognize(
+      recognizeArg,
+      {},
+      { text: true, blocks: true },
+    );
+    return {
+      text: result.data?.text ?? "",
+      words: collectWordsFromTesseractBlocks(result.data?.blocks),
+    };
+  } finally {
+    await worker.terminate();
+  }
 }
 
 function buildLayoutTable(words: OcrWordPosition[]): string {
