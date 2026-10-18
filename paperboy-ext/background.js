@@ -145,6 +145,9 @@ function startPickerInPage() {
     "FOOTER",
     "FORM",
   ]);
+  const TABLE_PART_TAGS = new Set([
+    "TBODY", "THEAD", "TFOOT", "TR", "TD", "TH", "CAPTION", "COLGROUP", "COL",
+  ]);
 
   function isFrame(el) {
     if (!el || el.nodeType !== 1) return false;
@@ -171,19 +174,14 @@ function startPickerInPage() {
   function findFrame(start) {
     let node = start;
     while (node && node !== document.body && node !== document.documentElement) {
-      if (isFrame(node)) return node;
+      if (node.tagName === "TABLE" || (!TABLE_PART_TAGS.has(node.tagName) && isFrame(node))) return node;
       node = node.parentElement;
     }
     return document.body;
   }
 
   function findParentFrame(start) {
-    let node = start?.parentElement;
-    while (node && node !== document.body && node !== document.documentElement) {
-      if (isFrame(node)) return node;
-      node = node.parentElement;
-    }
-    return document.body;
+    return findFrame(start?.parentElement);
   }
 
   const overlay = document.createElement("div");
@@ -257,6 +255,7 @@ function startPickerInPage() {
   document.documentElement.appendChild(doneBadge);
 
   let currentFrame = null;
+  let expandedByKeyboard = false;
   const pickedElements = [];
   const pickedOverlays = new Map();
 
@@ -344,6 +343,7 @@ function startPickerInPage() {
     ) {
       return;
     }
+    expandedByKeyboard = false;
     const frame = findFrame(target);
     if (frame !== currentFrame) {
       highlight(frame);
@@ -396,8 +396,12 @@ function startPickerInPage() {
   }
 
   function onClick(event) {
-    if (!currentFrame) return;
     if (event.target === doneBadge) return; // doneBadge has its own handler
+    if (!expandedByKeyboard) {
+      const frame = findFrame(event.target);
+      if (frame.tagName === "TABLE") highlight(frame);
+    }
+    if (!currentFrame) return;
     event.preventDefault();
     event.stopPropagation();
     const idx = pickedElements.indexOf(currentFrame);
@@ -431,6 +435,7 @@ function startPickerInPage() {
       event.preventDefault();
       const parent = findParentFrame(currentFrame);
       highlight(parent);
+      expandedByKeyboard = true;
     }
   }
 

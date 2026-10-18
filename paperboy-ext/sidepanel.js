@@ -1,4 +1,4 @@
-import { createTurndownService } from "@proticom/paperboy-converter/turndown";
+import { createTurndownService, wrapTableFragment } from "@proticom/paperboy-converter/turndown";
 import markdownit from "markdown-it";
 
 /* global PAPERBOY_CONVERTER_VERSION */ // banner in sidepanel.bundle.js from build.js
@@ -233,7 +233,7 @@ function convertHtmlToMarkdown(payload) {
   // Readability + chrome stripping + main-container guessing entirely;
   // turndown the captured HTML directly.
   if (payload.fromPicker) {
-    const markdownBody = turndownService.turndown(payload.html ?? "").trim();
+    const markdownBody = turndownService.turndown(wrapTableFragment(payload.html ?? "")).trim();
     const title = payload.title || "Selected region";
     const markdownLines = [`# ${title}`];
     if (payload.url) markdownLines.push("", `Source: ${payload.url}`);

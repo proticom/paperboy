@@ -777,26 +777,47 @@ var PAPERBOY_CONVERTER_VERSION = "0.3.0";
 
   // ../paperboy-converter/dist/turndown.js
   function cellToMarkdown(cell2, service) {
-    const html = cell2.querySelector("table") ? cell2.textContent ?? "" : service.turndown(cell2.innerHTML);
+    const clone = cell2.ownerDocument.createElement("td");
+    clone.innerHTML = cell2.innerHTML;
+    for (const part of Array.from(clone.querySelectorAll("sup, br, address, article, aside, blockquote, dd, details, dialog, div, dl, dt, fieldset, figcaption, figure, footer, form, h1, h2, h3, h4, h5, h6, header, hgroup, hr, li, main, nav, ol, p, pre, section, summary, ul"))) {
+      part.before(clone.ownerDocument.createTextNode(" "));
+      part.after(clone.ownerDocument.createTextNode(" "));
+    }
+    for (const nested of Array.from(clone.querySelectorAll("table")).reverse()) {
+      const parts = Array.from(nested.querySelectorAll("caption, th, td")).filter((part) => part.closest("table") === nested).map((part) => (part.textContent ?? "").replace(/\s+/g, " ").trim());
+      nested.replaceWith(clone.ownerDocument.createTextNode(` ${parts.join(" \xB7 ")} `));
+    }
+    const html = service.turndown(clone.innerHTML);
     return html.replace(/\s+/g, " ").trim().replace(/\|/g, "\\|");
   }
   function tableToMarkdown(table2, service) {
-    const matrix = [];
-    for (let r = 0; r < table2.rows.length; r++) {
-      const row = table2.rows[r];
-      const cells = Array.from(row.cells).map((cell2) => cellToMarkdown(cell2, service));
-      if (cells.length > 0)
-        matrix.push(cells);
+    const rows = Array.from(table2.rows).filter((row) => row.closest("table") === table2);
+    const matrix = rows.map(() => []);
+    const originatingColumns = /* @__PURE__ */ new Set();
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r];
+      let column = 0;
+      let groupEnd = r + 1;
+      while (groupEnd < rows.length && rows[groupEnd].parentElement === row.parentElement)
+        groupEnd++;
+      Array.from(row.cells).filter((cell2) => cell2.closest("tr") === row).forEach((cell2) => {
+        while (matrix[r][column] !== void 0)
+          column++;
+        const rowEnd = cell2.rowSpan === 0 ? groupEnd : Math.min(groupEnd, r + cell2.rowSpan);
+        for (let y = r; y < rowEnd; y++) {
+          for (let x = column; x < column + cell2.colSpan; x++)
+            matrix[y][x] = "";
+        }
+        originatingColumns.add(column);
+        matrix[r][column] = cellToMarkdown(cell2, service);
+        column += cell2.colSpan;
+      });
     }
-    if (matrix.length === 0)
+    if (matrix.length === 0 || matrix.every((row) => row.length === 0))
       return "";
-    let colCount = Math.max(...matrix.map((row) => row.length));
-    const padded = matrix.map((row) => {
-      const next2 = [...row];
-      while (next2.length < colCount)
-        next2.push("");
-      return next2;
-    });
+    const columns = Array.from({ length: Math.max(...matrix.map((row) => row.length)) }, (_, column) => column).filter((column) => originatingColumns.has(column));
+    let colCount = columns.length;
+    const padded = matrix.map((row) => columns.map((column) => row[column] ?? ""));
     while (colCount > 1 && padded.every((row) => row[colCount - 1] === "")) {
       padded.forEach((row) => row.pop());
       colCount -= 1;
@@ -813,6 +834,14 @@ var PAPERBOY_CONVERTER_VERSION = "0.3.0";
 ${lines.join("\n")}
 
 `;
+  }
+  function wrapTableFragment(html) {
+    const orphan = html.match(/^\s*(?:<!--[\s\S]*?-->\s*)*<(tbody|thead|tfoot|tr|td|th|caption|colgroup|col)\b/i)?.[1]?.toLowerCase();
+    if (!orphan)
+      return html;
+    if (orphan === "td" || orphan === "th")
+      html = `<tr>${html}</tr>`;
+    return `<table>${html}</table>`;
   }
   function createTurndownService() {
     const service = new TurndownService({
@@ -6461,7 +6490,7 @@ ${content}
   }
   function convertHtmlToMarkdown(payload) {
     if (payload.fromPicker) {
-      const markdownBody2 = turndownService.turndown(payload.html ?? "").trim();
+      const markdownBody2 = turndownService.turndown(wrapTableFragment(payload.html ?? "")).trim();
       const title2 = payload.title || "Selected region";
       const markdownLines2 = [`# ${title2}`];
       if (payload.url) markdownLines2.push("", `Source: ${payload.url}`);

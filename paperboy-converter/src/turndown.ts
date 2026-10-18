@@ -5,10 +5,19 @@ function cellToMarkdown(
   cell: HTMLElement,
   service: TurndownService,
 ): string {
-  // Avoid recursing into nested tables; flatten them to plain text.
-  const html = cell.querySelector("table")
-    ? (cell.textContent ?? "")
-    : service.turndown(cell.innerHTML);
+  const clone = cell.ownerDocument.createElement("td");
+  clone.innerHTML = cell.innerHTML;
+  for (const part of Array.from(clone.querySelectorAll("sup, br, address, article, aside, blockquote, dd, details, dialog, div, dl, dt, fieldset, figcaption, figure, footer, form, h1, h2, h3, h4, h5, h6, header, hgroup, hr, li, main, nav, ol, p, pre, section, summary, ul"))) {
+    part.before(clone.ownerDocument.createTextNode(" "));
+    part.after(clone.ownerDocument.createTextNode(" "));
+  }
+  for (const nested of Array.from(clone.querySelectorAll("table")).reverse()) {
+    const parts = Array.from(nested.querySelectorAll("caption, th, td"))
+      .filter((part) => part.closest("table") === nested)
+      .map((part) => (part.textContent ?? "").replace(/\s+/g, " ").trim());
+    nested.replaceWith(clone.ownerDocument.createTextNode(` ${parts.join(" · ")} `));
+  }
+  const html = service.turndown(clone.innerHTML);
   return html
     .replace(/\s+/g, " ")
     .trim()
@@ -19,22 +28,31 @@ function tableToMarkdown(
   table: HTMLTableElement,
   service: TurndownService,
 ): string {
-  const matrix: string[][] = [];
-  for (let r = 0; r < table.rows.length; r++) {
-    const row = table.rows[r]!;
-    const cells = Array.from(row.cells).map((cell) =>
-      cellToMarkdown(cell as HTMLElement, service),
-    );
-    if (cells.length > 0) matrix.push(cells);
+  const rows = Array.from(table.rows).filter((row) => row.closest("table") === table);
+  const matrix: (string | undefined)[][] = rows.map(() => []);
+  const originatingColumns = new Set<number>();
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r]!;
+    let column = 0;
+    let groupEnd = r + 1;
+    while (groupEnd < rows.length && rows[groupEnd]!.parentElement === row.parentElement) groupEnd++;
+    Array.from(row.cells).filter((cell) => cell.closest("tr") === row).forEach((cell) => {
+      while (matrix[r]![column] !== undefined) column++;
+      const rowEnd = cell.rowSpan === 0 ? groupEnd : Math.min(groupEnd, r + cell.rowSpan);
+      for (let y = r; y < rowEnd; y++) {
+        for (let x = column; x < column + cell.colSpan; x++) matrix[y]![x] = "";
+      }
+      originatingColumns.add(column);
+      matrix[r]![column] = cellToMarkdown(cell, service);
+      column += cell.colSpan;
+    });
   }
-  if (matrix.length === 0) return "";
+  if (matrix.length === 0 || matrix.every((row) => row.length === 0)) return "";
 
-  let colCount = Math.max(...matrix.map((row) => row.length));
-  const padded = matrix.map((row) => {
-    const next = [...row];
-    while (next.length < colCount) next.push("");
-    return next;
-  });
+  const columns = Array.from({ length: Math.max(...matrix.map((row) => row.length)) }, (_, column) => column)
+    .filter((column) => originatingColumns.has(column));
+  let colCount = columns.length;
+  const padded = matrix.map((row) => columns.map((column) => row[column] ?? ""));
 
   // Drop trailing columns that are entirely empty across every row.
   while (colCount > 1 && padded.every((row) => row[colCount - 1] === "")) {
@@ -50,6 +68,13 @@ function tableToMarkdown(
     ...padded.slice(1).map((row) => `| ${row.join(" | ")} |`),
   ];
   return `\n\n${lines.join("\n")}\n\n`;
+}
+
+export function wrapTableFragment(html: string): string {
+  const orphan = html.match(/^\s*(?:<!--[\s\S]*?-->\s*)*<(tbody|thead|tfoot|tr|td|th|caption|colgroup|col)\b/i)?.[1]?.toLowerCase();
+  if (!orphan) return html;
+  if (orphan === "td" || orphan === "th") html = `<tr>${html}</tr>`;
+  return `<table>${html}</table>`;
 }
 
 export function createTurndownService(): TurndownService {
