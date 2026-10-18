@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { convertFileToMarkdown } from "../src/converter.ts";
@@ -40,6 +41,18 @@ describe("converter", () => {
     expect(result.title).toBe("Sample Title");
     expect(result.markdown).toContain("# Heading");
     expect(result.markdown).toContain("Body text");
+  });
+
+  it("converts pdf files read from disk as a Buffer", async () => {
+    const filePath = fileURLToPath(
+      new URL("../../paperboy-converter/tests/fixtures/sample.pdf", import.meta.url),
+    );
+
+    const result = await convertFileToMarkdown(filePath);
+
+    expect(result.title).toBe("sample");
+    expect(result.markdown).toBe("Hello pdf world.");
+    expect(result.warnings).toEqual([]);
   });
 
   it("converts rtf files to plain markdown text", async () => {

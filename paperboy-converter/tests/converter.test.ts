@@ -126,6 +126,15 @@ describe("shared converter — binary handlers", () => {
     expect(result.markdown).not.toMatch(/^## Page 1/m);
   });
 
+  it("converts pdf files from a Node Buffer", async () => {
+    const bytes = readFileSync(new URL("./fixtures/sample.pdf", import.meta.url));
+    const result = await convertToMarkdown("sample.pdf", bytes);
+
+    expect(result.title).toBe("sample");
+    expect(result.markdown).toBe("Hello pdf world.");
+    expect(result.warnings).toEqual([]);
+  });
+
   it("converts epub files to markdown", async () => {
     const bytes = loadFixture("sample.epub");
     const result = await convertToMarkdown("sample.epub", bytes);
