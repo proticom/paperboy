@@ -260,7 +260,7 @@ for (const view of ["source", "preview"]) {
     const revoked = [];
     let failConversion = false;
     const context = vm.createContext({
-      window, document, DOMParser, Blob, Date,
+      window, document, DOMParser, Blob, Date, TextEncoder, TextDecoder,
       URL: class extends URL {
         static createObjectURL() { return "blob:https://example.org/loaded"; }
         static revokeObjectURL(url) { revoked.push(url); }
