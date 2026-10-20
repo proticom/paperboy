@@ -15,6 +15,16 @@ async function importDoctorModule() {
 }
 
 describe("doctor", () => {
+  it.each([
+    ["v20.17.1", false],
+    ["v20.18.0", true],
+    ["v22.0.0", true],
+    ["v18.20.0", false],
+  ])("checks Node.js version %s", async (version, expected) => {
+    const doctorModule = await importDoctorModule();
+    expect(doctorModule.isSupportedNodeVersion(version)).toBe(expected);
+  });
+
   beforeEach(async () => {
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "paperboy-cli-doctor-"));
     process.env.PAPERBOY_CLI_CONFIG_DIR = tempDir;

@@ -8,7 +8,7 @@ Turn many common document and image formats into **Markdown** in Node.js. This p
 npm install @proticom/paperboy-converter
 ```
 
-Requires **Node.js 20 or newer**.
+Requires **Node.js 20.18 or newer**.
 
 ## Quick example
 
