@@ -1,0 +1,65 @@
+%PDF-1.7
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R  >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R  >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Length 1437 >>
+stream
+BT /F2 24 Tf 1 0 0 1 48 744 Tm (A neutral inventory table) Tj ET
+BT /F2 12 Tf 1 0 0 1 48 700 Tm (Code) Tj ET
+BT /F2 12 Tf 1 0 0 1 170 700 Tm (Item) Tj ET
+BT /F2 12 Tf 1 0 0 1 396 700 Tm (Count) Tj ET
+BT /F2 12 Tf 1 0 0 1 532 700 Tm (Total) Tj ET
+BT /F1 12 Tf 1 0 0 1 48 674 Tm (ITEM-001) Tj ET
+BT /F1 12 Tf 1 0 0 1 170 674 Tm (Plain notebooks) Tj ET
+BT /F1 12 Tf 1 0 0 1 416.656 674 Tm (12) Tj ET
+BT /F1 12 Tf 1 0 0 1 523.304 674 Tm ($18.00) Tj ET
+BT /F1 12 Tf 1 0 0 1 48 648 Tm (ITEM-002) Tj ET
+BT /F1 12 Tf 1 0 0 1 170 648 Tm (Blue folders) Tj ET
+BT /F1 12 Tf 1 0 0 1 423.328 648 Tm (7) Tj ET
+BT /F1 12 Tf 1 0 0 1 523.304 648 Tm ($14.25) Tj ET
+BT /F1 12 Tf 1 0 0 1 48 622 Tm (ITEM-003) Tj ET
+BT /F1 12 Tf 1 0 0 1 170 622 Tm (Index cards) Tj ET
+BT /F1 12 Tf 1 0 0 1 409.984 622 Tm (105) Tj ET
+BT /F1 12 Tf 1 0 0 1 529.976 622 Tm ($9.50) Tj ET
+BT /F1 12 Tf 1 0 0 1 48 596 Tm (ITEM-004) Tj ET
+BT /F1 12 Tf 1 0 0 1 170 596 Tm (Paper clips) Tj ET
+BT /F1 12 Tf 1 0 0 1 423.328 596 Tm (1) Tj ET
+BT /F1 12 Tf 1 0 0 1 529.976 596 Tm ($3.75) Tj ET
+BT /F1 12 Tf 1 0 0 1 48 570 Tm (ITEM-005) Tj ET
+BT /F1 12 Tf 1 0 0 1 170 570 Tm (Blank labels) Tj ET
+BT /F1 12 Tf 1 0 0 1 416.656 570 Tm (28) Tj ET
+BT /F1 12 Tf 1 0 0 1 523.304 570 Tm ($21.00) Tj ET
+BT /F1 12 Tf 1 0 0 1 48 544 Tm (ITEM-006) Tj ET
+BT /F1 12 Tf 1 0 0 1 170 544 Tm (Draft sheets) Tj ET
+BT /F1 12 Tf 1 0 0 1 416.656 544 Tm (64) Tj ET
+BT /F1 12 Tf 1 0 0 1 523.304 544 Tm ($32.50) Tj ET
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000015 00000 n 
+0000000065 00000 n 
+0000000122 00000 n 
+0000000259 00000 n 
+0000000356 00000 n 
+0000000458 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+1947
+%%EOF

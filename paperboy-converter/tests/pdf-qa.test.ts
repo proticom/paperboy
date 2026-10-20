@@ -1,0 +1,238 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it, vi } from "vitest";
+
+import { convertToMarkdown } from "../src/index.js";
+import { classifyGrid, collapseLetterSpacing, reflowLines, renderPdfPage, type PdfTextItem } from "../src/handlers/pdf-structure.js";
+
+const boundary = vi.hoisted(() => ({ document: vi.fn(), extract: vi.fn() }));
+
+vi.mock("unpdf", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("unpdf")>();
+  return {
+    ...actual,
+    getDocumentProxy: boundary.document.mockImplementation(actual.getDocumentProxy),
+    extractText: boundary.extract.mockImplementation(actual.extractText),
+  };
+});
+
+function item(text: string, x: number, y: number, height = 12): PdfTextItem {
+  return { text, x, y, height, width: text.length * 6, fontName: "Helvetica" };
+}
+
+describe("PDF grid confidence", () => {
+  it("rejects a changing column count even when cell text is short", () => {
+    expect(classifyGrid([
+      [{ text: "Name", x: 0, right: 30 }, { text: "Value", x: 100, right: 130 }],
+      [{ text: "A", x: 0, right: 10 }, { text: "1", x: 100, right: 110 }, { text: "Extra", x: 200, right: 230 }],
+      [{ text: "B", x: 0, right: 10 }, { text: "2", x: 100, right: 110 }],
+    ], 12)).toEqual({ kind: "prose", reason: "unstable-columns" });
+  });
+
+  it.each([
+    { first: "A longer phrase contains several clear words", second: "Another longer phrase contains several clear words", width: 150 },
+    { first: "A longer phrase contains several clear words", second: "Another longer phrase contains several clear words", width: 50 },
+    { first: "Wide phrase", second: "Broad text", width: 150 },
+  ])("rejects long prose cells by words or width ($width pt)", ({ first, second, width }) => {
+    expect(classifyGrid([
+      [{ text: first, x: 0, right: width }, { text: second, x: 250, right: 250 + width }, { text: "A", x: 500, right: 506 }],
+      [{ text: first, x: 0, right: width }, { text: second, x: 250, right: 250 + width }, { text: "B", x: 500, right: 506 }],
+      [{ text: first, x: 0, right: width }, { text: second, x: 250, right: 250 + width }, { text: "C", x: 500, right: 506 }],
+    ], 12)).toEqual({ kind: "prose", reason: "long-cells" });
+  });
+});
+
+describe("PDF layout regressions", () => {
+  it("keeps content-stream order when scattered boxes do not establish a reliable layout", () => {
+    expect(renderPdfPage([
+      item("First in the content stream.", 240, 600),
+      item("Second in the content stream.", 40, 700),
+      item("Third in the content stream.", 180, 650),
+    ])).toBe("First in the content stream.\n\nSecond in the content stream.\n\nThird in the content stream.");
+  });
+
+  it("keeps reversed same-baseline boxes separate in the uncertain-layout fallback", () => {
+    expect(renderPdfPage([
+      item("First in the content stream.", 240, 600),
+      item("Second in the content stream.", 40, 600),
+      item("Third in the content stream.", 180, 650),
+    ])).toBe("First in the content stream.\n\nSecond in the content stream.\n\nThird in the content stream.");
+  });
+
+  it("recognizes a letter-spaced heading at the body font size without bold", () => {
+    expect(renderPdfPage([
+      item("S U M M A R Y", 40, 700),
+      item("A plain body paragraph follows this heading.", 40, 660),
+    ])).toBe("## SUMMARY\n\nA plain body paragraph follows this heading.");
+  });
+
+  it("preserves ragged table rows instead of reading them as columns", () => {
+    expect(renderPdfPage([
+      item("Name", 40, 700), item("Count", 200, 700), item("Unit", 300, 700),
+      item("Alpha", 40, 680), item("2", 200, 680), item("kg", 300, 680),
+      item("Beta", 40, 660), item("3", 200, 660),
+      item("Gamma", 40, 640), item("4", 200, 640), item("kg", 300, 640),
+    ])).toBe("Name Count Unit\nAlpha 2 kg\nBeta 3\nGamma 4 kg");
+  });
+
+  it("keeps genuine prose columns in column order", () => {
+    expect(renderPdfPage([
+      item("The left column begins with a", 40, 700),
+      item("The right column contains a", 330, 700),
+      item("short paragraph that wraps over", 40, 684),
+      item("second paragraph that also uses", 330, 684),
+      item("three printed lines.", 40, 668),
+      item("three printed lines.", 330, 668),
+    ])).toBe("The left column begins with a short paragraph that wraps over three printed lines.\n\nThe right column contains a second paragraph that also uses three printed lines.");
+  });
+
+  it("reads three prose columns in order when inline bold splits every line into items", () => {
+    const styled = (text: string, x: number, y: number): PdfTextItem[] => {
+      const words = text.split(" ");
+      const pieces = [words.slice(0, 2).join(" "), words[2], words.slice(3).join(" ")];
+      let offset = x;
+      return pieces.map((piece, index) => {
+        const result = {
+          ...item(piece, offset, y), width: piece.length * 4,
+          fontName: index === 1 ? "Helvetica-Bold" : "Helvetica",
+        };
+        offset += result.width + 4;
+        return result;
+      });
+    };
+    expect(renderPdfPage([
+      ...styled("PARA-01 begins with useful notes.", 40, 700),
+      ...styled("PARA-02 begins with other notes.", 260, 700),
+      ...styled("PARA-03 begins with final notes.", 480, 700),
+      ...styled("and continues with plain words.", 40, 684),
+      ...styled("and continues with more words.", 260, 684),
+      ...styled("and continues with clear words.", 480, 684),
+      ...styled("The left paragraph ends here.", 40, 668),
+      ...styled("The middle paragraph ends here.", 260, 668),
+      ...styled("The right paragraph ends here.", 480, 668),
+    ])).toBe("PARA-01 begins with useful notes. and continues with plain words. The left paragraph ends here.\n\nPARA-02 begins with other notes. and continues with more words. The middle paragraph ends here.\n\nPARA-03 begins with final notes. and continues with clear words. The right paragraph ends here.");
+  });
+
+  it.each([
+    ["well-", "known", "well-known"],
+    ["self-", "contained", "self-contained"],
+    ["state-of-the-", "art", "state-of-the-art"],
+    ["informa\u00ad", "tion", "information"],
+  ])("joins %s and %s without damaging compound spelling", (first, second, expected) => {
+    expect(reflowLines([first, second])).toBe(expected);
+  });
+
+  it.each([
+    "Operative trials used axes x y z in a longer sentence.",
+    "N A S A funded a longer sentence.",
+  ])("keeps mixed prose unchanged and does not infer a heading for %j", (text) => {
+    expect(collapseLetterSpacing(text)).toBe(text);
+    expect(renderPdfPage([item(text, 40, 700)])).toBe(text);
+  });
+
+  it("joins a geometrically tracked acronym without turning its sentence into a heading", () => {
+    expect(renderPdfPage([
+      { ...item("F", 40, 700), width: 5 },
+      { ...item("B", 46, 700), width: 5 },
+      { ...item("I", 52, 700), width: 3 },
+      item("agents reviewed the logs.", 61, 700),
+    ])).toBe("FBI agents reviewed the logs.");
+  });
+
+  it("keeps a spaced acronym attached to prose across a wide same-line gap", () => {
+    expect(renderPdfPage([
+      { ...item("N A S A", 40, 700), width: 48 },
+      item("funded the second phase.", 120, 700),
+    ])).toBe("N A S A funded the second phase.");
+  });
+
+  it.each(["€ £ ¥ —", "≤ ≥ → ∑ ∞", "a / b", "/ /"])("keeps symbol spacing in %j", (text) => {
+    expect(collapseLetterSpacing(text)).toBe(text);
+    expect(renderPdfPage([item(text, 40, 700)])).toBe(text);
+  });
+
+  it("collapses repeated slash punctuation only inside a letter-spaced heading", () => {
+    expect(collapseLetterSpacing("/ / W H E R E  W E  G O")).toBe("// WHERE WE GO");
+  });
+
+  it("reflows a wrapped line beginning with a number without inventing a list", () => {
+    expect(renderPdfPage([
+      item("The number fell from four to", 40, 700),
+      item("2. Analysts reviewed the result.", 40, 684),
+    ])).toBe("The number fell from four to 2. Analysts reviewed the result.");
+  });
+
+  it("keeps a year at the start of prose out of an ordered list", () => {
+    expect(renderPdfPage([
+      item("The archive was updated in", 40, 700),
+      item("2026. The year brought more records.", 40, 684),
+    ])).toBe("The archive was updated in 2026. The year brought more records.");
+  });
+
+  it("escapes a standalone year so Markdown renders prose instead of a list", () => {
+    expect(renderPdfPage([
+      item("2026. The year brought more records.", 40, 700),
+    ])).toBe("2026\\. The year brought more records.");
+  });
+
+  it("escapes a rejected closing-parenthesis marker at the start of prose", () => {
+    expect(renderPdfPage([
+      item("2) Analysts reviewed the result.", 40, 700),
+    ])).toBe("2\\) Analysts reviewed the result.");
+  });
+
+  it("keeps sequential numbered items as a list", () => {
+    expect(renderPdfPage([
+      item("1. Read the page.", 40, 700),
+      item("2. Save the note.", 40, 680),
+    ])).toBe("1. Read the page.\n2. Save the note.");
+  });
+
+  it("recognizes an isolated numbered item from its hanging continuation", () => {
+    expect(renderPdfPage([
+      item("3. A wrapped numbered", 40, 700),
+      item("list item continues.", 58, 684),
+    ])).toBe("3. A wrapped numbered list item continues.");
+  });
+});
+
+describe("PDF handler regressions", () => {
+  it("emits a multipage document title before the first page marker", async () => {
+    const pages = [
+      [item("A document title", 40, 720, 30), item("A longer body paragraph appears on the first page.", 40, 680)],
+      [item("A paragraph appears on the second page.", 40, 720)],
+    ];
+    boundary.document.mockResolvedValueOnce({
+      numPages: pages.length,
+      getPage: async (number: number) => ({
+        getStructTree: async () => null,
+        getTextContent: async () => ({
+          styles: { Helvetica: { fontFamily: "Helvetica" } },
+          items: pages[number - 1].map((text) => ({
+            str: text.text, transform: [text.height, 0, 0, text.height, text.x, text.y],
+            width: text.width, height: text.height, fontName: text.fontName,
+          })),
+        }),
+      }),
+      destroy: async () => undefined,
+    });
+    const bytes = new Uint8Array(readFileSync(new URL("./fixtures/sample.pdf", import.meta.url)));
+    const result = await convertToMarkdown("multipage.pdf", bytes);
+
+    expect(result.markdown).toBe("# A document title\n\n## Page 1\n\nA longer body paragraph appears on the first page.\n\n## Page 2\n\nA paragraph appears on the second page.");
+    expect(result.title).toBe("multipage");
+    expect(result.warnings).toEqual([]);
+  });
+
+  it.each(["InvalidPDFException", "PasswordException", "MissingPDFException"])(
+    "rethrows %s without parsing the same PDF again",
+    async (name) => {
+      const error = Object.assign(new Error("A fatal PDF input error"), { name });
+      boundary.document.mockRejectedValueOnce(error);
+      const before = boundary.extract.mock.calls.length;
+      const bytes = new Uint8Array(readFileSync(new URL("./fixtures/sample.pdf", import.meta.url)));
+
+      await expect(convertToMarkdown("fatal.pdf", bytes)).rejects.toBe(error);
+      expect(boundary.extract.mock.calls.length).toBe(before);
+    },
+  );
+});
