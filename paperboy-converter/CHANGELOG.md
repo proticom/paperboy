@@ -5,19 +5,17 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.1] - 2026-10-20
 
 ### Changed
-- Minimum Node.js is now 20.18 (`engines.node` `>=20.18`): the pdf.js build bundled with unpdf 1.7 uses `process.getBuiltinModule` and `URL.parse`.
+- Minimum Node.js is now 20.18 (`engines.node` `>=20.18`): the pdf.js build bundled with unpdf 1.7 uses `process.getBuiltinModule` and `URL.parse` (#29).
 
 ### Fixed
-- Upgrade `unpdf` to 1.7.x to remove its transitive `canvas` dependency and npm deprecation warnings.
-- Segment PDF columns before detecting tables, including narrow gutters and tables within columns. Preserve short verse lines and monospace code.
-- Keep multi-column PDF prose in reading order when lines contain inline font changes.
-- Preserve untagged table rows and hard hyphens. Limit letter-spacing and list detection to matching layouts, place multipage titles before page headings, and avoid retrying fatal PDF errors.
-- Preserve PDF reading order, headings, lists, tables, and paragraphs using document tags or page layout. Rejoin wrapped text and spaced letters and symbols, and mark omitted tagged figures without decoding images.
+- Upgrade `unpdf` to 1.7.x to remove its transitive `canvas` dependency and npm deprecation warnings (#29).
+- PDF extraction is now structure-aware (#31). Tagged PDFs follow their structure tree. Untagged pages are split into columns (including narrow gutters) before tables are detected, so headings, lists, tables and paragraphs come out in reading order; inline font changes no longer break multi-column prose.
+- PDF text cleanup (#31): wrapped lines are reflowed, letter-spaced headings rejoined and hard hyphens kept; verse and monospace code keep their line breaks; untagged table rows are kept; multipage titles come before page headings; dropped tagged figures are marked `<!-- image omitted -->`. Heuristic headings are capped at H2 unless first and largest. Fatal PDF errors are not retried, and other structure failures fall back to the previous extraction.
 
-## [0.3.0] - Unreleased
+## [0.3.0] - 2026-10-18
 
 ### Removed
 - **Breaking:** the `image.describeImage` conversion hook and the `ImageDescriptionParams` type. Image conversion now returns OCR output only; callers that passed `describeImage` must drop it.

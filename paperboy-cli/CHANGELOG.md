@@ -5,12 +5,12 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.2] - 2026-10-20
 
 ### Changed
-
-- `doctor` now reports a missing config file as OK ("No config file; using defaults (run `paperboy-cli setup` to customize)") instead of a warning.
-- Help, README and the publish checklist use `paperboy-cli` as the command name (`paperboy` and `paperboy-dispatch` remain as aliases).
+- `doctor` now reports a missing config file as OK ("No config file; using defaults (run `paperboy-cli setup` to customize)") instead of a warning (#28).
+- Help, README and the publish checklist use `paperboy-cli` as the command name (`paperboy` and `paperboy-dispatch` remain as aliases) (#28).
+- Minimum Node.js is now 20.18 (`engines.node` `>=20.18`, and `paperboy-cli doctor` checks for v20.18), because the pdf.js build bundled with the converter's unpdf 1.7 needs `process.getBuiltinModule` and `URL.parse` (#29).
 
 ## [0.3.1] - 2026-10-18
 

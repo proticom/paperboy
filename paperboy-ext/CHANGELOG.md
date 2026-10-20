@@ -5,6 +5,11 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-10-20
+
+### Changed
+- Version aligned to 0.3.1 with the converter; the bundled converter is 0.3.1.
+
 ## [0.3.0] - Unreleased
 
 ### Added
