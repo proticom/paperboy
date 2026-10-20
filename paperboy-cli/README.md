@@ -15,14 +15,14 @@ npm install -g @proticom/paperboy-cli
 ## Quick Start
 
 ```bash
-# 1) Configure once
+# 1) Check environment health
+paperboy-cli doctor
+
+# Optional: set defaults
 paperboy-cli setup
 
 # 2) Convert a file
 paperboy-cli convert "./input.pdf"
-
-# 3) Check environment health
-paperboy-cli doctor
 ```
 
 ## Commands
