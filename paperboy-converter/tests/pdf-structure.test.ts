@@ -78,6 +78,54 @@ describe("PDF text cleanup", () => {
 });
 
 describe("PDF structure rendering", () => {
+  it("caps a large heading after body text at level two", () => {
+    expect(renderPdfPage([
+      textItem("A longer body paragraph appears before the section heading.", 720),
+      { ...textItem("A large section", 680), height: 30 },
+    ])).toBe("A longer body paragraph appears before the section heading.\n\n## A large section");
+  });
+
+  it("uses level one for the first and largest heading", () => {
+    expect(renderPdfPage([
+      { ...textItem("A document title", 720), height: 30 },
+      textItem("A longer body paragraph follows the document title.", 680),
+    ])).toBe("# A document title\n\nA longer body paragraph follows the document title.");
+  });
+
+  it("keeps an explicit tagged H1 after body text", () => {
+    const items = [
+      textItem("A body paragraph appears first.", 720, "intro"),
+      { ...textItem("An explicit heading", 680, "heading"), height: 30 },
+    ];
+    const tree = node("Document", node("P", content("intro")), node("H1", content("heading")));
+
+    expect(renderPdfPage(items, tree)).toBe("A body paragraph appears first.\n\n# An explicit heading");
+  });
+
+  it("caps a generic tagged heading after body text at level two", () => {
+    const items = [
+      textItem("A body paragraph appears first.", 720, "intro"),
+      { ...textItem("A generic heading", 680, "heading"), height: 30 },
+    ];
+    const tree = node("Document", node("P", content("intro")), node("H", content("heading")));
+
+    expect(renderPdfPage(items, tree)).toBe("A body paragraph appears first.\n\n## A generic heading");
+  });
+
+  it("caps the first heading on a later text page at level two", () => {
+    expect(renderPdfPage([
+      { ...textItem("A later section", 720), height: 30 },
+      textItem("A longer body paragraph follows the later section.", 680),
+    ], null, { isFirstTextPage: false, largestFontSize: 30 })).toBe("## A later section\n\nA longer body paragraph follows the later section.");
+  });
+
+  it("caps a first-page heading below the document's largest font at level two", () => {
+    expect(renderPdfPage([
+      { ...textItem("A smaller heading", 720), height: 20 },
+      textItem("A longer body paragraph follows the smaller heading.", 680),
+    ], null, { isFirstTextPage: true, largestFontSize: 30 })).toBe("## A smaller heading\n\nA longer body paragraph follows the smaller heading.");
+  });
+
   it.each([
     {
       lines: ["A uniform paragraph wraps", "onto another line and then one more line."],
@@ -95,7 +143,7 @@ describe("PDF structure rendering", () => {
     expect(renderPdfPage([
       textItem("A body paragraph stays separate.", 700),
       { ...textItem("A larger heading", 684), height: 16 },
-    ])).toBe("A body paragraph stays separate.\n\n# A larger heading");
+    ])).toBe("A body paragraph stays separate.\n\n## A larger heading");
   });
 
   it("starts a separate paragraph when a smaller font begins", () => {

@@ -13,6 +13,11 @@ export interface PdfStructureNode {
   children: readonly (PdfStructureNode | { kind: "content"; id: string })[];
 }
 
+export interface PdfHeadingContext {
+  isFirstTextPage: boolean;
+  largestFontSize: number;
+}
+
 interface Line {
   items: PdfTextItem[];
   x: number;
@@ -23,7 +28,7 @@ interface Line {
 }
 
 type Block =
-  | { kind: "text"; items: readonly PdfTextItem[]; role: "flow" | "paragraph" | "heading"; level?: number }
+  | { kind: "text"; items: readonly PdfTextItem[]; role: "flow" | "paragraph" | "heading" | "explicit-heading"; level?: number }
   | { kind: "markdown"; markdown: string };
 
 const spacedRun = /(?<![\p{L}\p{N}])\p{L}(?: \p{L}){2,}(?![\p{L}\p{N}])/u;
@@ -170,7 +175,7 @@ function layoutBlocks(items: readonly PdfTextItem[], bodySize: number, sizes: re
   return blocks;
 }
 
-function renderBlocks(blocks: readonly Block[], bodySize: number, sizes: readonly number[], inferHeadings = true): string {
+function renderBlocks(blocks: readonly Block[], bodySize: number, sizes: readonly number[], titleItems: ReadonlySet<PdfTextItem>, inferHeadings = true): string {
   const output: string[] = [];
   let previousList = false;
   let previousListY = Infinity;
@@ -209,7 +214,8 @@ function renderBlocks(blocks: readonly Block[], bodySize: number, sizes: readonl
         text = `- ${text} ${reflowLines(captionLines.map((line) => line.text))}`; i++;
       }
     }
-    const level = block.role === "paragraph" ? undefined : block.level ?? (inferHeadings ? headingLevel(items, bodySize, sizes) : undefined);
+    let level = block.role === "paragraph" ? undefined : block.level ?? (inferHeadings ? headingLevel(items, bodySize, sizes) : undefined);
+    if (level === 1 && block.role !== "explicit-heading" && !items.every((item) => titleItems.has(item))) level = 2;
     if (level) text = `${"#".repeat(level)} ${text}`;
     const list = listStart.exec(text);
     if (list) {
@@ -232,8 +238,11 @@ function renderBlocks(blocks: readonly Block[], bodySize: number, sizes: readonl
   return output.join("\n\n");
 }
 
-export function renderPdfPage(items: readonly PdfTextItem[], tree?: PdfStructureNode | null): string {
+export function renderPdfPage(items: readonly PdfTextItem[], tree?: PdfStructureNode | null, context?: PdfHeadingContext): string {
   const visible = items.filter((item) => item.text.trim());
+  const largestFontSize = context?.largestFontSize ?? visible.reduce((largest, item) => Math.max(largest, itemSize(item)), 0);
+  const firstLine = groupLines(visible)[0];
+  const titleItems = new Set(context?.isFirstTextPage !== false && firstLine && firstLine.size >= largestFontSize - 0.001 ? firstLine.items : []);
   const weightedSizes = visible.flatMap((item) => Array.from({ length: Math.min(item.text.length, 200) }, () => itemSize(item)));
   const bodySize = median(weightedSizes);
   const sizes = [...new Set(visible.map(itemSize).map((size) => Math.round(size * 2) / 2))].filter((size) => size > bodySize * 1.2).sort((a, b) => b - a);
@@ -264,7 +273,7 @@ export function renderPdfPage(items: readonly PdfTextItem[], tree?: PdfStructure
         const labelText = label && !("kind" in label) ? plain(label).trim() : "";
         if (label && !("kind" in label)) consume(label);
         const children = entry.children.filter((child) => child !== label);
-        let body = renderBlocks(walk({ role: "LBody", children }), bodySize, sizes, false).replace(/\n\n(?=[-*]|\d+\.)/g, "\n");
+        let body = renderBlocks(walk({ role: "LBody", children }), bodySize, sizes, titleItems, false).replace(/\n\n(?=[-*]|\d+\.)/g, "\n");
         const embeddedLabel = !labelText ? /^(\d+|[a-zA-Z])[.)]\s+/.exec(body) : null;
         const numeric = /^(\d+|[a-zA-Z])[.)]?$/.exec(labelText) ?? embeddedLabel;
         const marker = numeric ? (/^\d/.test(numeric[1]) ? `${numeric[1]}.` : `${numeric[1].toLowerCase().charCodeAt(0) - 96}.`) : "-";
@@ -291,7 +300,7 @@ export function renderPdfPage(items: readonly PdfTextItem[], tree?: PdfStructure
     }
     if (/^(P|H|H[1-6])$/.test(node.role)) {
       const text = consume(node);
-      return [{ kind: "text", items: text, role: node.role === "P" ? "paragraph" : "heading",
+      return [{ kind: "text", items: text, role: node.role === "P" ? "paragraph" : node.role === "H" ? "heading" : "explicit-heading",
         level: node.role === "H" ? headingLevel(text, bodySize, sizes) ?? 2 : /^H[1-6]$/.test(node.role) ? Number(node.role[1]) : undefined }];
     }
     return node.children.flatMap((child): Block[] => {
@@ -304,8 +313,8 @@ export function renderPdfPage(items: readonly PdfTextItem[], tree?: PdfStructure
   const blocks = tree ? walk(tree) : [];
   if (!used.size) {
     const figures = blocks.filter((block) => block.kind === "markdown" && block.markdown === "<!-- image omitted -->");
-    return renderBlocks([...figures, ...layoutBlocks(visible, bodySize, sizes)], bodySize, sizes);
+    return renderBlocks([...figures, ...layoutBlocks(visible, bodySize, sizes)], bodySize, sizes, titleItems);
   }
   const remaining = visible.filter((item) => !used.has(item));
-  return renderBlocks([...blocks, ...layoutBlocks(remaining, bodySize, sizes)], bodySize, sizes);
+  return renderBlocks([...blocks, ...layoutBlocks(remaining, bodySize, sizes)], bodySize, sizes, titleItems);
 }

@@ -27,7 +27,7 @@ function structureNode(node: PublicStructureNode): PdfStructureNode {
 async function structuredPages(bytes: Uint8Array): Promise<PageResult[]> {
   const pdf = await getDocumentProxy(new Uint8Array(bytes));
   try {
-    const pages: PageResult[] = [];
+    const pages: { items: PdfTextItem[]; tree: PdfStructureNode | null }[] = [];
     for (let number = 1; number <= pdf.numPages; number++) {
       const page = await pdf.getPage(number);
       const tree = await page.getStructTree();
@@ -46,10 +46,17 @@ async function structuredPages(bytes: Uint8Array): Promise<PageResult[]> {
         else if (item.type === "beginMarkedContentProps") stack.push(item.id ?? stack[stack.length - 1]);
         else if (item.type === "endMarkedContent") stack.pop();
       }
-      const markdown = renderPdfPage(items, tree ? structureNode(tree) : null);
-      pages.push({ markdown, hasText: items.some((item) => item.text.trim().length > 0) });
+      pages.push({ items, tree: tree ? structureNode(tree) : null });
     }
-    return pages;
+    const largestFontSize = pages.reduce((largest, page) => page.items.reduce(
+      (size, item) => item.text.trim() ? Math.max(size, item.height || 10) : size, largest), 0);
+    let seenText = false;
+    return pages.map(({ items, tree }) => {
+      const hasText = items.some((item) => item.text.trim().length > 0);
+      const markdown = renderPdfPage(items, tree, { isFirstTextPage: !seenText, largestFontSize });
+      seenText ||= hasText;
+      return { markdown, hasText };
+    });
   } finally {
     await pdf.destroy();
   }
