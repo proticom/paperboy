@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.1] - 2026-10-20
 
-<!-- Release entries from PR #29 ([Unreleased]) are folded in here when master is merged into this branch. -->
+<!-- Release entries from PRs #29 and #31 ([Unreleased]) are folded in here when master is merged into this branch. -->
+
+### Fixed
+- PDF extraction is now structure-aware (#31): uses the tagged struct tree when present; for untagged PDFs, applies column, heading and list heuristics for correct reading order. Heuristic headings are capped at H2 unless first and largest. Falls back to the previous extraction if structure detection fails.
 
 ## [0.3.0] - Unreleased
 
