@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Minimum Node.js is now 20.18 (`engines.node` `>=20.18`): the pdf.js build bundled with unpdf 1.7 uses `process.getBuiltinModule` and `URL.parse`.
+
 ### Fixed
+- Upgrade `unpdf` to 1.7.x to remove its transitive `canvas` dependency and npm deprecation warnings.
 - Segment PDF columns before detecting tables, including narrow gutters and tables within columns. Preserve short verse lines and monospace code.
 - Keep multi-column PDF prose in reading order when lines contain inline font changes.
 - Preserve untagged table rows and hard hyphens. Limit letter-spacing and list detection to matching layouts, place multipage titles before page headings, and avoid retrying fatal PDF errors.

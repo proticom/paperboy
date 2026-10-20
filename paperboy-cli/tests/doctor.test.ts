@@ -15,6 +15,16 @@ async function importDoctorModule() {
 }
 
 describe("doctor", () => {
+  it.each([
+    ["v20.17.1", false],
+    ["v20.18.0", true],
+    ["v22.0.0", true],
+    ["v18.20.0", false],
+  ])("checks Node.js version %s", async (version, expected) => {
+    const doctorModule = await importDoctorModule();
+    expect(doctorModule.isSupportedNodeVersion(version)).toBe(expected);
+  });
+
   beforeEach(async () => {
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "paperboy-cli-doctor-"));
     process.env.PAPERBOY_CLI_CONFIG_DIR = tempDir;
@@ -60,6 +70,18 @@ describe("doctor", () => {
       (check) => check.name === "Output directory writable",
     );
     expect(writable?.status).toBe("ok");
+  });
+
+  it("reports missing config as ok while using defaults", async () => {
+    vi.resetModules();
+    const doctorModule = await importDoctorModule();
+    const report = await doctorModule.runDoctor({ offline: true });
+    const configFile = report.checks.find((check) => check.name === "Config file");
+
+    expect(configFile?.status).toBe("ok");
+    expect(configFile?.details).toBe(
+      "No config file; using defaults (run `paperboy-cli setup` to customize)",
+    );
   });
 
   it("redacts proxy credentials in the proxy environment check", async () => {

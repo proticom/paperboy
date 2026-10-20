@@ -109,9 +109,19 @@ function redactUnparsedUserinfo(value: string): string {
     .join(",");
 }
 
-function parseMajorVersion(version: string): number {
-  const major = Number(version.replace(/^v/, "").split(".")[0] ?? "0");
-  return Number.isFinite(major) ? major : 0;
+function parseVersion(version: string): [number, number] {
+  const [majorPart = "0", minorPart = "0"] = version.replace(/^v/, "").split(".");
+  const major = Number(majorPart);
+  const minor = Number(minorPart);
+  return [
+    Number.isFinite(major) ? major : 0,
+    Number.isFinite(minor) ? minor : 0,
+  ];
+}
+
+export function isSupportedNodeVersion(version: string): boolean {
+  const [major, minor] = parseVersion(version);
+  return major > 20 || (major === 20 && minor >= 18);
 }
 
 async function fetchWithTimeout(
@@ -231,11 +241,10 @@ export async function runDoctor(
   options: DoctorOptions = {},
 ): Promise<DoctorReport> {
   const checks: DoctorCheck[] = [];
-  const nodeMajor = parseMajorVersion(process.version);
   checks.push({
     name: "Node.js version",
-    status: nodeMajor >= 20 ? "ok" : "fail",
-    details: `Detected ${process.version}; requires >= v20.`,
+    status: isSupportedNodeVersion(process.version) ? "ok" : "fail",
+    details: `Detected ${process.version}; requires >= v20.18.`,
   });
 
   checks.push({
@@ -254,8 +263,8 @@ export async function runDoctor(
   } catch {
     checks.push({
       name: "Config file",
-      status: "warn",
-      details: "Config file not found yet. Run `paperboy setup`.",
+      status: "ok",
+      details: "No config file; using defaults (run `paperboy-cli setup` to customize)",
     });
   }
 

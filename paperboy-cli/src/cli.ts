@@ -43,7 +43,7 @@ function parsePatternArgs(value?: string): string[] {
 }
 
 program
-  .name("paperboy")
+  .name("paperboy-cli")
   .description("Paperboy file and web content to markdown converter")
   .version(packageJson.version);
 
