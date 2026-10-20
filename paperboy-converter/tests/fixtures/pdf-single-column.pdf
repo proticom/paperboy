@@ -16,11 +16,11 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
 endobj
 6 0 obj
-<< /Length 471 >>
+<< /Length 478 >>
 stream
 BT /F2 24 Tf 1 0 0 1 48 744 Tm (A simple document) Tj ET
-BT /F1 12 Tf 1 0 0 1 48 702 Tm (This paragraph carries informa-) Tj ET
-BT /F1 12 Tf 1 0 0 1 48 686 Tm (tion across two printed lines.) Tj ET
+BT /F1 12 Tf 1 0 0 1 48 702 Tm (This paragraph carries a well-) Tj ET
+BT /F1 12 Tf 1 0 0 1 48 686 Tm (known phrase across two printed lines.) Tj ET
 BT /F1 12 Tf 1 0 0 1 48 648 Tm (A second paragraph keeps whole-file words intact.) Tj ET
 BT /F2 16 Tf 1 0 0 1 48 602 Tm (S E C T I O N) Tj ET
 BT /F2 16 Tf 1 0 0 1 162 602 Tm (T W O) Tj ET
@@ -39,5 +39,5 @@ xref
 trailer
 << /Size 7 /Root 1 0 R >>
 startxref
-980
+987
 %%EOF

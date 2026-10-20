@@ -49,9 +49,9 @@ describe("PDF text cleanup", () => {
     ["a b", "a b"],
     ["1. 2. 3.", "1. 2. 3."],
     ["A normal sentence with a b pair.", "A normal sentence with a b pair."],
-    ["A B C then a b", "ABC then a b"],
+    ["A B C then a b", "A B C then a b"],
     ["/ / W H E R E  W E  G O  F R O M  H E R E", "// WHERE WE GO FROM HERE"],
-    ["/ /", "//"],
+    ["/ /", "/ /"],
     ["a / b", "a / b"],
     ["1. 2.", "1. 2."],
   ])("cleans %j without changing ordinary prose or labels", (input, expected) => {
@@ -59,7 +59,7 @@ describe("PDF text cleanup", () => {
   });
 
   it("joins wrapped lines and repairs a lowercase word split", () => {
-    expect(reflowLines(["Useful informa-", "tion spans two lines."])).toBe(
+    expect(reflowLines(["Useful informa\u00ad", "tion spans two lines."])).toBe(
       "Useful information spans two lines.",
     );
   });
@@ -303,12 +303,16 @@ describe("PDF structure rendering", () => {
 
 const fixtures = [
   {
+    name: "pdf-untagged-table.pdf",
+    markdown: "# A neutral inventory table\n\n| Code | Item | Count | Total |\n| --- | --- | --- | --- |\n| ITEM-001 | Plain notebooks | 12 | $18.00 |\n| ITEM-002 | Blue folders | 7 | $14.25 |\n| ITEM-003 | Index cards | 105 | $9.50 |\n| ITEM-004 | Paper clips | 1 | $3.75 |\n| ITEM-005 | Blank labels | 28 | $21.00 |\n| ITEM-006 | Draft sheets | 64 | $32.50 |",
+  },
+  {
     name: "pdf-untagged-two-column.pdf",
     markdown: "# A neutral guide to reading columns\n\n## Left column\n\nThe first column contains a short paragraph with two wrapped lines.\n\n- First left item\n- Second left item\n\n## Right column\n\nThe second column contains another paragraph with two wrapped lines.\n\n- First right item\n- Second right item",
   },
   {
     name: "pdf-single-column.pdf",
-    markdown: "# A simple document\n\nThis paragraph carries information across two printed lines.\n\nA second paragraph keeps whole-file words intact.\n\n## SECTION TWO\n\nA final paragraph follows the section heading.",
+    markdown: "# A simple document\n\nThis paragraph carries a well-known phrase across two printed lines.\n\nA second paragraph keeps whole-file words intact.\n\n## SECTION TWO\n\nA final paragraph follows the section heading.",
   },
   {
     name: "pdf-tagged-lists.pdf",

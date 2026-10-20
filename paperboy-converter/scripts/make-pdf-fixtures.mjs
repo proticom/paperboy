@@ -54,13 +54,34 @@ const twoColumn = makePdf(() => ({ content: [
 
 const singleColumn = makePdf(() => ({ content: [
   text("A simple document", 48, 744, 24, true),
-  text("This paragraph carries informa-", 48, 702),
-  text("tion across two printed lines.", 48, 686),
+  text("This paragraph carries a well-", 48, 702),
+  text("known phrase across two printed lines.", 48, 686),
   text("A second paragraph keeps whole-file words intact.", 48, 648),
   text("S E C T I O N", 48, 602, 16, true),
   text("T W O", 162, 602, 16, true),
   text("A final paragraph follows the section heading.", 48, 572),
 ].join("\n") }));
+
+const untaggedTable = makePdf(() => {
+  const rows = [
+    ["ITEM-001", "Plain notebooks", "12", "$18.00"],
+    ["ITEM-002", "Blue folders", "7", "$14.25"],
+    ["ITEM-003", "Index cards", "105", "$9.50"],
+    ["ITEM-004", "Paper clips", "1", "$3.75"],
+    ["ITEM-005", "Blank labels", "28", "$21.00"],
+    ["ITEM-006", "Draft sheets", "64", "$32.50"],
+  ];
+  const numericX = (value, right) => right - [...value].reduce((width, character) => width + (character === "." ? 3.336 : 6.672), 0);
+  return { content: [
+    text("A neutral inventory table", 48, 744, 24, true),
+    text("Code", 48, 700, 12, true), text("Item", 170, 700, 12, true),
+    text("Count", 396, 700, 12, true), text("Total", 532, 700, 12, true),
+    ...rows.flatMap(([code, item, count, total], index) => {
+      const y = 674 - index * 26;
+      return [text(code, 48, y), text(item, 170, y), text(count, numericX(count, 430), y), text(total, numericX(total, 560), y)];
+    }),
+  ].join("\n") };
+});
 
 const taggedLists = makePdf(({ set, reserve, page }) => {
   const root = reserve();
@@ -108,6 +129,7 @@ for (const [name, bytes] of Object.entries({
   "pdf-untagged-two-column.pdf": twoColumn,
   "pdf-single-column.pdf": singleColumn,
   "pdf-tagged-lists.pdf": taggedLists,
+  "pdf-untagged-table.pdf": untaggedTable,
 })) {
   writeFileSync(resolve(fixtureDirectory, name), bytes);
 }

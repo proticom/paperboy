@@ -75,7 +75,9 @@ export async function convertPdf(
   let pages: PageResult[];
   try {
     pages = await structuredPages(bytes);
-  } catch {
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "name" in error
+      && ["InvalidPDFException", "PasswordException", "MissingPDFException"].includes(String(error.name))) throw error;
     const { text } = await extractText(new Uint8Array(bytes), { mergePages: false });
     pages = text.map((page) => ({ markdown: normalizePdfText(page), hasText: page.trim().length > 0 }));
   }
@@ -85,6 +87,11 @@ export async function convertPdf(
     .map((page, index) => {
       if (!page.markdown) return "";
       if (totalPages <= 1) return page.markdown;
+      const title = index === 0 ? /^(# [^\n]+)(?:\n\n|$)/.exec(page.markdown) : null;
+      if (title) {
+        const body = page.markdown.slice(title[0].length);
+        return `${title[1]}\n\n## Page 1${body ? `\n\n${body}` : ""}`;
+      }
       return `## Page ${index + 1}\n\n${page.markdown}`;
     })
     .filter(Boolean)
