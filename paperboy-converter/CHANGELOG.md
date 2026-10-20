@@ -7,12 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.1] - 2026-10-20
 
-<!-- Release entries from PRs #29 and #31 ([Unreleased]) are folded in here when master is merged into this branch. -->
+### Changed
+- Minimum Node.js is now 20.18 (`engines.node` `>=20.18`): the pdf.js build bundled with unpdf 1.7 uses `process.getBuiltinModule` and `URL.parse` (#29).
 
 ### Fixed
-- PDF extraction is now structure-aware (#31): uses the tagged struct tree when present; for untagged PDFs, applies column, heading and list heuristics for correct reading order. Heuristic headings are capped at H2 unless first and largest. Falls back to the previous extraction if structure detection fails.
+- Upgrade `unpdf` to 1.7.x to remove its transitive `canvas` dependency and npm deprecation warnings (#29).
+- PDF extraction is now structure-aware (#31). Tagged PDFs follow their structure tree. Untagged pages are split into columns (including narrow gutters) before tables are detected, so headings, lists, tables and paragraphs come out in reading order; inline font changes no longer break multi-column prose.
+- PDF text cleanup (#31): wrapped lines are reflowed, letter-spaced headings rejoined and hard hyphens kept; verse and monospace code keep their line breaks; untagged table rows are kept; multipage titles come before page headings; dropped tagged figures are marked `<!-- image omitted -->`. Heuristic headings are capped at H2 unless first and largest. Fatal PDF errors are not retried, and other structure failures fall back to the previous extraction.
 
-## [0.3.0] - Unreleased
+## [0.3.0] - 2026-10-18
 
 ### Removed
 - **Breaking:** the `image.describeImage` conversion hook and the `ImageDescriptionParams` type. Image conversion now returns OCR output only; callers that passed `describeImage` must drop it.

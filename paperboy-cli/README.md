@@ -10,28 +10,28 @@ It supports deterministic conversion for documents/spreadsheets and local OCR fo
 npm install -g @proticom/paperboy-cli
 ```
 
-`paperboy-cli` is installed as an equivalent alias. `paperboy-dispatch` is also installed as a legacy alias for compatibility; prefer `paperboy`.
+`paperboy` and `paperboy-dispatch` are also installed as aliases for compatibility; prefer `paperboy-cli`.
 
 ## Quick Start
 
 ```bash
-# 1) Configure once
-paperboy setup
+# 1) Check environment health
+paperboy-cli doctor
+
+# Optional: set defaults
+paperboy-cli setup
 
 # 2) Convert a file
-paperboy convert "./input.pdf"
-
-# 3) Check environment health
-paperboy doctor
+paperboy-cli convert "./input.pdf"
 ```
 
 ## Commands
 
-### `paperboy setup`
+### `paperboy-cli setup`
 
 Choose whether image conversion includes an OCR text-position table, then save the conversion defaults.
 
-### `paperboy convert <inputPath>`
+### `paperboy-cli convert <inputPath>`
 
 Convert a supported file into Markdown.
 
@@ -45,19 +45,19 @@ Examples:
 
 ```bash
 # Basic conversion (writes next to source file)
-paperboy convert "./book.epub"
+paperboy-cli convert "./book.epub"
 
 # Write to a specific file
-paperboy convert "./scan.png" -o "./out/scan.md"
+paperboy-cli convert "./scan.png" -o "./out/scan.md"
 
 # Stream to stdout for pipelines
-paperboy convert "./report.docx" --stdout
+paperboy-cli convert "./report.docx" --stdout
 
 # JSON metadata (good for scripts)
-paperboy convert "./table.xlsx" --json
+paperboy-cli convert "./table.xlsx" --json
 ```
 
-### `paperboy crawl <url>`
+### `paperboy-cli crawl <url>`
 
 Crawl one page or a site on the same origin, convert HTML pages to Markdown, and follow links up to the depth limit. It also reads `sitemap.xml` (and nested sitemaps, up to the sitemap limit) and queues those URLs.
 
@@ -79,20 +79,20 @@ Examples:
 
 ```bash
 # One Markdown file for the crawled pages
-paperboy crawl "https://example.com"
+paperboy-cli crawl "https://example.com"
 
 # One Markdown file per page, under a directory
-paperboy crawl "https://example.com" --output-mode mirror -o "./out/example"
+paperboy-cli crawl "https://example.com" --output-mode mirror -o "./out/example"
 
 # List URLs from the seed page and sitemaps, without conversion
-paperboy crawl "https://example.com" --map
+paperboy-cli crawl "https://example.com" --map
 ```
 
-### `paperboy config show`
+### `paperboy-cli config show`
 
 Print the current config JSON.
 
-### `paperboy doctor`
+### `paperboy-cli doctor`
 
 Runs diagnostics and prints what is healthy/missing.
 
@@ -108,7 +108,7 @@ What it checks:
 Use JSON output for automation:
 
 ```bash
-paperboy doctor --json
+paperboy-cli doctor --json
 ```
 
 ## Supported Input Formats
