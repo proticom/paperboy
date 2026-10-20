@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { deflateSync } from "node:zlib";
 
 const fixtureDirectory = process.argv[2] ? resolve(process.argv[2]) : fileURLToPath(new URL("../tests/fixtures/", import.meta.url));
 
@@ -9,14 +10,17 @@ function makePdf(build) {
   const reserve = () => objects.push("");
   const set = (id, value) => { objects[id - 1] = value; };
   const add = (value) => { const id = reserve(); set(id, value); return id; };
-  const stream = (value) => `<< /Length ${Buffer.byteLength(value, "latin1")} >>\nstream\n${value}\nendstream`;
+  const stream = (value, compressed = false) => {
+    const bytes = compressed ? deflateSync(Buffer.from(value, "latin1")) : Buffer.from(value, "latin1");
+    return `<< /Length ${bytes.length}${compressed ? " /Filter /FlateDecode" : ""} >>\nstream\n${bytes.toString("latin1")}\nendstream`;
+  };
   const catalog = reserve();
   const pages = reserve();
   const page = reserve();
   const regular = add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
   const bold = add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
   const result = build({ add, set, reserve, page, stream });
-  const contents = add(stream(result.content));
+  const contents = add(stream(result.content, result.compressed));
   set(catalog, `<< /Type /Catalog /Pages ${pages} 0 R ${result.catalog ?? ""} >>`);
   set(pages, `<< /Type /Pages /Kids [${page} 0 R] /Count 1 >>`);
   set(page, `<< /Type /Page /Parent ${pages} 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${regular} 0 R /F2 ${bold} 0 R${result.fonts ? ` ${result.fonts}` : ""} >> >> /Contents ${contents} 0 R ${result.page ?? ""} >>`);
@@ -224,6 +228,98 @@ const poemCode = makePdf(({ add }) => {
   };
 });
 
+const neutralWords = "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa".split(" ");
+
+function paragraphs(count, wordCount, seed) {
+  let state = seed;
+  return Array.from({ length: count }, (_, index) => {
+    const words = Array.from({ length: wordCount }, () => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      return neutralWords[state >>> 28];
+    });
+    return [`PARA-${String(index + 1).padStart(2, "0")}`, ...words, "end."].map((word, position) => ({
+      text: word, font: position % 11 === 3 ? "F2" : position % 13 === 6 ? "F3" : "F1",
+    }));
+  });
+}
+
+function wrapWords(words, width) {
+  const lines = [];
+  let line = [], used = 0;
+  for (const word of words) {
+    const advance = runWidth(word.text, 10, word.font === "F2");
+    if (line.length && used + 2.78 + advance > width) { lines.push(line); line = []; used = 0; }
+    if (line.length) used += 2.78;
+    line.push(word);
+    used += advance;
+  }
+  if (line.length) lines.push(line);
+  return lines;
+}
+
+function drawWords(words, x, y, width, justified) {
+  const advances = words.map((word) => runWidth(word.text, 10, word.font === "F2"));
+  const gap = justified && words.length > 1
+    ? (width - advances.reduce((sum, advance) => sum + advance, 0)) / (words.length - 1) : 2.78;
+  return words.map((word, index) => {
+    const drawing = text(word.text, Number(x.toFixed(3)), y, 10, false, word.font);
+    x += advances[index] + gap;
+    return drawing;
+  });
+}
+
+function styledPage(build) {
+  return makePdf(({ add }) => {
+    const oblique = add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>");
+    return { fonts: `/F3 ${oblique} 0 R`, compressed: true, content: build().join("\n") };
+  });
+}
+
+function flowingColumns({ columns, gutter, count, wordCount, seed, justified }) {
+  const width = (512 - gutter * (columns - 1)) / columns;
+  return styledPage(() => {
+    const content = [];
+    let column = 0, y = 726;
+    for (const paragraph of paragraphs(count, wordCount, seed)) {
+      const lines = wrapWords(paragraph, width);
+      lines.forEach((line, index) => {
+        if (y < 63) { column++; y = 726; }
+        if (column >= columns) throw new Error("Synthetic column content exceeds one letter page");
+        content.push(...drawWords(line, 50 + column * (width + gutter), y, width, justified && index < lines.length - 1));
+        y -= 13;
+      });
+      y -= 6;
+    }
+    return content;
+  });
+}
+
+const gutter8Justified = flowingColumns({ columns: 2, gutter: 8, count: 20, wordCount: 24, seed: 23, justified: true });
+const gutter18 = flowingColumns({ columns: 2, gutter: 18, count: 20, wordCount: 24, seed: 5, justified: true });
+const fourColumnNewsletter = flowingColumns({ columns: 4, gutter: 14, count: 32, wordCount: 18, seed: 31, justified: false });
+
+const tableInOneColumn = styledPage(() => {
+  const content = [];
+  const prose = paragraphs(7, 40, 41);
+  const drawParagraph = (index, x, y) => {
+    for (const line of wrapWords(prose[index], 246)) {
+      content.push(...drawWords(line, x, y, 246, false));
+      y -= 13;
+    }
+    return y - 6;
+  };
+  let y = drawParagraph(0, 50, 726);
+  y = drawParagraph(1, 50, y);
+  const rows = [["Code", "Qty", "Price"], ...Array.from({ length: 6 }, (_, index) => [`T-${index + 1}`, String((index + 1) * 4), `$${index + 1}.25`])];
+  rows.forEach((row, index) => {
+    row.forEach((cell, column) => content.push(text(cell, [104, 153, 192][column], y - index * 18, 9, index === 0)));
+  });
+  drawParagraph(2, 50, y - rows.length * 18 - 6);
+  y = 726;
+  for (let index = 3; index < prose.length; index++) y = drawParagraph(index, 316, y);
+  return content;
+});
+
 mkdirSync(fixtureDirectory, { recursive: true });
 for (const [name, bytes] of Object.entries({
   "pdf-untagged-two-column.pdf": twoColumn,
@@ -235,6 +331,10 @@ for (const [name, bytes] of Object.entries({
   "pdf-two-column-gutter14.pdf": gutter14,
   "pdf-table-in-column.pdf": tableInColumn,
   "pdf-poem-code.pdf": poemCode,
+  "pdf-two-column-gutter8-justified.pdf": gutter8Justified,
+  "pdf-two-column-gutter18.pdf": gutter18,
+  "pdf-four-column-newsletter.pdf": fourColumnNewsletter,
+  "pdf-table-in-one-column.pdf": tableInOneColumn,
 })) {
   writeFileSync(resolve(fixtureDirectory, name), bytes);
 }

@@ -303,6 +303,181 @@ describe("PDF structure rendering", () => {
 
 const fixtures = [
   {
+    name: "pdf-two-column-gutter8-justified.pdf",
+    markdown: `PARA-01 delta foxtrot juliet india lima november echo lima delta oscar delta hotel bravo mike echo delta delta kilo echo alpha golf hotel november oscar end.
+
+PARA-02 lima golf mike echo bravo foxtrot november juliet india foxtrot charlie november echo bravo kilo oscar bravo india hotel juliet papa charlie delta hotel end.
+
+PARA-03 charlie kilo india oscar alpha golf echo bravo juliet hotel bravo foxtrot alpha lima charlie alpha oscar golf papa bravo alpha india echo lima end.
+
+PARA-04 golf juliet juliet papa kilo papa bravo papa golf foxtrot echo oscar papa echo kilo india bravo charlie india oscar alpha oscar india november end.
+
+PARA-05 india kilo bravo oscar charlie kilo alpha hotel lima juliet golf juliet charlie delta golf alpha india november oscar juliet kilo lima alpha november end.
+
+PARA-06 golf hotel mike golf hotel juliet bravo november mike papa november india kilo oscar hotel golf golf india oscar mike lima india alpha golf end.
+
+PARA-07 hotel foxtrot hotel foxtrot bravo kilo alpha echo kilo mike kilo delta oscar oscar alpha alpha kilo bravo foxtrot lima foxtrot papa bravo foxtrot end.
+
+PARA-08 november lima bravo juliet november delta foxtrot alpha lima mike hotel mike charlie alpha golf papa papa papa mike november delta kilo bravo mike end.
+
+PARA-09 india mike echo lima india lima delta charlie golf november alpha echo charlie charlie lima alpha bravo bravo charlie delta foxtrot bravo juliet kilo end.
+
+PARA-10 golf alpha delta kilo echo foxtrot charlie lima echo juliet november echo foxtrot alpha oscar charlie echo alpha papa bravo hotel oscar charlie alpha end.
+
+PARA-11 oscar papa foxtrot golf oscar papa november alpha oscar lima mike charlie golf charlie kilo juliet echo alpha lima kilo lima alpha bravo kilo end.
+
+PARA-12 mike november bravo bravo november kilo oscar juliet alpha delta delta kilo lima bravo echo golf india november kilo mike alpha mike bravo kilo end.
+
+PARA-13 charlie foxtrot hotel lima alpha papa juliet kilo bravo bravo mike lima juliet echo golf november kilo delta november mike hotel charlie november oscar end.
+
+PARA-14 charlie mike november bravo kilo kilo hotel charlie echo oscar oscar kilo juliet echo alpha oscar echo charlie golf alpha delta charlie india alpha end.
+
+PARA-15 hotel juliet juliet alpha hotel lima echo india kilo echo kilo india charlie november alpha november charlie november juliet golf foxtrot foxtrot lima papa end.
+
+PARA-16 juliet juliet india golf delta india juliet lima kilo india juliet echo kilo lima echo mike mike hotel delta kilo juliet alpha hotel juliet end.
+
+PARA-17 bravo bravo kilo echo november oscar bravo alpha oscar juliet juliet charlie kilo bravo alpha juliet lima foxtrot india oscar oscar alpha bravo delta end.
+
+PARA-18 golf november alpha alpha bravo india lima kilo india lima november bravo hotel mike bravo foxtrot foxtrot india echo hotel hotel delta lima november end.
+
+PARA-19 november bravo india mike india oscar bravo papa delta echo hotel charlie charlie echo alpha foxtrot hotel golf echo echo echo oscar lima india end.
+
+PARA-20 mike echo golf mike alpha papa november lima golf november hotel delta mike hotel foxtrot alpha oscar bravo papa kilo golf oscar papa india end.`,
+  },
+  {
+    name: "pdf-two-column-gutter18.pdf",
+    markdown: `PARA-01 delta lima delta november lima foxtrot hotel delta alpha november bravo charlie hotel kilo charlie november hotel golf oscar bravo papa foxtrot mike juliet end.
+
+PARA-02 juliet hotel papa hotel india delta echo mike charlie golf papa delta oscar echo hotel echo oscar india golf juliet bravo charlie bravo charlie end.
+
+PARA-03 mike echo bravo hotel charlie foxtrot alpha kilo delta echo juliet lima golf kilo charlie delta bravo juliet oscar papa bravo hotel charlie hotel end.
+
+PARA-04 bravo kilo mike mike echo juliet oscar alpha kilo oscar alpha juliet papa foxtrot papa echo delta papa delta bravo lima juliet juliet mike end.
+
+PARA-05 charlie bravo november golf foxtrot foxtrot kilo echo charlie india juliet delta charlie echo kilo golf juliet delta delta echo echo oscar charlie juliet end.
+
+PARA-06 golf echo delta oscar kilo bravo bravo charlie india kilo golf foxtrot mike echo delta alpha november papa india golf golf foxtrot oscar delta end.
+
+PARA-07 kilo bravo alpha mike papa lima charlie hotel alpha delta echo echo november india alpha bravo papa kilo golf bravo india kilo golf juliet end.
+
+PARA-08 golf mike oscar kilo echo charlie bravo hotel papa alpha oscar mike alpha hotel mike foxtrot lima charlie kilo echo lima oscar echo india end.
+
+PARA-09 delta echo foxtrot bravo papa oscar oscar hotel echo charlie echo foxtrot kilo lima charlie india hotel foxtrot charlie echo hotel november charlie delta end.
+
+PARA-10 foxtrot kilo papa november bravo lima india hotel oscar india oscar golf foxtrot hotel india november echo kilo oscar hotel alpha india papa lima end.
+
+PARA-11 lima charlie charlie lima hotel hotel hotel papa bravo hotel foxtrot mike hotel alpha bravo delta echo bravo india foxtrot charlie november india hotel end.
+
+PARA-12 india oscar echo bravo echo kilo papa india golf echo charlie november echo charlie echo oscar india november echo mike oscar foxtrot charlie bravo end.
+
+PARA-13 juliet golf mike lima mike hotel bravo oscar hotel oscar hotel charlie alpha juliet foxtrot lima lima foxtrot foxtrot oscar bravo juliet bravo papa end.
+
+PARA-14 juliet alpha oscar india papa kilo golf india oscar mike alpha juliet papa november mike bravo papa papa papa golf india golf papa bravo end.
+
+PARA-15 alpha lima oscar india foxtrot hotel oscar papa golf mike juliet hotel november india foxtrot delta alpha delta lima juliet echo golf echo november end.
+
+PARA-16 bravo india kilo juliet hotel kilo foxtrot india delta kilo oscar kilo hotel juliet lima bravo india oscar foxtrot alpha golf charlie bravo oscar end.
+
+PARA-17 juliet india charlie kilo hotel mike juliet india foxtrot golf bravo echo bravo hotel november bravo delta oscar hotel juliet papa mike november echo end.
+
+PARA-18 november juliet hotel hotel papa alpha kilo hotel delta delta kilo papa foxtrot golf lima bravo golf lima papa alpha golf foxtrot golf charlie end.
+
+PARA-19 juliet echo juliet delta india lima lima charlie juliet echo mike alpha hotel delta hotel papa charlie juliet india foxtrot mike oscar bravo echo end.
+
+PARA-20 hotel lima juliet alpha mike india lima papa papa charlie echo juliet lima foxtrot papa oscar delta kilo juliet kilo golf hotel papa kilo end.`,
+  },
+  {
+    name: "pdf-four-column-newsletter.pdf",
+    markdown: `PARA-01 delta bravo alpha november alpha mike lima alpha echo foxtrot november papa oscar golf bravo papa hotel mike end.
+
+PARA-02 kilo charlie papa papa charlie hotel kilo papa juliet golf india echo india november delta charlie echo delta end.
+
+PARA-03 charlie kilo november bravo oscar kilo papa bravo mike charlie golf golf india hotel bravo november hotel kilo end.
+
+PARA-04 juliet foxtrot foxtrot papa india hotel delta charlie charlie echo india kilo mike oscar delta oscar lima november end.
+
+PARA-05 delta oscar lima hotel foxtrot mike charlie juliet hotel papa foxtrot oscar bravo mike mike golf papa india end.
+
+PARA-06 bravo echo kilo echo papa golf india foxtrot november kilo charlie mike foxtrot foxtrot kilo india papa juliet end.
+
+PARA-07 papa echo lima kilo india foxtrot foxtrot india delta bravo alpha charlie alpha mike echo kilo lima foxtrot end.
+
+PARA-08 charlie bravo kilo echo mike golf charlie bravo alpha papa bravo november echo echo juliet kilo foxtrot juliet end.
+
+PARA-09 kilo delta golf mike foxtrot papa delta foxtrot echo juliet juliet papa charlie echo juliet alpha charlie bravo end.
+
+PARA-10 charlie oscar kilo echo india golf papa oscar juliet alpha papa alpha bravo echo oscar india lima mike end.
+
+PARA-11 delta golf foxtrot oscar delta papa papa echo echo papa papa hotel foxtrot india foxtrot bravo delta golf end.
+
+PARA-12 mike golf papa oscar juliet lima kilo mike november bravo foxtrot lima kilo juliet lima charlie oscar delta end.
+
+PARA-13 india juliet delta alpha charlie kilo oscar lima foxtrot bravo bravo oscar juliet echo charlie echo india mike end.
+
+PARA-14 hotel oscar mike golf foxtrot foxtrot oscar hotel india india bravo hotel juliet lima india bravo hotel bravo end.
+
+PARA-15 india india lima india hotel echo alpha charlie november delta delta golf delta foxtrot papa hotel bravo hotel end.
+
+PARA-16 charlie delta golf papa november juliet kilo foxtrot golf echo oscar charlie juliet alpha november bravo lima mike end.
+
+PARA-17 mike foxtrot papa mike charlie foxtrot alpha hotel foxtrot golf golf oscar echo kilo juliet foxtrot november kilo end.
+
+PARA-18 charlie alpha oscar echo november alpha lima bravo papa mike echo oscar mike mike echo kilo lima mike end.
+
+PARA-19 oscar delta november golf hotel india mike foxtrot juliet papa oscar hotel oscar hotel charlie alpha juliet kilo end.
+
+PARA-20 juliet delta lima echo india november lima kilo oscar mike charlie bravo delta bravo kilo delta golf golf end.
+
+PARA-21 kilo echo india charlie papa foxtrot charlie oscar foxtrot mike hotel november mike delta lima hotel oscar oscar end.
+
+PARA-22 november foxtrot mike delta mike november echo oscar hotel kilo foxtrot delta india bravo india bravo mike golf end.
+
+PARA-23 alpha alpha bravo lima papa echo papa juliet india india india kilo mike charlie bravo mike juliet india end.
+
+PARA-24 oscar juliet kilo mike india hotel november november juliet bravo papa delta delta lima delta delta india mike end.
+
+PARA-25 golf alpha india kilo delta mike november oscar echo papa november delta echo lima juliet kilo bravo lima end.
+
+PARA-26 juliet india hotel foxtrot delta hotel hotel oscar alpha bravo juliet hotel oscar november delta india alpha echo end.
+
+PARA-27 hotel kilo kilo lima november delta india delta golf charlie alpha delta india delta oscar oscar juliet india end.
+
+PARA-28 foxtrot hotel papa charlie bravo charlie papa foxtrot juliet delta alpha juliet india juliet papa lima echo juliet end.
+
+PARA-29 golf lima oscar november golf bravo foxtrot golf lima papa lima juliet november oscar delta lima mike alpha end.
+
+PARA-30 lima alpha mike india lima bravo foxtrot juliet bravo bravo lima alpha golf juliet delta charlie golf lima end.
+
+PARA-31 golf delta delta alpha golf echo hotel juliet alpha lima india alpha kilo golf papa delta delta oscar end.
+
+PARA-32 foxtrot hotel kilo bravo papa oscar papa delta charlie oscar charlie bravo bravo alpha charlie bravo foxtrot juliet end.`,
+  },
+  {
+    name: "pdf-table-in-one-column.pdf",
+    markdown: `PARA-01 echo papa oscar charlie lima echo alpha delta foxtrot oscar golf november kilo oscar foxtrot juliet papa oscar kilo alpha november juliet oscar charlie november golf india alpha kilo hotel golf golf november delta echo hotel lima november november juliet end.
+
+PARA-02 echo india india kilo november charlie foxtrot november india alpha alpha golf papa hotel india hotel papa kilo juliet oscar lima mike charlie november mike echo bravo delta oscar kilo hotel papa mike juliet foxtrot charlie alpha foxtrot delta november end.
+
+| Code | Qty | Price |
+| --- | --- | --- |
+| T-1 | 4 | $1.25 |
+| T-2 | 8 | $2.25 |
+| T-3 | 12 | $3.25 |
+| T-4 | 16 | $4.25 |
+| T-5 | 20 | $5.25 |
+| T-6 | 24 | $6.25 |
+
+PARA-03 bravo lima juliet delta alpha delta foxtrot mike alpha echo november lima foxtrot echo india oscar november delta foxtrot golf oscar papa golf kilo foxtrot lima delta alpha charlie charlie bravo kilo hotel hotel kilo papa papa india november bravo end.
+
+PARA-04 hotel kilo golf oscar echo bravo alpha hotel alpha delta echo lima india india lima lima papa charlie echo charlie bravo mike charlie kilo echo juliet oscar november charlie juliet papa charlie foxtrot foxtrot papa charlie papa delta alpha papa end.
+
+PARA-05 echo india foxtrot golf bravo foxtrot november charlie echo kilo echo india golf echo india india golf india bravo mike echo kilo alpha juliet echo lima papa golf kilo foxtrot oscar bravo mike echo delta foxtrot alpha india india mike end.
+
+PARA-06 hotel india november echo juliet juliet echo juliet lima november delta charlie delta echo alpha bravo hotel hotel hotel hotel hotel papa november oscar lima kilo lima charlie golf juliet delta hotel echo hotel bravo kilo oscar echo foxtrot foxtrot end.
+
+PARA-07 bravo november hotel bravo foxtrot golf delta bravo mike oscar echo india foxtrot echo charlie papa delta oscar papa papa echo delta kilo november alpha mike papa charlie hotel kilo mike kilo kilo bravo echo hotel delta bravo foxtrot oscar end.`,
+  },
+  {
     name: "pdf-two-column-gutter14.pdf",
     markdown: "# Two columns with a narrow gutter\n\nPARA-01 Clear records support careful reading. The plain draft gives each reader useful context. Small steps keep the final result easy to check.\n\nPARA-02 Clear records support careful reading. The plain draft gives each reader useful context. Small steps keep the final result easy to check.\n\nPARA-03 Clear records support careful reading. The plain draft gives each reader useful context. Small steps keep the final result easy to check.\n\nPARA-04 Clear records support careful reading. The plain draft gives each reader useful context. Small steps keep the final result easy to check.\n\nPARA-05 Clear records support careful reading. The plain draft gives each reader useful context. Small steps keep the final result easy to check.\n\nPARA-06 Clear records support careful reading. The plain draft gives each reader useful context. Small steps keep the final result easy to check.",
   },
@@ -432,6 +607,13 @@ describe("PDF fixture conversion", () => {
     const result = await convertToMarkdown(name, bytes);
 
     expect(result.markdown).toBe(markdown);
+    const paragraphs = [...result.markdown.matchAll(/PARA-(\d+)/g)].map((match) => Number(match[1]));
+    for (let index = 1; index < paragraphs.length; index++) {
+      expect(paragraphs[index]).toBeGreaterThan(paragraphs[index - 1]);
+    }
+    for (const line of result.markdown.split("\n")) {
+      expect((line.match(/PARA-\d+/g) ?? []).length).toBeLessThanOrEqual(1);
+    }
     expect(result.warnings).toEqual([]);
     expect(result.title).toBe(name.replace(/\.pdf$/, ""));
   });

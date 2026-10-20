@@ -32,8 +32,15 @@ interface Line {
 }
 
 type Block =
-  | { kind: "text"; items: readonly PdfTextItem[]; role: "flow" | "stream" | "paragraph" | "heading" | "explicit-heading"; level?: number }
+  | { kind: "text"; items: readonly PdfTextItem[]; role: "flow" | "stream" | "paragraph" | "heading" | "explicit-heading"; level?: number;
+      layout?: { lines: readonly Line[]; width: number } }
   | { kind: "markdown"; markdown: string };
+
+interface RegionMeasure {
+  width: number;
+  column: boolean;
+  fullLineWidth?: number;
+}
 
 export interface GridSegment {
   text: string;
@@ -46,6 +53,7 @@ export type GridDecision =
   | { kind: "prose"; reason: "unstable-columns" | "prose-columns" | "long-cells" };
 
 const listStart = /^(?:([•◦▪\-–*·])|((?:\d+|[a-zA-Z])[.)]))\s+(.+)$/u;
+const terminalPunctuation = /[.?!:;]["')\]]*$/u;
 
 function isLetterSpaced(text: string): boolean {
   const tokens = text.trim().split(/ +/);
@@ -217,7 +225,7 @@ function isListLine(line: Line, previous?: number, next?: Line): boolean {
     || (number !== undefined && next !== undefined && markerNumber(next.text) === number + 1) || hanging || !!hangingContinuation;
 }
 
-function flowBlocks(lines: readonly Line[], bodySize: number, sizes: readonly number[], regionWidth: number): Block[] {
+function flowBlocks(lines: readonly Line[], bodySize: number, sizes: readonly number[], region: RegionMeasure): Block[] {
   const blocks: Block[] = [];
   let previous: Line | undefined, previousNumber: number | undefined;
   let currentList = false;
@@ -232,10 +240,13 @@ function flowBlocks(lines: readonly Line[], bodySize: number, sizes: readonly nu
       && (monospace || lines[end - 1].y - lines[end].y <= line.size * 1.8)) end++;
     const run = i >= inspectedUntil ? lines.slice(i, end) : [];
     inspectedUntil = Math.max(inspectedUntil, end);
-    const shortLines = run.length >= 3 && run.every((entry) => !listStart.test(entry.text)
+    const nonFinal = run.slice(0, -1);
+    const comparisonWidth = region.column ? region.fullLineWidth : region.width;
+    const shortLines = run.length >= 3 && comparisonWidth !== undefined
+      && nonFinal.filter((entry) => entry.right - entry.x < comparisonWidth * (region.column ? 0.7 : 0.8)).length >= nonFinal.length * 0.75
+      && run.every((entry) => !listStart.test(entry.text)
       && !headingLevel(entry.items, bodySize, sizes, [entry])
-      && entry.text.split(/\s+/).length <= 6 && Math.abs(entry.x - line.x) < bodySize * 0.5)
-      && median(run.map((entry) => entry.right - entry.x)) < regionWidth * 0.8;
+      && entry.text.split(/\s+/).length <= 6 && Math.abs(entry.x - line.x) < bodySize * 0.5);
     if (monospace || shortLines) {
       let markdown: string;
       if (monospace) {
@@ -265,20 +276,31 @@ function flowBlocks(lines: readonly Line[], bodySize: number, sizes: readonly nu
       && (listContinuation || Math.abs(line.x - previous.x) < bodySize * 0.5)
       && Math.max(line.size, previous.size) <= Math.min(line.size, previous.size) * 1.1
       && previous.y - line.y > 0 && previous.y - line.y <= Math.min(line.size, previous.size) * 1.2 + 2;
-    if (continuation) last.items = [...last.items, ...line.items];
-    else { blocks.push({ kind: "text", items: line.items, role: heading ? "heading" : "flow", level: heading }); currentList = list; }
+    if (continuation) {
+      last.items = [...last.items, ...line.items];
+      if (last.layout) last.layout.lines = [...last.layout.lines, line];
+    } else {
+      blocks.push({ kind: "text", items: line.items, role: heading ? "heading" : "flow", level: heading,
+        layout: { lines: [line], width: region.fullLineWidth ?? region.width } });
+      currentList = list;
+    }
     previousNumber = list ? markerNumber(line.text) : continuation && currentList ? previousNumber : undefined;
     previous = line;
   }
   return blocks;
 }
 
-function leafBlocks(items: readonly PdfTextItem[], bodySize: number, sizes: readonly number[], regionWidth: number): Block[] {
+function leafBlocks(items: readonly PdfTextItem[], bodySize: number, sizes: readonly number[], region: RegionMeasure): Block[] {
   const rows = baselineRows(items).map((row) => splitRow(row, true));
+  const fullWidths = rows.filter((row) => row.length === 1 && row[0].right - row[0].x >= region.width * 0.75
+    && Math.abs(row[0].size - bodySize) < bodySize * 0.1
+    && !row[0].items.every((item) => /monospace|courier/i.test(item.fontName)))
+    .map((row) => row[0].right - row[0].x);
+  const measure = { ...region, fullLineWidth: fullWidths.length >= 2 ? median(fullWidths) : undefined };
   const blocks: Block[] = [];
   let prose: Line[] = [];
   const flush = () => {
-    blocks.push(...flowBlocks(prose, bodySize, sizes, regionWidth));
+    blocks.push(...flowBlocks(prose, bodySize, sizes, measure));
     prose = [];
   };
   for (let i = 0; i < rows.length;) {
@@ -310,23 +332,56 @@ function streamLines(items: readonly PdfTextItem[]): Line[] {
   return rows.map((row) => makeLine(row));
 }
 
+function appendRegion(blocks: Block[], next: Block[], bodySize: number): void {
+  const before = blocks[blocks.length - 1], after = next[0];
+  if (before?.kind === "text" && after?.kind === "text" && before.layout && after.layout
+    && (before.role === "flow" || before.role === "paragraph") && (after.role === "flow" || after.role === "paragraph")) {
+    const last = before.layout.lines[before.layout.lines.length - 1], first = after.layout.lines[0];
+    const sameBodySize = Math.abs(first.size - bodySize) < bodySize * 0.1 && Math.abs(last.size - first.size) < bodySize * 0.1;
+    if (!terminalPunctuation.test(last.text) && last.right - last.x >= before.layout.width * 0.75
+      && !listStart.test(before.layout.lines[0].text) && !listStart.test(first.text)
+      && (/^\p{Ll}/u.test(first.text) || sameBodySize)) {
+      blocks[blocks.length - 1] = { kind: "text", role: "paragraph", items: [...before.items, ...after.items],
+        layout: { lines: [...before.layout.lines, ...after.layout.lines], width: after.layout.width } };
+      blocks.push(...next.slice(1));
+      return;
+    }
+  }
+  blocks.push(...next);
+}
+
 function layoutBlocks(items: readonly PdfTextItem[], bodySize: number, sizes: readonly number[]): Block[] {
   if (!items.length) return [];
   const width = Math.max(...items.map((item) => item.x + item.width)) - Math.min(...items.map((item) => item.x));
   const layout = segmentPage(items, bodySize);
-  if (!layout.confident) return flowBlocks(streamLines(items), bodySize, sizes, width).map((block) =>
+  if (!layout.confident) return flowBlocks(streamLines(items), bodySize, sizes, { width, column: false }).map((block) =>
     block.kind === "text" && block.role === "flow" ? { ...block, role: "stream" } : block);
-  const visit = (region: PageRegion, column = false): Block[] => {
-    if (region.kind !== "leaf") return region.children.flatMap((child) => visit(child, column || region.kind === "columns"));
+  const parts: Block[][] = [];
+  const visit = (region: PageRegion, column = false): void => {
+    if (region.kind !== "leaf") {
+      for (const child of region.children) visit(child, column || region.kind === "columns");
+      return;
+    }
     const regionWidth = column && region.items.length
       ? Math.max(...region.items.map((item) => item.x + item.width)) - Math.min(...region.items.map((item) => item.x)) : width;
-    return leafBlocks(region.items, bodySize, sizes, regionWidth);
+    parts.push(leafBlocks(region.items, bodySize, sizes, { width: regionWidth, column }));
   };
-  return visit(layout.region);
+  visit(layout.region);
+  // Missing punctuation signals a continuation only when the page's prose uses terminal punctuation.
+  const punctuated = parts.some((part) => part.some((block) => block.kind === "text" && block.role === "flow" && block.layout
+    && !listStart.test(block.layout.lines[0].text)
+    && terminalPunctuation.test(block.layout.lines[block.layout.lines.length - 1].text)));
+  if (!punctuated) return parts.flat();
+  const blocks: Block[] = [];
+  for (const part of parts) appendRegion(blocks, part, bodySize);
+  return blocks;
 }
 
 function renderBlocks(blocks: readonly Block[], bodySize: number, sizes: readonly number[], titleItems: ReadonlySet<PdfTextItem>, inferHeadings = true): string {
   const lineCache = new Map<readonly PdfTextItem[], Line[]>();
+  for (const block of blocks) {
+    if (block.kind === "text" && block.layout) lineCache.set(block.items, [...block.layout.lines]);
+  }
   const linesOf = (items: readonly PdfTextItem[]): Line[] => {
     let lines = lineCache.get(items);
     if (!lines) { lines = groupLines(items); lineCache.set(items, lines); }
