@@ -58,7 +58,7 @@ npm publish --access public
 ## 8) Post-Publish Verification
 
 - [ ] Install from npm in a clean temp folder
-- [ ] `paperboy --help` works after global install
-- [ ] `paperboy-cli --help` (alias) works after global install
-- [ ] `paperboy doctor` works after global install
-- [ ] `paperboy convert` works on a known sample file
+- [ ] `paperboy-cli --help` works after global install
+- [ ] `paperboy --help` and `paperboy-dispatch --help` (aliases) work after global install
+- [ ] `paperboy-cli doctor` works after global install
+- [ ] `paperboy-cli convert` works on a known sample file
