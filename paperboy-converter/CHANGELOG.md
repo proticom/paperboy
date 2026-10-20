@@ -5,6 +5,14 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Minimum Node.js is now 20.18 (`engines.node` `>=20.18`): the pdf.js build bundled with unpdf 1.7 uses `process.getBuiltinModule` and `URL.parse`.
+
+### Fixed
+- Upgrade `unpdf` to 1.7.x to remove its transitive `canvas` dependency and npm deprecation warnings.
+
 ## [0.3.0] - Unreleased
 
 ### Removed
