@@ -41,6 +41,7 @@ async function structuredPages(bytes: Uint8Array): Promise<PageResult[]> {
             width: item.width, height: item.height,
             fontName: `${item.fontName} ${content.styles[item.fontName]?.fontFamily ?? ""}`,
             markedId: stack[stack.length - 1],
+            hasEOL: item.hasEOL,
           });
         } else if (item.type === "beginMarkedContent") stack.push(stack[stack.length - 1]);
         else if (item.type === "beginMarkedContentProps") stack.push(item.id ?? stack[stack.length - 1]);

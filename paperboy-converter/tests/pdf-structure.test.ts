@@ -303,6 +303,18 @@ describe("PDF structure rendering", () => {
 
 const fixtures = [
   {
+    name: "pdf-two-column-gutter14.pdf",
+    markdown: "# Two columns with a narrow gutter\n\nPARA-01 Clear records support careful reading. The plain draft gives each reader useful context. Small steps keep the final result easy to check.\n\nPARA-02 Clear records support careful reading. The plain draft gives each reader useful context. Small steps keep the final result easy to check.\n\nPARA-03 Clear records support careful reading. The plain draft gives each reader useful context. Small steps keep the final result easy to check.\n\nPARA-04 Clear records support careful reading. The plain draft gives each reader useful context. Small steps keep the final result easy to check.\n\nPARA-05 Clear records support careful reading. The plain draft gives each reader useful context. Small steps keep the final result easy to check.\n\nPARA-06 Clear records support careful reading. The plain draft gives each reader useful context. Small steps keep the final result easy to check.",
+  },
+  {
+    name: "pdf-table-in-column.pdf",
+    markdown: "# A table within one column\n\nPARA-01 A short note starts the column. The local draft uses plain words. Each reader can check the final result.\n\n| Key | Count | Total |\n| --- | --- | --- |\n| T-1 | 4 | $1.25 |\n| T-2 | 8 | $2.50 |\n\nPARA-02 A short note follows the table. The local draft uses plain words. Each reader can check the final result.\n\nPARA-03 A short note starts the right column. The local draft uses plain words. Each reader can check the final result.\n\nPARA-04 A short note continues the right column. The local draft uses plain words. Each reader can check the final result.\n\nPARA-05 A short note ends the right column. The local draft uses plain words. Each reader can check the final result.",
+  },
+  {
+    name: "pdf-poem-code.pdf",
+    markdown: "# Lines and code\n\nRain rests on the quiet lane.\nLeaves turn beside the gate.\nA small bird waits.\n\nMorning fills the empty square.\nSoft light finds the window.\nThe street wakes slowly.\n\n```\ndef add(a, b):\n    return a + b\nx = add(2, 3)\ny = x * 2\n```",
+  },
+  {
     name: "pdf-two-column-bold.pdf",
     markdown: "# Two columns with inline emphasis\n\nPARA-01 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-02 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-03 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-04 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-05 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-06 A clear note records the local draft with simple words. Each reader can check the result.",
   },

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Segment PDF columns before detecting tables, including narrow gutters and tables within columns. Preserve short verse lines and monospace code.
 - Keep multi-column PDF prose in reading order when lines contain inline font changes.
 - Preserve untagged table rows and hard hyphens. Limit letter-spacing and list detection to matching layouts, place multipage titles before page headings, and avoid retrying fatal PDF errors.
 - Preserve PDF reading order, headings, lists, tables, and paragraphs using document tags or page layout. Rejoin wrapped text and spaced letters and symbols, and mark omitted tagged figures without decoding images.

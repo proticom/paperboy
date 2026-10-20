@@ -19,7 +19,7 @@ function makePdf(build) {
   const contents = add(stream(result.content));
   set(catalog, `<< /Type /Catalog /Pages ${pages} 0 R ${result.catalog ?? ""} >>`);
   set(pages, `<< /Type /Pages /Kids [${page} 0 R] /Count 1 >>`);
-  set(page, `<< /Type /Page /Parent ${pages} 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${regular} 0 R /F2 ${bold} 0 R >> >> /Contents ${contents} 0 R ${result.page ?? ""} >>`);
+  set(page, `<< /Type /Page /Parent ${pages} 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${regular} 0 R /F2 ${bold} 0 R${result.fonts ? ` ${result.fonts}` : ""} >> >> /Contents ${contents} 0 R ${result.page ?? ""} >>`);
   let output = "%PDF-1.7\n%\xe2\xe3\xcf\xd3\n";
   const offsets = [0];
   for (let index = 0; index < objects.length; index++) {
@@ -33,9 +33,9 @@ function makePdf(build) {
   return Buffer.from(output, "latin1");
 }
 
-function text(value, x, y, size = 12, bold = false) {
+function text(value, x, y, size = 12, bold = false, font = bold ? "F2" : "F1") {
   const escaped = value.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)").replaceAll("•", "\\225");
-  return `BT /${bold ? "F2" : "F1"} ${size} Tf 1 0 0 1 ${x} ${y} Tm (${escaped}) Tj ET`;
+  return `BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm (${escaped}) Tj ET`;
 }
 
 const twoColumn = makePdf(() => ({ content: [
@@ -131,7 +131,7 @@ const boldWidths = Object.fromEntries([...lowercase].map((letter, index) => [let
 function runWidth(value, size, bold) {
   return [...value].reduce((width, character) => {
     const units = (bold ? boldWidths : regularWidths)[character]
-      ?? ({ " ": 278, ".": 278, "-": 333, A: 667, E: 667, P: 667, R: 722 })[character]
+      ?? ({ " ": 278, ".": 278, "-": 333, A: 667, C: 722, E: 667, P: 667, R: 722, S: 667, T: 611 })[character]
       ?? (/\d/.test(character) ? 556 : undefined);
     if (units === undefined) throw new Error(`Missing Helvetica width for ${character}`);
     return width + units * size / 1000;
@@ -169,6 +169,61 @@ function inlineProse(columns) {
 const twoColumnBold = inlineProse(2);
 const threeColumnProse = inlineProse(3);
 
+const gutter14 = makePdf(() => {
+  const content = [text("Two columns with a narrow gutter", 48, 744, 24, true)];
+  for (let column = 0; column < 2; column++) {
+    for (let paragraph = 0; paragraph < 3; paragraph++) {
+      const number = String(column * 3 + paragraph + 1).padStart(2, "0");
+      const lines = [
+        `PARA-${number} Clear records support careful reading.`,
+        "The plain draft gives each reader useful context.",
+        "Small steps keep the final result easy to check.",
+      ];
+      lines.forEach((line, index) => {
+        const words = line.split(" ");
+        const gap = (251 - words.reduce((sum, word) => sum + runWidth(word, 10, false), 0)) / (words.length - 1);
+        let x = column === 0 ? 48 : 313;
+        for (const word of words) {
+          content.push(text(word, Number(x.toFixed(3)), 690 - paragraph * 70 - index * 14, 10));
+          x += runWidth(word, 10, false) + gap;
+        }
+      });
+    }
+  }
+  return { content: content.join("\n") };
+});
+
+const tableInColumn = makePdf(() => {
+  const content = [text("A table within one column", 48, 744, 24, true)];
+  const paragraph = (number, x, y, first) => [
+    `PARA-${number} A short note ${first}.`,
+    "The local draft uses plain words.",
+    "Each reader can check the final result.",
+  ].forEach((line, index) => content.push(text(line, x, y - index * 14, 10)));
+  paragraph("01", 48, 690, "starts the column");
+  [["Key", "Count", "Total"], ["T-1", "4", "$1.25"], ["T-2", "8", "$2.50"]].forEach((row, index) => {
+    row.forEach((cell, column) => content.push(text(cell, [48, 150, 218][column], 620 - index * 14, 10, index === 0)));
+  });
+  paragraph("02", 48, 540, "follows the table");
+  paragraph("03", 330, 690, "starts the right column");
+  paragraph("04", 330, 620, "continues the right column");
+  paragraph("05", 330, 550, "ends the right column");
+  return { content: content.join("\n") };
+});
+
+const poemCode = makePdf(({ add }) => {
+  const courier = add("<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>");
+  return {
+    fonts: `/F3 ${courier} 0 R`,
+    content: [
+      text("Lines and code", 48, 744, 24, true),
+      ...["Rain rests on the quiet lane.", "Leaves turn beside the gate.", "A small bird waits."].map((line, index) => text(line, 48, 690 - index * 14, 10)),
+      ...["Morning fills the empty square.", "Soft light finds the window.", "The street wakes slowly."].map((line, index) => text(line, 48, 620 - index * 14, 10)),
+      ...["def add(a, b):", "    return a + b", "x = add(2, 3)", "y = x * 2"].map((line, index) => text(line, 48, 530 - index * 14, 10, false, "F3")),
+    ].join("\n"),
+  };
+});
+
 mkdirSync(fixtureDirectory, { recursive: true });
 for (const [name, bytes] of Object.entries({
   "pdf-untagged-two-column.pdf": twoColumn,
@@ -177,6 +232,9 @@ for (const [name, bytes] of Object.entries({
   "pdf-untagged-table.pdf": untaggedTable,
   "pdf-two-column-bold.pdf": twoColumnBold,
   "pdf-three-column-prose.pdf": threeColumnProse,
+  "pdf-two-column-gutter14.pdf": gutter14,
+  "pdf-table-in-column.pdf": tableInColumn,
+  "pdf-poem-code.pdf": poemCode,
 })) {
   writeFileSync(resolve(fixtureDirectory, name), bytes);
 }

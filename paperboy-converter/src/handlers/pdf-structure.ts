@@ -1,3 +1,5 @@
+import { segmentPage, type PageRegion } from "./pdf-layout.js";
+
 export interface PdfTextItem {
   text: string;
   x: number;
@@ -6,6 +8,7 @@ export interface PdfTextItem {
   height: number;
   fontName: string;
   markedId?: string;
+  hasEOL?: boolean;
 }
 
 export interface PdfStructureNode {
@@ -29,8 +32,18 @@ interface Line {
 }
 
 type Block =
-  | { kind: "text"; items: readonly PdfTextItem[]; role: "flow" | "paragraph" | "heading" | "explicit-heading"; level?: number }
+  | { kind: "text"; items: readonly PdfTextItem[]; role: "flow" | "stream" | "paragraph" | "heading" | "explicit-heading"; level?: number }
   | { kind: "markdown"; markdown: string };
+
+export interface GridSegment {
+  text: string;
+  x: number;
+  right: number;
+}
+
+export type GridDecision =
+  | { kind: "table" | "rows"; markdown: string }
+  | { kind: "prose"; reason: "unstable-columns" | "prose-columns" | "long-cells" };
 
 const listStart = /^(?:([•◦▪\-–*·])|((?:\d+|[a-zA-Z])[.)]))\s+(.+)$/u;
 
@@ -149,19 +162,20 @@ function alignedStarts(left: readonly Line[], right: readonly Line[], tolerance:
   return count;
 }
 
-function gridMarkdown(rows: Line[][], bodySize: number): string | undefined {
+export function classifyGrid(rows: readonly (readonly GridSegment[])[], bodySize: number): GridDecision {
+  if (!rows.length) return { kind: "prose", reason: "unstable-columns" };
   const template = rows.reduce((best, row) => row.length > best.length ? row : best, rows[0]);
-  if (rows.filter((row) => row.length === template.length).length < 3) return undefined;
+  if (rows.filter((row) => row.length === template.length).length < 3) return { kind: "prose", reason: "unstable-columns" };
   if (rows.every((row) => row.length === template.length
-    && row.every((segment) => segment.text.split(/\s+/).length >= 2))) return undefined;
+    && row.every((segment) => segment.text.split(/\s+/).length >= 2))) return { kind: "prose", reason: "prose-columns" };
   const segments = rows.flat();
   const widths = segments.map((segment) => segment.right - segment.x);
   const blockWidth = Math.max(...segments.map((segment) => segment.right)) - Math.min(...segments.map((segment) => segment.x));
   if (median(segments.map((segment) => segment.text.split(/\s+/).length)) > 4
-    || median(widths) > Math.min(bodySize * 10, blockWidth * 0.35)) return undefined;
+    || median(widths) > Math.min(bodySize * 10, blockWidth * 0.35)) return { kind: "prose", reason: "long-cells" };
   const boundaries = template.slice(1).map((item, i) => (template[i].right + item.x) / 2);
   const cells = rows.map((row) => {
-    const columns: Line[][] = Array.from({ length: template.length }, () => []);
+    const columns: GridSegment[][] = Array.from({ length: template.length }, () => []);
     let column = 0;
     for (const item of row) {
       while (column < boundaries.length && item.x >= boundaries[column] - bodySize * 0.2) column++;
@@ -170,82 +184,9 @@ function gridMarkdown(rows: Line[][], bodySize: number): string | undefined {
     return columns.map((segments) => segments.map((segment) => segment.text).join(" "));
   });
   const clean = cells.every((row) => row.every(Boolean));
-  if (!clean) return rows.map((row) => row.map((segment) => segment.text).join(" ")).join("\n");
+  if (!clean) return { kind: "rows", markdown: rows.map((row) => row.map((segment) => segment.text).join(" ")).join("\n") };
   const format = (row: string[]) => `| ${row.map((cell) => cell.replace(/\|/g, "\\|")).join(" | ")} |`;
-  return [format(cells[0]), format(cells[0].map(() => "---")), ...cells.slice(1).map(format)].join("\n");
-}
-
-function orderLines(lines: Line[], bodySize: number): Line[] {
-  const gaps: { left: number; right: number }[] = [];
-  const columns: Line[][] = [];
-  for (const line of [...lines].sort((a, b) => a.x - b.x || b.y - a.y)) {
-    const column = columns[columns.length - 1];
-    if (column && line.x - column[0].x < bodySize * 0.5) column.push(line);
-    else columns.push([line]);
-  }
-  for (const column of columns) column.sort((a, b) => b.y - a.y);
-  for (let column = 1; column < columns.length; column++) {
-    const left = columns[column - 1], right = columns[column];
-    let i = 0, j = 0;
-    while (i < left.length && j < right.length) {
-      const delta = left[i].y - right[j].y;
-      if (Math.abs(delta) >= bodySize * 2) { if (delta > 0) i++; else j++; continue; }
-      if (right[j].x - left[i].right > bodySize * 2
-        && left[i].text.split(/\s+/).length >= 2 && right[j].text.split(/\s+/).length >= 2) {
-        gaps.push({ left: left[i].right, right: right[j].x });
-      }
-      i++; j++;
-    }
-  }
-  const events = gaps.flatMap((gap) => [{ x: gap.left, delta: 1 }, { x: gap.right, delta: -1 }]).sort((a, b) => a.x - b.x || a.delta - b.delta);
-  const gutters: number[] = [];
-  let count = 0, bestCount = 0, gutter = 0;
-  for (let i = 0; i < events.length - 1; i++) {
-    count += events[i].delta;
-    if (events[i + 1].x <= events[i].x) continue;
-    if (count >= 3) {
-      if (count > bestCount) { bestCount = count; gutter = (events[i].x + events[i + 1].x) / 2; }
-    } else if (bestCount) { gutters.push(gutter); bestCount = 0; }
-  }
-  if (bestCount) gutters.push(gutter);
-  if (!gutters.length) {
-    const rows: PdfTextItem[][] = [];
-    for (const line of lines) {
-      const row = rows[rows.length - 1];
-      if (row && Math.abs(row[0].y - line.y) <= Math.max(2, Math.min(itemSize(row[0]), line.size) * 0.25)) row.push(...line.items);
-      else rows.push([...line.items]);
-    }
-    return rows.map((row) => makeLine(row));
-  }
-  const columnOf = (x: number): number => {
-    let low = 0, high = gutters.length;
-    while (low < high) { const mid = (low + high) >>> 1; if (gutters[mid] <= x) low = mid + 1; else high = mid; }
-    return low;
-  };
-  const peers = new Set<Line>();
-  const markPeers = (ordered: readonly Line[]) => {
-    let latest: { line: Line; column: number } | undefined, other: typeof latest;
-    for (const line of ordered) {
-      const column = columnOf(line.x);
-      const previous = latest?.column === column ? other : latest;
-      if (previous && Math.abs(previous.line.y - line.y) < bodySize) peers.add(line);
-      if (latest?.column !== column) other = latest;
-      latest = { line, column };
-    }
-  };
-  markPeers(lines);
-  markPeers([...lines].reverse());
-  const result: Line[] = [], band: Line[][] = Array.from({ length: gutters.length + 1 }, () => []);
-  const flush = () => { for (const column of band) { result.push(...column); column.length = 0; } };
-  for (const line of lines) {
-    const column = columnOf(line.x);
-    if ((gutters[column] !== undefined && line.right > gutters[column])
-      || (line.size > bodySize * 1.6 && !peers.has(line))) {
-      flush(); result.push(line);
-    } else band[column].push(line);
-  }
-  flush();
-  return result;
+  return { kind: "table", markdown: [format(cells[0]), format(cells[0].map(() => "---")), ...cells.slice(1).map(format)].join("\n") };
 }
 
 function headingLevel(items: readonly PdfTextItem[], bodySize: number, sizes: readonly number[], lines = groupLines(items)): number | undefined {
@@ -276,46 +217,112 @@ function isListLine(line: Line, previous?: number, next?: Line): boolean {
     || (number !== undefined && next !== undefined && markerNumber(next.text) === number + 1) || hanging || !!hangingContinuation;
 }
 
-function layoutBlocks(items: readonly PdfTextItem[], bodySize: number, sizes: readonly number[]): Block[] {
+function flowBlocks(lines: readonly Line[], bodySize: number, sizes: readonly number[], regionWidth: number): Block[] {
+  const blocks: Block[] = [];
+  let previous: Line | undefined, previousNumber: number | undefined;
+  let currentList = false;
+  let inspectedUntil = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const monospace = line.items.every((item) => /monospace|courier/i.test(item.fontName));
+    let end = i + 1;
+    while (i >= inspectedUntil && end < lines.length && lines[end].items.every((item) => /monospace|courier/i.test(item.fontName)) === monospace
+      && Math.abs(lines[end].size - line.size) < 0.5
+      && lines[end - 1].y > lines[end].y
+      && (monospace || lines[end - 1].y - lines[end].y <= line.size * 1.8)) end++;
+    const run = i >= inspectedUntil ? lines.slice(i, end) : [];
+    inspectedUntil = Math.max(inspectedUntil, end);
+    const shortLines = run.length >= 3 && run.every((entry) => !listStart.test(entry.text)
+      && !headingLevel(entry.items, bodySize, sizes, [entry])
+      && entry.text.split(/\s+/).length <= 6 && Math.abs(entry.x - line.x) < bodySize * 0.5)
+      && median(run.map((entry) => entry.right - entry.x)) < regionWidth * 0.8;
+    if (monospace || shortLines) {
+      let markdown: string;
+      if (monospace) {
+        const left = Math.min(...run.map((entry) => entry.x));
+        const characterWidth = median(run.flatMap((entry) => entry.items.map((item) => item.width / Math.max(1, item.text.length))));
+        const leading = median(run.slice(1).map((entry, index) => run[index].y - entry.y));
+        const code: string[] = [];
+        run.forEach((entry, index) => {
+          if (index && run[index - 1].y - entry.y > leading * 1.5) code.push("");
+          code.push(" ".repeat(Math.max(0, Math.round((entry.x - left) / characterWidth))) + entry.text);
+        });
+        markdown = "```\n" + code.join("\n") + "\n```";
+      } else markdown = run.map((entry) => entry.text).join("\n");
+      blocks.push({ kind: "markdown", markdown });
+      i = end - 1;
+      previous = undefined;
+      previousNumber = undefined;
+      currentList = false;
+      continue;
+    }
+    const heading = headingLevel(line.items, bodySize, sizes, [line]);
+    const list = isListLine(line, previousNumber, lines[i + 1]);
+    const last = blocks[blocks.length - 1];
+    const listContinuation = currentList && last?.kind === "text"
+      && line.x >= last.items[0].x && line.x <= last.items[0].x + bodySize * 4;
+    const continuation = previous && last?.kind === "text" && last.role === "flow" && !heading && !list
+      && (listContinuation || Math.abs(line.x - previous.x) < bodySize * 0.5)
+      && Math.max(line.size, previous.size) <= Math.min(line.size, previous.size) * 1.1
+      && previous.y - line.y > 0 && previous.y - line.y <= Math.min(line.size, previous.size) * 1.2 + 2;
+    if (continuation) last.items = [...last.items, ...line.items];
+    else { blocks.push({ kind: "text", items: line.items, role: heading ? "heading" : "flow", level: heading }); currentList = list; }
+    previousNumber = list ? markerNumber(line.text) : continuation && currentList ? previousNumber : undefined;
+    previous = line;
+  }
+  return blocks;
+}
+
+function leafBlocks(items: readonly PdfTextItem[], bodySize: number, sizes: readonly number[], regionWidth: number): Block[] {
   const rows = baselineRows(items).map((row) => splitRow(row, true));
-  const chunks: (Line[] | { markdown: string })[] = [];
+  const blocks: Block[] = [];
   let prose: Line[] = [];
+  const flush = () => {
+    blocks.push(...flowBlocks(prose, bodySize, sizes, regionWidth));
+    prose = [];
+  };
   for (let i = 0; i < rows.length;) {
     let end = i + 1;
     while (end < rows.length && rows[end - 1][0].y - rows[end][0].y <= bodySize * 3
       && alignedStarts(rows[end - 1], rows[end], Math.max(2, bodySize * 0.35)) >= 2) end++;
-    const markdown = end - i >= 3 ? gridMarkdown(rows.slice(i, end), bodySize) : undefined;
-    if (markdown) {
-      if (prose.length) { chunks.push(prose); prose = []; }
-      chunks.push({ markdown });
-    } else for (let j = i; j < end; j++) prose.push(...rows[j]);
+    const grid = end - i >= 3 ? classifyGrid(rows.slice(i, end), bodySize) : undefined;
+    if (grid && grid.kind !== "prose") {
+      flush();
+      blocks.push({ kind: "markdown", markdown: grid.markdown });
+    } else for (let j = i; j < end; j++) prose.push(makeLine(rows[j].flatMap((segment) => segment.items)));
     i = end;
   }
-  if (prose.length) chunks.push(prose);
-  const blocks: Block[] = [];
-  for (const chunk of chunks) {
-    if (!Array.isArray(chunk)) { blocks.push({ kind: "markdown", markdown: chunk.markdown }); continue; }
-    const lines = orderLines(chunk, bodySize);
-    let previous: Line | undefined, previousNumber: number | undefined;
-    let currentList = false;
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const heading = headingLevel(line.items, bodySize, sizes, [line]);
-      const list = isListLine(line, previousNumber, lines[i + 1]);
-      const last = blocks[blocks.length - 1];
-      const listContinuation = currentList && last?.kind === "text"
-        && line.x >= last.items[0].x && line.x <= last.items[0].x + bodySize * 4;
-      const continuation = previous && last?.kind === "text" && last.role === "flow" && !heading && !list
-        && (listContinuation || Math.abs(line.x - previous.x) < bodySize * 0.5)
-        && Math.max(line.size, previous.size) <= Math.min(line.size, previous.size) * 1.1
-        && previous.y - line.y > 0 && previous.y - line.y <= Math.min(line.size, previous.size) * 1.2 + 2;
-      if (continuation) last.items = [...last.items, ...line.items];
-      else { blocks.push({ kind: "text", items: line.items, role: heading ? "heading" : "flow", level: heading }); currentList = list; }
-      previousNumber = list ? markerNumber(line.text) : continuation && currentList ? previousNumber : undefined;
-      previous = line;
-    }
-  }
+  flush();
   return blocks;
+}
+
+function streamLines(items: readonly PdfTextItem[]): Line[] {
+  const rows: PdfTextItem[][] = [];
+  let previous: PdfTextItem | undefined;
+  for (const item of items) {
+    if (!item.text.trim()) continue;
+    const row = rows[rows.length - 1];
+    if (row && previous && !previous.hasEOL && Math.abs(item.y - previous.y) < Math.max(2, itemSize(item) * 0.25)
+      && item.x >= previous.x) row.push(item);
+    else rows.push([item]);
+    previous = item;
+  }
+  return rows.map((row) => makeLine(row));
+}
+
+function layoutBlocks(items: readonly PdfTextItem[], bodySize: number, sizes: readonly number[]): Block[] {
+  if (!items.length) return [];
+  const width = Math.max(...items.map((item) => item.x + item.width)) - Math.min(...items.map((item) => item.x));
+  const layout = segmentPage(items, bodySize);
+  if (!layout.confident) return flowBlocks(streamLines(items), bodySize, sizes, width).map((block) =>
+    block.kind === "text" && block.role === "flow" ? { ...block, role: "stream" } : block);
+  const visit = (region: PageRegion, column = false): Block[] => {
+    if (region.kind !== "leaf") return region.children.flatMap((child) => visit(child, column || region.kind === "columns"));
+    const regionWidth = column && region.items.length
+      ? Math.max(...region.items.map((item) => item.x + item.width)) - Math.min(...region.items.map((item) => item.x)) : width;
+    return leafBlocks(region.items, bodySize, sizes, regionWidth);
+  };
+  return visit(layout.region);
 }
 
 function renderBlocks(blocks: readonly Block[], bodySize: number, sizes: readonly number[], titleItems: ReadonlySet<PdfTextItem>, inferHeadings = true): string {

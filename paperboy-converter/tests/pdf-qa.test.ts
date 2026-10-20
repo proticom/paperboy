@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 import { convertToMarkdown } from "../src/index.js";
-import { collapseLetterSpacing, reflowLines, renderPdfPage, type PdfTextItem } from "../src/handlers/pdf-structure.js";
+import { classifyGrid, collapseLetterSpacing, reflowLines, renderPdfPage, type PdfTextItem } from "../src/handlers/pdf-structure.js";
 
 const boundary = vi.hoisted(() => ({ document: vi.fn(), extract: vi.fn() }));
 
@@ -19,7 +19,45 @@ function item(text: string, x: number, y: number, height = 12): PdfTextItem {
   return { text, x, y, height, width: text.length * 6, fontName: "Helvetica" };
 }
 
+describe("PDF grid confidence", () => {
+  it("rejects a changing column count even when cell text is short", () => {
+    expect(classifyGrid([
+      [{ text: "Name", x: 0, right: 30 }, { text: "Value", x: 100, right: 130 }],
+      [{ text: "A", x: 0, right: 10 }, { text: "1", x: 100, right: 110 }, { text: "Extra", x: 200, right: 230 }],
+      [{ text: "B", x: 0, right: 10 }, { text: "2", x: 100, right: 110 }],
+    ], 12)).toEqual({ kind: "prose", reason: "unstable-columns" });
+  });
+
+  it.each([
+    { first: "A longer phrase contains several clear words", second: "Another longer phrase contains several clear words", width: 150 },
+    { first: "A longer phrase contains several clear words", second: "Another longer phrase contains several clear words", width: 50 },
+    { first: "Wide phrase", second: "Broad text", width: 150 },
+  ])("rejects long prose cells by words or width ($width pt)", ({ first, second, width }) => {
+    expect(classifyGrid([
+      [{ text: first, x: 0, right: width }, { text: second, x: 250, right: 250 + width }, { text: "A", x: 500, right: 506 }],
+      [{ text: first, x: 0, right: width }, { text: second, x: 250, right: 250 + width }, { text: "B", x: 500, right: 506 }],
+      [{ text: first, x: 0, right: width }, { text: second, x: 250, right: 250 + width }, { text: "C", x: 500, right: 506 }],
+    ], 12)).toEqual({ kind: "prose", reason: "long-cells" });
+  });
+});
+
 describe("PDF layout regressions", () => {
+  it("keeps content-stream order when scattered boxes do not establish a reliable layout", () => {
+    expect(renderPdfPage([
+      item("First in the content stream.", 240, 600),
+      item("Second in the content stream.", 40, 700),
+      item("Third in the content stream.", 180, 650),
+    ])).toBe("First in the content stream.\n\nSecond in the content stream.\n\nThird in the content stream.");
+  });
+
+  it("keeps reversed same-baseline boxes separate in the uncertain-layout fallback", () => {
+    expect(renderPdfPage([
+      item("First in the content stream.", 240, 600),
+      item("Second in the content stream.", 40, 600),
+      item("Third in the content stream.", 180, 650),
+    ])).toBe("First in the content stream.\n\nSecond in the content stream.\n\nThird in the content stream.");
+  });
+
   it("recognizes a letter-spaced heading at the body font size without bold", () => {
     expect(renderPdfPage([
       item("S U M M A R Y", 40, 700),
