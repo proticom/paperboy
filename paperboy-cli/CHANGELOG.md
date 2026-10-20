@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- Release entries from PR #28 ([Unreleased]) are folded in here when master is merged into this branch. -->
 
+### Changed
+- Minimum Node.js is now 20.18 (`engines.node` `>=20.18`, and `paperboy doctor` checks for v20.18), because the pdf.js build bundled with the converter's unpdf 1.7 needs `process.getBuiltinModule` and `URL.parse` (#29).
+
 ## [0.3.1] - 2026-10-18
 
 ### Added
