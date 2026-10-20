@@ -62,6 +62,18 @@ describe("doctor", () => {
     expect(writable?.status).toBe("ok");
   });
 
+  it("reports missing config as ok while using defaults", async () => {
+    vi.resetModules();
+    const doctorModule = await importDoctorModule();
+    const report = await doctorModule.runDoctor({ offline: true });
+    const configFile = report.checks.find((check) => check.name === "Config file");
+
+    expect(configFile?.status).toBe("ok");
+    expect(configFile?.details).toBe(
+      "No config file; using defaults (run `paperboy-cli setup` to customize)",
+    );
+  });
+
   it("redacts proxy credentials in the proxy environment check", async () => {
     const names = [
       "HTTP_PROXY",
