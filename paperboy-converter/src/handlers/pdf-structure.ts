@@ -121,12 +121,13 @@ function baselineRows(items: readonly PdfTextItem[]): PdfTextItem[][] {
   return rows;
 }
 
-function splitRow(row: PdfTextItem[]): Line[] {
+function splitRow(row: PdfTextItem[], wordGaps = false): Line[] {
   const segments: PdfTextItem[][] = [];
   for (const item of row) {
     const segment = segments[segments.length - 1];
     const previous = segment?.[segment.length - 1];
-    if (previous && item.x - (previous.x + previous.width) <= Math.max(12, itemSize(item) * 2)) segment.push(item);
+    const maximumGap = wordGaps ? itemSize(item) * 0.8 : Math.max(12, itemSize(item) * 2);
+    if (previous && item.x - (previous.x + previous.width) <= maximumGap) segment.push(item);
     else segments.push([item]);
   }
   const allowTracking = isLetterSpaced(row.map((item) => item.text.trim()).join("  "));
@@ -134,10 +135,10 @@ function splitRow(row: PdfTextItem[]): Line[] {
 }
 
 function groupLines(items: readonly PdfTextItem[]): Line[] {
-  return baselineRows(items).flatMap(splitRow);
+  return baselineRows(items).flatMap((row) => splitRow(row));
 }
 
-function alignedStarts(left: readonly PdfTextItem[], right: readonly PdfTextItem[], tolerance: number): number {
+function alignedStarts(left: readonly Line[], right: readonly Line[], tolerance: number): number {
   let i = 0, j = 0, count = 0;
   while (i < left.length && j < right.length) {
     const delta = left[i].x - right[j].x;
@@ -148,22 +149,28 @@ function alignedStarts(left: readonly PdfTextItem[], right: readonly PdfTextItem
   return count;
 }
 
-function gridMarkdown(rows: PdfTextItem[][], bodySize: number): string | undefined {
+function gridMarkdown(rows: Line[][], bodySize: number): string | undefined {
   const template = rows.reduce((best, row) => row.length > best.length ? row : best, rows[0]);
-  // Two prose columns contain sustained multi-word lines, rather than short cells.
-  if (template.length === 2 && rows.every((row) => row.length === 2 && row.every((item) => item.text.trim().split(/\s+/).length >= 2))) return undefined;
-  const boundaries = template.slice(1).map((item, i) => (template[i].x + template[i].width + item.x) / 2);
+  if (rows.filter((row) => row.length === template.length).length < 3) return undefined;
+  if (rows.every((row) => row.length === template.length
+    && row.every((segment) => segment.text.split(/\s+/).length >= 2))) return undefined;
+  const segments = rows.flat();
+  const widths = segments.map((segment) => segment.right - segment.x);
+  const blockWidth = Math.max(...segments.map((segment) => segment.right)) - Math.min(...segments.map((segment) => segment.x));
+  if (median(segments.map((segment) => segment.text.split(/\s+/).length)) > 4
+    || median(widths) > Math.min(bodySize * 10, blockWidth * 0.35)) return undefined;
+  const boundaries = template.slice(1).map((item, i) => (template[i].right + item.x) / 2);
   const cells = rows.map((row) => {
-    const columns: PdfTextItem[][] = Array.from({ length: template.length }, () => []);
+    const columns: Line[][] = Array.from({ length: template.length }, () => []);
     let column = 0;
     for (const item of row) {
       while (column < boundaries.length && item.x >= boundaries[column] - bodySize * 0.2) column++;
       columns[column].push(item);
     }
-    return columns.map((items) => items.length ? lineText(items).text : "");
+    return columns.map((segments) => segments.map((segment) => segment.text).join(" "));
   });
   const clean = cells.every((row) => row.every(Boolean));
-  if (!clean) return rows.map((row) => lineText(row).text).join("\n");
+  if (!clean) return rows.map((row) => row.map((segment) => segment.text).join(" ")).join("\n");
   const format = (row: string[]) => `| ${row.map((cell) => cell.replace(/\|/g, "\\|")).join(" | ")} |`;
   return [format(cells[0]), format(cells[0].map(() => "---")), ...cells.slice(1).map(format)].join("\n");
 }
@@ -191,12 +198,17 @@ function orderLines(lines: Line[], bodySize: number): Line[] {
     }
   }
   const events = gaps.flatMap((gap) => [{ x: gap.left, delta: 1 }, { x: gap.right, delta: -1 }]).sort((a, b) => a.x - b.x || a.delta - b.delta);
+  const gutters: number[] = [];
   let count = 0, bestCount = 0, gutter = 0;
   for (let i = 0; i < events.length - 1; i++) {
     count += events[i].delta;
-    if (count > bestCount && events[i + 1].x > events[i].x) { bestCount = count; gutter = (events[i].x + events[i + 1].x) / 2; }
+    if (events[i + 1].x <= events[i].x) continue;
+    if (count >= 3) {
+      if (count > bestCount) { bestCount = count; gutter = (events[i].x + events[i + 1].x) / 2; }
+    } else if (bestCount) { gutters.push(gutter); bestCount = 0; }
   }
-  if (bestCount < 3) {
+  if (bestCount) gutters.push(gutter);
+  if (!gutters.length) {
     const rows: PdfTextItem[][] = [];
     for (const line of lines) {
       const row = rows[rows.length - 1];
@@ -205,20 +217,32 @@ function orderLines(lines: Line[], bodySize: number): Line[] {
     }
     return rows.map((row) => makeLine(row));
   }
-  const leftY = lines.filter((line) => line.x < gutter).map((line) => line.y);
-  const rightY = lines.filter((line) => line.x >= gutter).map((line) => line.y);
-  const peer = (ys: number[], y: number): boolean => {
-    let low = 0, high = ys.length;
-    while (low < high) { const mid = (low + high) >>> 1; if (ys[mid] > y) low = mid + 1; else high = mid; }
-    return (low < ys.length && Math.abs(ys[low] - y) < bodySize) || (low > 0 && Math.abs(ys[low - 1] - y) < bodySize);
+  const columnOf = (x: number): number => {
+    let low = 0, high = gutters.length;
+    while (low < high) { const mid = (low + high) >>> 1; if (gutters[mid] <= x) low = mid + 1; else high = mid; }
+    return low;
   };
-  const result: Line[] = [], left: Line[] = [], right: Line[] = [];
-  const flush = () => { result.push(...left, ...right); left.length = right.length = 0; };
+  const peers = new Set<Line>();
+  const markPeers = (ordered: readonly Line[]) => {
+    let latest: { line: Line; column: number } | undefined, other: typeof latest;
+    for (const line of ordered) {
+      const column = columnOf(line.x);
+      const previous = latest?.column === column ? other : latest;
+      if (previous && Math.abs(previous.line.y - line.y) < bodySize) peers.add(line);
+      if (latest?.column !== column) other = latest;
+      latest = { line, column };
+    }
+  };
+  markPeers(lines);
+  markPeers([...lines].reverse());
+  const result: Line[] = [], band: Line[][] = Array.from({ length: gutters.length + 1 }, () => []);
+  const flush = () => { for (const column of band) { result.push(...column); column.length = 0; } };
   for (const line of lines) {
-    if ((line.x < gutter && line.right > gutter)
-      || (line.size > bodySize * 1.6 && !peer(line.x < gutter ? rightY : leftY, line.y))) {
+    const column = columnOf(line.x);
+    if ((gutters[column] !== undefined && line.right > gutters[column])
+      || (line.size > bodySize * 1.6 && !peers.has(line))) {
       flush(); result.push(line);
-    } else (line.x < gutter ? left : right).push(line);
+    } else band[column].push(line);
   }
   flush();
   return result;
@@ -253,7 +277,7 @@ function isListLine(line: Line, previous?: number, next?: Line): boolean {
 }
 
 function layoutBlocks(items: readonly PdfTextItem[], bodySize: number, sizes: readonly number[]): Block[] {
-  const rows = baselineRows(items);
+  const rows = baselineRows(items).map((row) => splitRow(row, true));
   const chunks: (Line[] | { markdown: string })[] = [];
   let prose: Line[] = [];
   for (let i = 0; i < rows.length;) {
@@ -264,7 +288,7 @@ function layoutBlocks(items: readonly PdfTextItem[], bodySize: number, sizes: re
     if (markdown) {
       if (prose.length) { chunks.push(prose); prose = []; }
       chunks.push({ markdown });
-    } else for (let j = i; j < end; j++) prose.push(...splitRow(rows[j]));
+    } else for (let j = i; j < end; j++) prose.push(...rows[j]);
     i = end;
   }
   if (prose.length) chunks.push(prose);

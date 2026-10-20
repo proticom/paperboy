@@ -124,12 +124,59 @@ const taggedLists = makePdf(({ set, reserve, page }) => {
   };
 });
 
+const lowercase = "abcdefghijklmnopqrstuvwxyz";
+const regularWidths = Object.fromEntries([...lowercase].map((letter, index) => [letter, [556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500][index]]));
+const boldWidths = Object.fromEntries([...lowercase].map((letter, index) => [letter, [556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611, 611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500][index]]));
+
+function runWidth(value, size, bold) {
+  return [...value].reduce((width, character) => {
+    const units = (bold ? boldWidths : regularWidths)[character]
+      ?? ({ " ": 278, ".": 278, "-": 333, A: 667, E: 667, P: 667, R: 722 })[character]
+      ?? (/\d/.test(character) ? 556 : undefined);
+    if (units === undefined) throw new Error(`Missing Helvetica width for ${character}`);
+    return width + units * size / 1000;
+  }, 0);
+}
+
+function inlineProse(columns) {
+  const size = columns === 2 ? 12 : 10;
+  const starts = columns === 2 ? [48, 330] : [48, 230, 412];
+  return makePdf(() => {
+    const content = [text(`${columns === 2 ? "Two" : "Three"} columns with inline emphasis`, 48, 744, 24, true)];
+    for (let paragraph = 0; paragraph < 3; paragraph++) {
+      for (let line = 0; line < 3; line++) {
+        for (let column = 0; column < columns; column++) {
+          const number = String(column * 3 + paragraph + 1).padStart(2, "0");
+          const runs = [
+            [`PARA-${number} A `, "clear", " note records"],
+            ["the ", "local", " draft with simple words."],
+            ["Each ", "reader", " can check the result."],
+          ][line];
+          let x = starts[column];
+          const y = 690 - paragraph * 70 - line * (columns === 2 ? 16 : 14);
+          runs.forEach((run, index) => {
+            const bold = index === 1;
+            content.push(text(run, Number(x.toFixed(3)), y, size, bold));
+            x += runWidth(run, size, bold);
+          });
+        }
+      }
+    }
+    return { content: content.join("\n") };
+  });
+}
+
+const twoColumnBold = inlineProse(2);
+const threeColumnProse = inlineProse(3);
+
 mkdirSync(fixtureDirectory, { recursive: true });
 for (const [name, bytes] of Object.entries({
   "pdf-untagged-two-column.pdf": twoColumn,
   "pdf-single-column.pdf": singleColumn,
   "pdf-tagged-lists.pdf": taggedLists,
   "pdf-untagged-table.pdf": untaggedTable,
+  "pdf-two-column-bold.pdf": twoColumnBold,
+  "pdf-three-column-prose.pdf": threeColumnProse,
 })) {
   writeFileSync(resolve(fixtureDirectory, name), bytes);
 }

@@ -20,6 +20,13 @@ function item(text: string, x: number, y: number, height = 12): PdfTextItem {
 }
 
 describe("PDF layout regressions", () => {
+  it("recognizes a letter-spaced heading at the body font size without bold", () => {
+    expect(renderPdfPage([
+      item("S U M M A R Y", 40, 700),
+      item("A plain body paragraph follows this heading.", 40, 660),
+    ])).toBe("## SUMMARY\n\nA plain body paragraph follows this heading.");
+  });
+
   it("preserves ragged table rows instead of reading them as columns", () => {
     expect(renderPdfPage([
       item("Name", 40, 700), item("Count", 200, 700), item("Unit", 300, 700),
@@ -38,6 +45,33 @@ describe("PDF layout regressions", () => {
       item("three printed lines.", 40, 668),
       item("three printed lines.", 330, 668),
     ])).toBe("The left column begins with a short paragraph that wraps over three printed lines.\n\nThe right column contains a second paragraph that also uses three printed lines.");
+  });
+
+  it("reads three prose columns in order when inline bold splits every line into items", () => {
+    const styled = (text: string, x: number, y: number): PdfTextItem[] => {
+      const words = text.split(" ");
+      const pieces = [words.slice(0, 2).join(" "), words[2], words.slice(3).join(" ")];
+      let offset = x;
+      return pieces.map((piece, index) => {
+        const result = {
+          ...item(piece, offset, y), width: piece.length * 4,
+          fontName: index === 1 ? "Helvetica-Bold" : "Helvetica",
+        };
+        offset += result.width + 4;
+        return result;
+      });
+    };
+    expect(renderPdfPage([
+      ...styled("PARA-01 begins with useful notes.", 40, 700),
+      ...styled("PARA-02 begins with other notes.", 260, 700),
+      ...styled("PARA-03 begins with final notes.", 480, 700),
+      ...styled("and continues with plain words.", 40, 684),
+      ...styled("and continues with more words.", 260, 684),
+      ...styled("and continues with clear words.", 480, 684),
+      ...styled("The left paragraph ends here.", 40, 668),
+      ...styled("The middle paragraph ends here.", 260, 668),
+      ...styled("The right paragraph ends here.", 480, 668),
+    ])).toBe("PARA-01 begins with useful notes. and continues with plain words. The left paragraph ends here.\n\nPARA-02 begins with other notes. and continues with more words. The middle paragraph ends here.\n\nPARA-03 begins with final notes. and continues with clear words. The right paragraph ends here.");
   });
 
   it.each([

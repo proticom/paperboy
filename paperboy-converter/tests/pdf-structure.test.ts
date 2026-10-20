@@ -303,6 +303,14 @@ describe("PDF structure rendering", () => {
 
 const fixtures = [
   {
+    name: "pdf-two-column-bold.pdf",
+    markdown: "# Two columns with inline emphasis\n\nPARA-01 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-02 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-03 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-04 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-05 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-06 A clear note records the local draft with simple words. Each reader can check the result.",
+  },
+  {
+    name: "pdf-three-column-prose.pdf",
+    markdown: "# Three columns with inline emphasis\n\nPARA-01 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-02 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-03 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-04 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-05 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-06 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-07 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-08 A clear note records the local draft with simple words. Each reader can check the result.\n\nPARA-09 A clear note records the local draft with simple words. Each reader can check the result.",
+  },
+  {
     name: "pdf-untagged-table.pdf",
     markdown: "# A neutral inventory table\n\n| Code | Item | Count | Total |\n| --- | --- | --- | --- |\n| ITEM-001 | Plain notebooks | 12 | $18.00 |\n| ITEM-002 | Blue folders | 7 | $14.25 |\n| ITEM-003 | Index cards | 105 | $9.50 |\n| ITEM-004 | Paper clips | 1 | $3.75 |\n| ITEM-005 | Blank labels | 28 | $21.00 |\n| ITEM-006 | Draft sheets | 64 | $32.50 |",
   },
