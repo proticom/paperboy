@@ -5,6 +5,11 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Preserve PDF reading order, headings, lists, tables, and paragraphs using document tags or page layout. Rejoin wrapped text and spaced letters and symbols, and mark omitted tagged figures without decoding images.
+
 ## [0.3.0] - Unreleased
 
 ### Removed
