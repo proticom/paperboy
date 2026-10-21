@@ -223,6 +223,7 @@ describe("crawlSite", () => {
     { marker: "CRASH", reason: "conversion failed: worker exited with code 7" },
     { marker: "ERROR", reason: "conversion failed: synthetic worker error" },
     { marker: "FAIL", reason: "conversion failed: synthetic conversion failure" },
+    { marker: "OOM", reason: "conversion failed: Worker terminated due to reaching memory limit: JS heap out of memory" },
   ])("keeps pages around a $marker conversion and replaces the worker", async ({ marker, reason }) => {
     const server = await startTestServer({
       "/": htmlPage("Home", '<p>HOME BODY</p><a href="/before">Before</a><a href="/broken">Broken</a><a href="/after">After</a><a href="/last">Last</a>'),
@@ -238,8 +239,9 @@ describe("crawlSite", () => {
         maxPages: 4,
         outputPath,
         outputMode: "jsonl",
-        conversionTimeoutMs: 200,
+        conversionTimeoutMs: marker === "OOM" ? 2000 : 200,
         conversionWorkerUrl: new URL("./fixtures/controlled-convert-worker.mjs", import.meta.url),
+        conversionResourceLimits: { maxOldGenerationSizeMb: 16, maxYoungGenerationSizeMb: 4 },
       }));
       expect(performance.now() - started).toBeLessThan(5000);
       expect(result.crawledCount).toBe(4);

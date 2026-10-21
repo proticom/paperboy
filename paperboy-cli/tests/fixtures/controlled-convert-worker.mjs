@@ -5,6 +5,10 @@ parentPort.on("message", ({ id, filename, body }) => {
   if (body === "HANG") {
     while (true) {}
   }
+  if (body === "OOM") {
+    const retained = [];
+    while (true) retained.push(new Array(100_000).fill(0));
+  }
   if (body === "CRASH") process.exit(7);
   if (body === "ERROR") throw new Error("synthetic worker error");
   if (body === "FAIL") {

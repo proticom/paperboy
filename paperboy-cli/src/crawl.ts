@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import https from "node:https";
 import path from "node:path";
-import { Worker } from "node:worker_threads";
+import { Worker, type ResourceLimits } from "node:worker_threads";
 import { brotliDecompressSync, gunzipSync, inflateRawSync, inflateSync } from "node:zlib";
 import { toWordCount, type ConvertResult } from "@proticom/paperboy-converter";
 
@@ -20,6 +20,8 @@ type ContentDecoder = (body: Buffer, options: { maxOutputLength: number }) => Bu
 
 const DEFAULT_MAX_PAGE_BYTES = 8 * 1024 * 1024;
 const DEFAULT_CONVERSION_TIMEOUT_MS = 30_000;
+const CONVERSION_MAX_OLD_GENERATION_SIZE_MB = 512;
+const CONVERSION_MAX_YOUNG_GENERATION_SIZE_MB = 64;
 const CONTENT_DECODERS = new Map<string, ContentDecoder>([
   ["gzip", gunzipSync],
   ["x-gzip", gunzipSync],
@@ -68,6 +70,7 @@ export interface CrawlOptions {
   maxPageBytes?: number;
   conversionTimeoutMs?: number;
   conversionWorkerUrl?: URL;
+  conversionResourceLimits?: ResourceLimits;
   includePatterns?: string[];
   excludePatterns?: string[];
   minContentWords: number;
@@ -108,7 +111,12 @@ class PageConverter {
   private worker: Worker | undefined;
   private nextId = 0;
 
-  constructor(private readonly options: Pick<CrawlOptions, "conversionTimeoutMs" | "conversionWorkerUrl">) {}
+  constructor(
+    private readonly options: Pick<
+      CrawlOptions,
+      "conversionTimeoutMs" | "conversionWorkerUrl" | "conversionResourceLimits"
+    >,
+  ) {}
 
   async close(): Promise<void> {
     const worker = this.worker;
@@ -124,7 +132,13 @@ class PageConverter {
         import.meta.url.endsWith(".ts") ? "../dist/convert-worker.js" : "./convert-worker.js",
         import.meta.url,
       );
-      const worker = new Worker(workerUrl);
+      const worker = new Worker(workerUrl, {
+        resourceLimits: {
+          maxOldGenerationSizeMb: CONVERSION_MAX_OLD_GENERATION_SIZE_MB,
+          maxYoungGenerationSizeMb: CONVERSION_MAX_YOUNG_GENERATION_SIZE_MB,
+          ...this.options.conversionResourceLimits,
+        },
+      });
       this.worker = worker;
       const clearWorker = () => {
         if (this.worker === worker) this.worker = undefined;
