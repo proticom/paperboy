@@ -979,6 +979,10 @@ export async function crawlSite(
       }
       if (fetched.kind === "failure") {
         warnings.push(`Skipping ${item.url} (${fetched.reason}).`);
+        if (item.source === "seed") {
+          seedSkipReason = fetched.reason;
+          skippedCount += 1;
+        }
         continue;
       }
       if (!fetched.ok) {

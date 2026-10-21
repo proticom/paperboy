@@ -76,6 +76,39 @@ async function startCrawlServer(): Promise<{
   };
 }
 
+async function startFailureCrawlServer(): Promise<{
+  baseUrl: string;
+  close: () => Promise<void>;
+}> {
+  const server = http.createServer((req, res) => {
+    const pathname = new URL(req.url ?? "/", "http://127.0.0.1").pathname;
+    res.statusCode = 200;
+    res.setHeader("content-type", "text/html; charset=utf-8");
+    if (pathname === "/") {
+      res.end('<p>Healthy seed.</p><a href="/oversize">Oversize</a><a href="/bad-gzip">Bad gzip</a><a href="/zstd">Zstd</a>');
+    } else if (pathname === "/oversize") {
+      res.end("<p>" + "x".repeat(9 * 1024 * 1024) + "</p>");
+    } else if (pathname === "/bad-gzip") {
+      res.setHeader("content-encoding", "gzip");
+      res.end("not gzip");
+    } else if (pathname === "/zstd") {
+      res.setHeader("content-encoding", "zstd-bogus");
+      res.end("<p>body</p>");
+    } else {
+      res.statusCode = 404;
+      res.end("missing");
+    }
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  return {
+    baseUrl: `http://127.0.0.1:${port}`,
+    close: () => new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+    }),
+  };
+}
+
 let tempDir = "";
 let configDir = "";
 
@@ -400,6 +433,51 @@ describe("cli integration", () => {
       expect(jsonResult.status).toBe(1);
       expect(JSON.parse(jsonResult.stdout).seedSkipReason).toContain("non-HTML content type");
       expect(jsonResult.stdout).not.toContain("Error:");
+    } finally { await server.close(); }
+  });
+
+  it.each([
+    { path: "/oversize", reason: "response larger than 8388608 bytes" },
+    { path: "/bad-gzip", reason: "unsupported or invalid content-encoding: gzip" },
+    { path: "/zstd", reason: "unsupported or invalid content-encoding: zstd-bogus" },
+  ])("reports a $path seed fetch failure in human and JSON modes", async ({ path: seedPath, reason }) => {
+    const server = await startFailureCrawlServer();
+    try {
+      for (const flags of [[], ["--json"]]) {
+        const result = await runCliAsync([
+          "crawl", `${server.baseUrl}${seedPath}`, "--max-depth", "0", "--rate-limit-ms", "0",
+          "--timeout-ms", "3000", "-o", path.join(tempDir, `${seedPath.slice(1)}-${flags.length}.out`), ...flags,
+        ], configDir);
+        expect(result.status).toBe(1);
+        const errorLine = result.stderr.split("\n").some((line) => line.startsWith("Error: no pages were crawled from") && line.includes(reason));
+        if (flags.includes("--json")) {
+          // As for every failed crawl since #41, --json keeps stderr free of the Error: line; the reason is in the JSON.
+          expect(errorLine).toBe(false);
+          const report = JSON.parse(result.stdout);
+          expect(report.seedSkipReason).toContain(reason);
+          expect(report.skippedCount).toBe(1);
+          expect(report.failedFetchCount).toBe(0);
+        } else {
+          expect(errorLine).toBe(true);
+          expect(result.stdout).not.toMatch(/^Error: /m);
+        }
+      }
+    } finally { await server.close(); }
+  });
+
+  it("keeps a successful CLI crawl when child fetches fail", async () => {
+    const server = await startFailureCrawlServer();
+    try {
+      const result = await runCliAsync([
+        "crawl", server.baseUrl, "--max-depth", "1", "--rate-limit-ms", "0", "--timeout-ms", "3000",
+        "-o", path.join(tempDir, "children.md"),
+      ], configDir);
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("Crawled 1 pages");
+      expect(result.stderr).toContain("Skipping");
+      expect(result.stderr).toContain("response larger than 8388608 bytes");
+      expect(result.stderr).toContain("unsupported or invalid content-encoding: gzip");
+      expect(result.stderr).toContain("unsupported or invalid content-encoding: zstd-bogus");
     } finally { await server.close(); }
   });
 
