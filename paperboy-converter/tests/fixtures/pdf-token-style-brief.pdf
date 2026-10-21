@@ -1,0 +1,76 @@
+%PDF-1.7
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R /F3 6 0 R >> >> /Contents 7 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>
+endobj
+7 0 obj
+<< /Length 2478 >>
+stream
+BT /F2 8 Tf 1 0 0 1 48 752 Tm (/ /  F I E L D  B R I E F) Tj ET
+BT /F2 26 Tf 1 0 0 1 48 718 Tm (Smaller prompts, same answers) Tj ET
+BT /F2 15 Tf 1 0 0 1 48 688 Tm (418 to 233 tokens per request) Tj ET
+BT /F1 10 Tf 1 0 0 1 48 662 Tm (A plain request often carries more context than the model needs. This brief lists the) Tj ET
+BT /F1 10 Tf 1 0 0 1 48 649 Tm (habits that already help, five practices to add, and a two-line way to measure) Tj ET
+BT /F1 10 Tf 1 0 0 1 48 636 Tm (the result without whole-file dumps or long tool descriptions.) Tj ET
+BT /F2 9 Tf 1 0 0 1 48 610 Tm (A L R E A D Y  I N  P L A Y) Tj ET
+BT /F1 10 Tf 1 0 0 1 48 594 Tm (Three habits the team uses today.) Tj ET
+BT /F1 10 Tf 1 0 0 1 48 576 Tm (\225 Short system notes) Tj ET
+BT /F1 10 Tf 1 0 0 1 48 561 Tm (\225 Cached shared context) Tj ET
+BT /F1 10 Tf 1 0 0 1 48 546 Tm (\225 Trimmed chat history) Tj ET
+BT /F2 9 Tf 1 0 0 1 318 610 Tm (F I V E  P R A C T I C E S  T O  A D D) Tj ET
+BT /F1 10 Tf 1 0 0 1 318 594 Tm (Each one is small and easy to check.) Tj ET
+BT /F1 10 Tf 1 0 0 1 318 576 Tm (\225 Send diffs, not files) Tj ET
+BT /F1 10 Tf 1 0 0 1 318 561 Tm (\225 Name only the tools in use) Tj ET
+BT /F1 10 Tf 1 0 0 1 318 546 Tm (\225 Summarise old turns) Tj ET
+BT /F1 10 Tf 1 0 0 1 318 531 Tm (\225 Reuse stable prefixes) Tj ET
+BT /F1 10 Tf 1 0 0 1 318 516 Tm (\225 Cap the reply length) Tj ET
+BT /F2 9 Tf 1 0 0 1 48 482 Tm (W H A T  O N E  R E Q U E S T  L O A D S) Tj ET
+BT /F2 20 Tf 1 0 0 1 48 452 Tm (41%) Tj ET
+BT /F1 8 Tf 1 0 0 1 48 436 Tm (system notes) Tj ET
+BT /F2 20 Tf 1 0 0 1 178 452 Tm (27%) Tj ET
+BT /F1 8 Tf 1 0 0 1 178 436 Tm (tool text) Tj ET
+BT /F2 20 Tf 1 0 0 1 308 452 Tm (22%) Tj ET
+BT /F1 8 Tf 1 0 0 1 308 436 Tm (history) Tj ET
+BT /F2 20 Tf 1 0 0 1 438 452 Tm (10%) Tj ET
+BT /F1 8 Tf 1 0 0 1 438 436 Tm (the question) Tj ET
+BT /F2 9 Tf 1 0 0 1 48 398 Tm (H O W  T O  M E A S U R E) Tj ET
+BT /F1 10 Tf 1 0 0 1 48 382 Tm (1. Log the prompt size) Tj ET
+BT /F1 10 Tf 1 0 0 1 48 362 Tm (2. Change one habit) Tj ET
+BT /F1 10 Tf 1 0 0 1 48 342 Tm (3. Run the same ten tasks) Tj ET
+BT /F1 10 Tf 1 0 0 1 48 322 Tm (4. Compare size and quality) Tj ET
+BT /F3 7 Tf 1 0 0 1 62 371 Tm (same every time) Tj ET
+BT /F2 9 Tf 1 0 0 1 48 300 Tm (W H E R E  W E  G O  F R O M  H E R E) Tj ET
+BT /F1 10 Tf 1 0 0 1 48 284 Tm (Start with the two cheapest practices this week, then repeat the measurement and) Tj ET
+BT /F1 10 Tf 1 0 0 1 48 271 Tm (keep only the changes that hold quality steady.) Tj ET
+endstream
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000267 00000 n 
+0000000364 00000 n 
+0000000466 00000 n 
+0000000571 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+3101
+%%EOF
