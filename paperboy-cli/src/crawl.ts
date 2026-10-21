@@ -3,7 +3,7 @@ import http from "node:http";
 import https from "node:https";
 import path from "node:path";
 import { convertToMarkdown, toWordCount } from "@proticom/paperboy-converter";
-import { isAllowedByRobots, parseRobots } from "./robots.js";
+import { isAllowedByRobots, parseRobots, type RobotsPolicy } from "./robots.js";
 
 type CrawlSource = "seed" | "sitemap" | "link";
 type CrawlOutputMode = "single" | "mirror" | "jsonl";
@@ -50,8 +50,12 @@ export interface CrawlOptions {
 }
 
 export type RobotsUnavailable =
-  | { kind: "http"; status: number }
-  | { kind: "error"; error: string };
+  | { origin: string; kind: "http"; status: number }
+  | { origin: string; kind: "error"; error: string };
+
+type OriginRobots =
+  | { kind: "available"; policy: RobotsPolicy }
+  | { kind: "unavailable"; failure: RobotsUnavailable };
 
 export interface CrawlResult {
   mode: CrawlOutputMode | "map";
@@ -60,6 +64,7 @@ export interface CrawlResult {
   discoveredCount: number;
   crawledCount: number;
   robotsUnavailable: RobotsUnavailable | null;
+  robotsUnavailableOrigins: RobotsUnavailable[];
   warnings: string[];
   discoveredUrls: Array<{
     url: string;
@@ -216,7 +221,7 @@ function looksLikeSitemap(url: string): boolean {
 
 interface FetchTextExtra {
   maxBytes?: number;
-  canFollowRedirect?: (target: string) => boolean;
+  canFollowRedirect?: (target: string) => boolean | Promise<boolean>;
 }
 
 export async function fetchText(
@@ -295,11 +300,12 @@ async function fetchTextWithRedirects(
             response.destroy();
             return;
           }
-          if (extra?.canFollowRedirect && !extra.canFollowRedirect(nextUrl)) {
-            resolve({ ok: false, status, body: "", contentType, redirectBlockedTarget: nextUrl });
-          } else {
-            resolve(fetchTextWithRedirects(nextUrl, timeoutMs, userAgent, redirects + 1, extra));
-          }
+          resolve((async () => {
+            if (extra?.canFollowRedirect && !(await extra.canFollowRedirect(nextUrl))) {
+              return { ok: false, status, body: "", contentType, redirectBlockedTarget: nextUrl };
+            }
+            return fetchTextWithRedirects(nextUrl, timeoutMs, userAgent, redirects + 1, extra);
+          })());
           response.destroy();
           return;
         }
@@ -351,6 +357,16 @@ async function fetchTextWithRedirects(
   });
 }
 
+function redirectSkipWarning(url: string, target: string, unavailableOrigins: readonly RobotsUnavailable[]): string {
+  const targetOrigin = new URL(target).origin;
+  const unavailable = unavailableOrigins.find(({ origin }) => origin === targetOrigin);
+  if (unavailable) {
+    const reason = unavailable.kind === "http" ? `HTTP ${unavailable.status}` : unavailable.error;
+    return `Skipping ${url} (redirect to ${target}: robots.txt for ${unavailable.origin} unavailable (${reason}); treated as disallowed per RFC 9309).`;
+  }
+  return `Skipping ${url} (redirect to ${target} disallowed by robots.txt).`;
+}
+
 async function discoverSitemapUrls(
   rootUrl: URL,
   timeoutMs: number,
@@ -359,6 +375,7 @@ async function discoverSitemapUrls(
   warnings: string[],
   isAllowed: (url: string) => boolean,
   extra?: FetchTextExtra,
+  unavailableOrigins: readonly RobotsUnavailable[] = [],
 ): Promise<string[]> {
   const rootSitemap = new URL("/sitemap.xml", rootUrl).toString();
   const queue = [rootSitemap];
@@ -373,7 +390,7 @@ async function discoverSitemapUrls(
 
     const fetched = await fetchText(sitemapUrl, timeoutMs, userAgent, extra);
     if (fetched.redirectBlockedTarget) {
-      warnings.push(`Skipping ${sitemapUrl} (redirect to ${fetched.redirectBlockedTarget} disallowed by robots.txt).`);
+      warnings.push(redirectSkipWarning(sitemapUrl, fetched.redirectBlockedTarget, unavailableOrigins));
     }
     if (!fetched.ok) continue;
 
@@ -544,27 +561,42 @@ export async function crawlSite(
     throw new Error(`Unsupported crawl URL: ${startUrlRaw}`);
   }
 
-  const robotsResponse = await fetchText(
-    new URL("/robots.txt", startUrl).toString(),
-    options.timeoutMs,
-    options.userAgent,
-    { maxBytes: 500 * 1024 },
-  );
-  let robotsUnavailable: RobotsUnavailable | null = null;
-  if (robotsResponse.error !== undefined) {
-    robotsUnavailable = { kind: "error", error: robotsResponse.error };
-  } else if (robotsResponse.status === 429 || robotsResponse.status >= 500) {
-    robotsUnavailable = { kind: "http", status: robotsResponse.status };
-  }
-  if (robotsUnavailable) {
-    return {
-      mode: options.mapOnly ? "map" : options.outputMode,
-      startUrl: normalizedStart, outputPath: null,
-      discoveredCount: 0, crawledCount: 0, warnings, discoveredUrls: [],
-      robotsUnavailable,
-    };
-  }
-  const robots = parseRobots(robotsResponse.ok ? robotsResponse.body : "");
+  const robotsPolicies = new Map<string, Promise<OriginRobots>>();
+  const robotsUnavailableOrigins: RobotsUnavailable[] = [];
+  const getRobotsPolicy = (origin: string): Promise<OriginRobots> => {
+    const cached = robotsPolicies.get(origin);
+    if (cached) return cached;
+    const pending: Promise<OriginRobots> = (async () => {
+      const response = await fetchText(
+        new URL("/robots.txt", origin).toString(),
+        options.timeoutMs,
+        options.userAgent,
+        { maxBytes: 500 * 1024 },
+      );
+      let failure: RobotsUnavailable | null = null;
+      if (response.error !== undefined) {
+        failure = { origin, kind: "error", error: response.error };
+      } else if (response.status === 429 || response.status >= 500) {
+        failure = { origin, kind: "http", status: response.status };
+      }
+      if (failure) {
+        if (origin !== startUrl.origin) robotsUnavailableOrigins.push(failure);
+        return { kind: "unavailable", failure };
+      }
+      return { kind: "available", policy: parseRobots(response.ok ? response.body : "") };
+    })();
+    robotsPolicies.set(origin, pending);
+    return pending;
+  };
+  const unavailableResult = (failure: RobotsUnavailable): CrawlResult => ({
+    mode: options.mapOnly ? "map" : options.outputMode,
+    startUrl: normalizedStart, outputPath: null,
+    discoveredCount: 0, crawledCount: 0, warnings, discoveredUrls: [],
+    robotsUnavailable: failure, robotsUnavailableOrigins,
+  });
+  const seedRobots = await getRobotsPolicy(startUrl.origin);
+  if (seedRobots.kind === "unavailable") return unavailableResult(seedRobots.failure);
+  const robots = seedRobots.policy;
   const skippedByRobots = new Set<string>();
   const isPermitted = (url: string): boolean => {
     const parsed = new URL(url);
@@ -579,11 +611,17 @@ export async function crawlSite(
     return false;
   };
   const fetchExtra: FetchTextExtra = {
-    canFollowRedirect: (target) => {
+    canFollowRedirect: async (target) => {
+      const targetUrl = new URL(target);
+      const targetRobots = await getRobotsPolicy(targetUrl.origin);
+      if (targetRobots.kind === "unavailable") return false;
       const normalized = normalizeUrl(target, startUrl);
-      return isPermitted(target) && (normalized === null || isPermitted(normalized));
+      const normalizedUrl = normalized === null ? targetUrl : new URL(normalized);
+      return isAllowedByRobots(targetRobots.policy, targetUrl.pathname + targetUrl.search) &&
+        isAllowedByRobots(targetRobots.policy, normalizedUrl.pathname + normalizedUrl.search);
     },
   };
+  // Only the seed origin's Crawl-delay applies because other origins are reached through redirects.
   const robotsDelayMs = (robots.crawlDelaySeconds ?? 0) * 1000;
   if (robotsDelayMs > 30000) {
     warnings.push(`robots.txt Crawl-delay ${robots.crawlDelaySeconds}s capped at 30s.`);
@@ -598,6 +636,7 @@ export async function crawlSite(
     warnings,
     isAllowed,
     fetchExtra,
+    robotsUnavailableOrigins,
   );
 
   if (sitemapUrls.length > 0) {
@@ -634,8 +673,12 @@ export async function crawlSite(
 
     const fetched = await fetchText(item.url, options.timeoutMs, options.userAgent, fetchExtra);
     if (!fetched.ok) {
-      if (fetched.redirectBlockedTarget) {
-        warnings.push(`Skipping ${item.url} (redirect to ${fetched.redirectBlockedTarget} disallowed by robots.txt).`);
+      const target = fetched.redirectBlockedTarget;
+      if (target) {
+        const targetOrigin = new URL(target).origin;
+        const failure = robotsUnavailableOrigins.find(({ origin }) => origin === targetOrigin);
+        if (item.url === normalizedStart && failure) return unavailableResult(failure);
+        warnings.push(redirectSkipWarning(item.url, target, robotsUnavailableOrigins));
       } else {
         warnings.push(`Skipping ${item.url} (HTTP ${fetched.status || "error"}).`);
       }
@@ -715,6 +758,7 @@ export async function crawlSite(
       discoveredCount: discovered.length,
       crawledCount: 0,
       robotsUnavailable: null,
+      robotsUnavailableOrigins,
       warnings,
       discoveredUrls: discovered,
     };
@@ -740,6 +784,7 @@ export async function crawlSite(
     discoveredCount: discovered.length,
     crawledCount: records.length,
     robotsUnavailable: null,
+    robotsUnavailableOrigins,
     warnings,
     discoveredUrls: discovered,
   };

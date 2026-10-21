@@ -65,6 +65,8 @@ Crawl one page or a site on the same origin, convert HTML pages to Markdown, and
 
 The crawler reads up to 500 KiB of `/robots.txt` before sitemap discovery and selects the exact `paperboy` user-agent token (case-insensitive), falling back to `*`. It checks original and normalized paths and every redirect target; disallowed URLs are skipped with a warning and omitted from `--map`. Page requests wait for the greater of `--rate-limit-ms` and `Crawl-delay`; only `Crawl-delay` is capped at 30 seconds. HTTP 4xx responses other than 429 allow crawling without robots rules. HTTP 429, 5xx, network failures, timeouts, and redirect loops stop the crawl as fully disallowed, print an error to stderr (also with `--json`), expose `robotsUnavailable` in the result, and exit with code 1 without writing an output file.
 
+Cross-origin redirects use the target origin's robots policy at every hop, including sitemap redirects. An origin includes the scheme, host, and port. Each origin's robots policy is fetched once per crawl and shares any in-flight lookup. If another origin's robots is unavailable, the crawler skips that page, continues, records `robotsUnavailableOrigins`, and prints one stderr error per origin without changing the exit code. If the seed redirects to that origin, the crawl stops with `robotsUnavailable`, exit code 1, and no output file. Only the seed origin's `Crawl-delay` applies.
+
 Options:
 - `--max-pages <number>`: maximum pages to process (default `300`)
 - `--max-depth <number>`: maximum depth from seed URLs (default `4`)

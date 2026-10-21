@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { crawlSite, type CrawlOptions } from "../src/crawl.ts";
 
-type Route = { status: number; contentType: string; body: string };
+type Route = { status: number; contentType: string; body: string; location?: string };
 type RecordedRequest = { pathname: string; at: number; userAgent: string | undefined };
 
 async function startTestServer(
@@ -26,6 +26,7 @@ async function startTestServer(
     }
     res.statusCode = route.status;
     res.setHeader("content-type", route.contentType);
+    if (route.location) res.setHeader("location", route.location);
     res.end(route.body);
   });
   await new Promise<void>((resolve, reject) => {
@@ -89,6 +90,35 @@ describe("crawlSite", () => {
 
   afterEach(async () => {
     await fs.rm(tempDir, { recursive: true, force: true });
+  });
+
+  it("checks another origin's robots before following a page redirect", async () => {
+    const target = await startTestServer({
+      "/robots.txt": { status: 200, contentType: "text/plain", body: "User-agent: *\nDisallow: /" },
+      "/wild/y": leafPage("Private target"),
+    });
+    try {
+      const seed = await startTestServer({
+        "/robots.txt": { status: 200, contentType: "text/plain", body: "User-agent: *\nAllow: /wild/y" },
+        "/": htmlPage("Home", '<h1>Home page</h1><a href="/offhost2">Other origin</a>'),
+        "/offhost2": { status: 302, contentType: "text/html", body: "", location: `${target.baseUrl}/wild/y` },
+      });
+      try {
+        const outputPath = path.join(tempDir, "mirror");
+        const result = await crawlSite(seed.baseUrl, defaultOptions({ outputMode: "mirror", outputPath }));
+        expect(seed.requests.map(({ pathname }) => pathname)).toEqual(["/robots.txt", "/sitemap.xml", "/", "/offhost2"]);
+        expect(target.requests.map(({ pathname }) => pathname)).toEqual(["/robots.txt"]);
+        expect(target.requests.map(({ userAgent }) => userAgent)).toEqual(["paperboy-cli-test/0.0.0"]);
+        expect(result.discoveredUrls.map(({ url }) => url)).toEqual([`${seed.baseUrl}/`]);
+        expect(result.crawledCount).toBe(1);
+        expect(result.warnings).toEqual([`Skipping ${seed.baseUrl}/offhost2 (redirect to ${target.baseUrl}/wild/y disallowed by robots.txt).`]);
+        expect(await fs.readdir(outputPath)).toEqual(["index.md"]);
+      } finally {
+        await seed.close();
+      }
+    } finally {
+      await target.close();
+    }
   });
 
   it.each([false, true])("obeys robots for sitemap URLs and links (mapOnly=%s)", async (mapOnly) => {
@@ -166,7 +196,7 @@ describe("crawlSite", () => {
     try {
       const result = await crawlSite(server.baseUrl, defaultOptions({ outputPath: path.join(tempDir, "crawl.md") }));
       expect(server.requests.map((request) => request.pathname)).toEqual(["/robots.txt"]);
-      expect(result.robotsUnavailable).toEqual({ kind: "http", status });
+      expect(result.robotsUnavailable).toEqual({ origin: server.baseUrl, kind: "http", status });
       expect(result.crawledCount).toBe(0);
       expect(result.discoveredUrls).toEqual([]);
       expect(await fs.readdir(tempDir)).toEqual([]);

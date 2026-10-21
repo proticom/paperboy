@@ -13,7 +13,7 @@ export function createHttpFixture(routes: Record<string, HttpRoute>) {
     statusCode: number; headers: Record<string, string>;
   }) => void) => {
     requests.push({ url: url.toString(), at: Date.now() });
-    const route: HttpRoute = routes[url.pathname] ?? { kind: "response", status: 404, body: "" };
+    const route: HttpRoute = routes[url.toString()] ?? routes[url.pathname] ?? { kind: "response", status: 404, body: "" };
     let onTimeout = () => {};
     const request = new EventEmitter();
     return Object.assign(request, {
@@ -35,6 +35,9 @@ export function createHttpFixture(routes: Record<string, HttpRoute>) {
                 "content-type": route.contentType ?? "text/html",
                 ...(route.location ? { location: route.location } : {}),
               },
+            });
+            response.on("close", () => {
+              if (!response.readableEnded) response.emit("aborted");
             });
             responses.push(response);
             onResponse(response);

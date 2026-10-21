@@ -229,8 +229,13 @@ program
       if (result.robotsUnavailable) {
         const reason = result.robotsUnavailable.kind === "http"
           ? `HTTP ${result.robotsUnavailable.status}` : result.robotsUnavailable.error;
-        console.error(`Error: robots.txt for ${new URL(url).origin} is unavailable (${reason}); per RFC 9309 the site is treated as fully disallowed.`);
+        console.error(`Error: robots.txt for ${result.robotsUnavailable.origin} is unavailable (${reason}); per RFC 9309 the site is treated as fully disallowed.`);
         process.exitCode = 1;
+      }
+      for (const unavailable of result.robotsUnavailableOrigins) {
+        if (unavailable.origin === result.robotsUnavailable?.origin) continue;
+        const reason = unavailable.kind === "http" ? `HTTP ${unavailable.status}` : unavailable.error;
+        console.error(`Error: robots.txt for ${unavailable.origin} is unavailable (${reason}); per RFC 9309 pages on that host were treated as disallowed.`);
       }
 
       if (options.json) {

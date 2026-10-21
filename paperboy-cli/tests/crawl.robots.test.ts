@@ -7,8 +7,10 @@ import { crawlSite, fetchText, type CrawlOptions } from "../src/crawl.ts";
 
 const transport = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock("node:http", () => ({ default: transport }));
+vi.mock("node:https", () => ({ default: transport }));
 
 const origin = "http://127.0.0.1:12345";
+const otherOrigin = "http://localhost:23456";
 const response = (body: string, status = 200): HttpRoute => ({ kind: "response", status, body });
 const page = (body: string) => response(`<html><head><title>Public</title></head><body><h1>Public page</h1><p>Some public content.</p>${body}</body></html>`);
 let tempDir: string;
@@ -37,6 +39,176 @@ function install(routes: Record<string, HttpRoute>) {
 }
 
 describe("crawl robots enforcement without sockets", () => {
+  it.each([false, true])("uses the target origin robots for cross-origin redirects (mapOnly=%s)", async (mapOnly) => {
+    const fixture = install({
+      [`${origin}/robots.txt`]: response("User-agent: *\nAllow: /wild/y"),
+      [`${otherOrigin}/robots.txt`]: response("User-agent: *\nDisallow: /"),
+      "/": page('<a href="/offhost2">Other host</a>'),
+      "/offhost2": { kind: "response", status: 302, location: `${otherOrigin}/wild/y`, body: "" },
+      [`${otherOrigin}/wild/y`]: page("Private"),
+    });
+    const result = await crawlSite(origin, { ...options, mapOnly });
+    expect(fixture.requests.map(({ url }) => url)).toEqual([
+      `${origin}/robots.txt`, `${origin}/sitemap.xml`, `${origin}/`, `${origin}/offhost2`, `${otherOrigin}/robots.txt`,
+    ]);
+    expect(result.discoveredUrls.map(({ url }) => url)).toEqual([`${origin}/`]);
+    expect(result.robotsUnavailableOrigins).toEqual([]);
+    expect(result.warnings).toEqual([`Skipping ${origin}/offhost2 (redirect to ${otherOrigin}/wild/y disallowed by robots.txt).`]);
+    if (mapOnly) expect(await fs.readFile(options.outputPath!, "utf8")).toBe(`${origin}/\n`);
+    else expect(await fs.readdir(options.outputPath!)).toEqual(["index.md"]);
+  });
+
+  it.each([200, 404])("fetches and saves allowed cross-origin targets with robots HTTP %s", async (status) => {
+    const fixture = install({
+      [`${origin}/robots.txt`]: response("User-agent: *\nDisallow: /wild"),
+      [`${otherOrigin}/robots.txt`]: response(status === 200 ? "User-agent: paperboy\nAllow: /wild" : "User-agent: *\nDisallow: /", status),
+      "/": page('<a href="/offhost2">Other host</a>'),
+      "/offhost2": { kind: "response", status: 302, location: `${otherOrigin}/wild/y`, body: "" },
+      [`${otherOrigin}/wild/y`]: page("External allowed content"),
+    });
+    const result = await crawlSite(origin, options);
+    expect(fixture.requests.map(({ url }) => url)).toEqual([
+      `${origin}/robots.txt`, `${origin}/sitemap.xml`, `${origin}/`, `${origin}/offhost2`, `${otherOrigin}/robots.txt`, `${otherOrigin}/wild/y`,
+    ]);
+    expect(result.crawledCount).toBe(2);
+    expect(result.warnings).toEqual([]);
+    expect(await fs.readFile(path.join(options.outputPath!, "offhost2/index.md"), "utf8")).toContain("External allowed content");
+  });
+
+  it.each([
+    { route: response("", 503), failure: { kind: "http", status: 503 }, reason: "HTTP 503" },
+    { route: response("", 429), failure: { kind: "http", status: 429 }, reason: "HTTP 429" },
+    { route: { kind: "error", message: "ECONNRESET" }, failure: { kind: "error", error: "ECONNRESET" }, reason: "ECONNRESET" },
+    { route: { kind: "timeout" }, failure: { kind: "error", error: "Request timed out" }, reason: "Request timed out" },
+    { route: { kind: "response", status: 302, location: `${otherOrigin}/robots.txt`, body: "" }, failure: { kind: "error", error: "Too many redirects" }, reason: "Too many redirects" },
+  ] satisfies Array<{ route: HttpRoute; failure: { kind: "http"; status: number } | { kind: "error"; error: string }; reason: string }>)("skips unavailable target robots and continues ($reason)", async ({ route, failure, reason }) => {
+    const fixture = install({
+      [`${origin}/robots.txt`]: response(""), [`${otherOrigin}/robots.txt`]: route,
+      "/": page('<a href="/offhost2">Other host</a><a href="/next">Next</a><a href="/offhost3">Same other host</a>'),
+      "/offhost2": { kind: "response", status: 302, location: `${otherOrigin}/wild/y`, body: "" },
+      "/offhost3": { kind: "response", status: 302, location: `${otherOrigin}/wild/z`, body: "" },
+      "/next": page("Continued page"),
+    });
+    const result = await crawlSite(origin, options);
+    expect(result.robotsUnavailable).toBeNull();
+    expect(result.robotsUnavailableOrigins).toEqual([{ origin: otherOrigin, ...failure }]);
+    expect(result.discoveredUrls.map(({ url }) => url)).toEqual([`${origin}/`, `${origin}/next`]);
+    expect(result.crawledCount).toBe(2);
+    expect(fixture.requests.filter(({ url }) => new URL(url).origin === otherOrigin).map(({ url }) => url)).toEqual(
+      Array(reason === "Too many redirects" ? 6 : 1).fill(`${otherOrigin}/robots.txt`),
+    );
+    expect(result.warnings).toEqual(["offhost2", "offhost3"].map((link, index) =>
+      `Skipping ${origin}/${link} (redirect to ${otherOrigin}/wild/${index === 0 ? "y" : "z"}: robots.txt for ${otherOrigin} unavailable (${reason}); treated as disallowed per RFC 9309).`,
+    ));
+    expect(await fs.readFile(path.join(options.outputPath!, "next/index.md"), "utf8")).toContain("Continued page");
+  });
+
+  it("caches the target policy across links and later hops, and reuses the seed policy on return", async () => {
+    const fixture = install({
+      [`${origin}/robots.txt`]: response("User-agent: *\nDisallow: /seed-private"),
+      [`${otherOrigin}/robots.txt`]: response("User-agent: *\nDisallow: /private"),
+      "/": page('<a href="/offhost2">One</a><a href="/offhost3">Two</a><a href="/back">Return</a>'),
+      "/offhost2": { kind: "response", status: 302, location: `${otherOrigin}/hop`, body: "" },
+      [`${otherOrigin}/hop`]: { kind: "response", status: 302, location: "/private/secret", body: "" },
+      "/offhost3": { kind: "response", status: 302, location: `${otherOrigin}/public`, body: "" },
+      [`${otherOrigin}/public`]: page("Public target"),
+      "/back": { kind: "response", status: 302, location: `${otherOrigin}/return`, body: "" },
+      [`${otherOrigin}/return`]: { kind: "response", status: 302, location: `${origin}/seed-private`, body: "" },
+    });
+    const result = await crawlSite(origin, options);
+    expect(fixture.requests.map(({ url }) => url)).toEqual([
+      `${origin}/robots.txt`, `${origin}/sitemap.xml`, `${origin}/`, `${origin}/offhost2`, `${otherOrigin}/robots.txt`,
+      `${otherOrigin}/hop`, `${origin}/offhost3`, `${otherOrigin}/public`, `${origin}/back`, `${otherOrigin}/return`,
+    ]);
+    expect(result.crawledCount).toBe(2);
+    expect(result.warnings).toEqual([
+      `Skipping ${origin}/offhost2 (redirect to ${otherOrigin}/private/secret disallowed by robots.txt).`,
+      `Skipping ${origin}/back (redirect to ${origin}/seed-private disallowed by robots.txt).`,
+    ]);
+  });
+
+  it.each([false, true])("applies target rules to sitemap redirects and page redirects (mapOnly=%s)", async (mapOnly) => {
+    const fixture = install({
+      [`${origin}/robots.txt`]: response(""), [`${otherOrigin}/robots.txt`]: response("User-agent: *\nDisallow: /"),
+      "/sitemap.xml": { kind: "response", status: 302, location: `${otherOrigin}/map.xml`, body: "" },
+      "/": page('<a href="/offhost2">Other host</a>'),
+      "/offhost2": { kind: "response", status: 302, location: `${otherOrigin}/wild/y`, body: "" },
+    });
+    const result = await crawlSite(origin, { ...options, mapOnly });
+    expect(fixture.requests.map(({ url }) => url)).toEqual([
+      `${origin}/robots.txt`, `${origin}/sitemap.xml`, `${otherOrigin}/robots.txt`, `${origin}/`, `${origin}/offhost2`,
+    ]);
+    expect(result.warnings).toEqual([
+      `Skipping ${origin}/sitemap.xml (redirect to ${otherOrigin}/map.xml disallowed by robots.txt).`,
+      `Skipping ${origin}/offhost2 (redirect to ${otherOrigin}/wild/y disallowed by robots.txt).`,
+    ]);
+  });
+
+  it.each(["/admin/", "/admin$", "/caf%C3%A9", "/enc%7Ejoe"])("uses target original/normalized forms and percent encoding (%s)", async (rule) => {
+    const target = rule.startsWith("/admin") ? "/admin/" : rule === "/caf%C3%A9" ? "/café" : "/enc~joe";
+    const fixture = install({
+      [`${origin}/robots.txt`]: response(""),
+      [`${otherOrigin}/robots.txt`]: response(`User-agent: paper\nAllow: /\nUser-agent: PAPERBOY\nDisallow: ${rule}`),
+      "/": page('<a href="/offhost2">Other</a>'),
+      "/offhost2": { kind: "response", status: 302, location: `${otherOrigin}${target}`, body: "" },
+    });
+    const result = await crawlSite(origin, options);
+    expect(fixture.requests.filter(({ url }) => new URL(url).origin === otherOrigin).map(({ url }) => url)).toEqual([`${otherOrigin}/robots.txt`]);
+    expect(result.warnings).toEqual([`Skipping ${origin}/offhost2 (redirect to ${new URL(target, otherOrigin)} disallowed by robots.txt).`]);
+  });
+
+  it("treats schemes on the same host and port as different origins", async () => {
+    const httpsOrigin = origin.replace("http:", "https:");
+    const fixture = install({
+      [`${origin}/robots.txt`]: response(""), [`${httpsOrigin}/robots.txt`]: response("User-agent: *\nDisallow: /"),
+      "/": page('<a href="/offhost2">HTTPS</a>'),
+      "/offhost2": { kind: "response", status: 302, location: `${httpsOrigin}/wild/y`, body: "" },
+    });
+    const result = await crawlSite(origin, options);
+    expect(fixture.requests.filter(({ url }) => new URL(url).origin === httpsOrigin).map(({ url }) => url)).toEqual([`${httpsOrigin}/robots.txt`]);
+    expect(result.warnings).toEqual([`Skipping ${origin}/offhost2 (redirect to ${httpsOrigin}/wild/y disallowed by robots.txt).`]);
+  });
+
+  it.each([false, true])("stops without output if the seed redirects to unavailable robots (mapOnly=%s)", async (mapOnly) => {
+    const fixture = install({
+      [`${origin}/robots.txt`]: response(""), [`${otherOrigin}/robots.txt`]: response("", 503),
+      "/sitemap.xml": response(`<urlset><url><loc>${origin}/</loc></url></urlset>`),
+      "/": { kind: "response", status: 302, location: `${otherOrigin}/wild/y`, body: "" },
+    });
+    const result = await crawlSite(origin, { ...options, mapOnly });
+    expect(fixture.requests.map(({ url }) => url)).toEqual([`${origin}/robots.txt`, `${origin}/sitemap.xml`, `${origin}/`, `${otherOrigin}/robots.txt`]);
+    expect(result.robotsUnavailable).toEqual({ origin: otherOrigin, kind: "http", status: 503 });
+    expect(result.crawledCount).toBe(0);
+    expect(result.outputPath).toBeNull();
+    expect(await fs.readdir(tempDir)).toEqual([]);
+  });
+
+  it("caps other-origin robots while streaming and ignores its Crawl-delay", async () => {
+    let producedBytes = 0;
+    function* body() {
+      const prefix = Buffer.from("User-agent: paperboy\nAllow: /wild\nCrawl-delay: 60\n#");
+      producedBytes += prefix.length;
+      yield prefix;
+      for (let index = 0; index < 12800; index += 1) {
+        producedBytes += 4096;
+        yield Buffer.alloc(4096, "x");
+      }
+      yield Buffer.from("\nDisallow: /");
+    }
+    const fixture = install({
+      [`${origin}/robots.txt`]: response(""), [`${otherOrigin}/robots.txt`]: { kind: "response", status: 200, body: body() },
+      "/": page('<a href="/offhost2">Other</a><a href="/next">Next</a>'),
+      "/offhost2": { kind: "response", status: 302, location: `${otherOrigin}/wild/y`, body: "" },
+      [`${otherOrigin}/wild/y`]: page("Allowed"), "/next": page("Next"),
+    });
+    const result = await crawlSite(origin, options);
+    expect(result.crawledCount).toBe(3);
+    expect(result.warnings).toEqual([]);
+    expect(producedBytes).toBeLessThanOrEqual(500 * 1024 + 8192);
+    expect(fixture.responses[4].destroyed).toBe(true);
+    expect(fixture.requests.filter(({ url }) => url === `${otherOrigin}/robots.txt`)).toHaveLength(1);
+  });
+
   it.each([
     { mapOnly: false, rule: "/private", target: "/private/secret" },
     { mapOnly: true, rule: "/private", target: "/private/secret" },
@@ -112,7 +284,7 @@ describe("crawl robots enforcement without sockets", () => {
     const fixture = install({ "/robots.txt": response("", status), "/": page("Home") });
     const result = await crawlSite(origin, options);
     expect(fixture.requests.map(({ url }) => url)).toEqual([`${origin}/robots.txt`]);
-    expect(result.robotsUnavailable).toEqual({ kind: "http", status });
+    expect(result.robotsUnavailable).toEqual({ origin, kind: "http", status });
     expect(result.discoveredUrls).toEqual([]);
     expect(result.crawledCount).toBe(0);
     expect(await fs.readdir(tempDir)).toEqual([]);
@@ -126,7 +298,7 @@ describe("crawl robots enforcement without sockets", () => {
     const fixture = install({ "/robots.txt": route, "/": page("Home") });
     const result = await crawlSite(origin, { ...options, mapOnly: true, json: true });
     expect(fixture.requests.map(({ url }) => url)).toEqual(Array(error === "Too many redirects" ? 6 : 1).fill(`${origin}/robots.txt`));
-    expect(result.robotsUnavailable).toEqual({ kind: "error", error });
+    expect(result.robotsUnavailable).toEqual({ origin, kind: "error", error });
     expect(result.discoveredUrls).toEqual([]);
     expect(result.crawledCount).toBe(0);
     expect(await fs.readdir(tempDir)).toEqual([]);
