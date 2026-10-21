@@ -63,7 +63,7 @@ paperboy-cli convert "./table.xlsx" --json
 
 Crawl one page or a site on the same origin, convert HTML pages to Markdown, and follow links up to the depth limit. It also reads `sitemap.xml` (and nested sitemaps, up to the sitemap limit) and queues those URLs.
 
-The crawler reads `/robots.txt` once before sitemap discovery and obeys the `paperboy` rules, falling back to `*`. Disallowed URLs are skipped with a warning and omitted from `--map`. Page requests wait for the greater of `Crawl-delay` and `--rate-limit-ms`, capped at 30 seconds. Missing robots files (4xx) allow crawling; server or network failures also allow crawling with a warning.
+The crawler reads up to 500 KiB of `/robots.txt` before sitemap discovery and selects the exact `paperboy` user-agent token (case-insensitive), falling back to `*`. It checks original and normalized paths and every redirect target; disallowed URLs are skipped with a warning and omitted from `--map`. Page requests wait for the greater of `--rate-limit-ms` and `Crawl-delay`; only `Crawl-delay` is capped at 30 seconds. HTTP 4xx responses other than 429 allow crawling without robots rules. HTTP 429, 5xx, network failures, timeouts, and redirect loops stop the crawl as fully disallowed, print an error to stderr (also with `--json`), expose `robotsUnavailable` in the result, and exit with code 1 without writing an output file.
 
 Options:
 - `--max-pages <number>`: maximum pages to process (default `300`)

@@ -15,6 +15,14 @@ interface RobotsGroup {
   crawlDelaySeconds: number | null;
 }
 
+function normalizePercentEncoding(value: string): string {
+  return value.replace(/%[\da-f]{2}|[^\x00-\x7F]/giu, (part) => {
+    if (!part.startsWith("%")) return encodeURIComponent(part);
+    const character = String.fromCharCode(Number.parseInt(part.slice(1), 16));
+    return /^[a-z\d._~-]$/i.test(character) ? character : part.toUpperCase();
+  });
+}
+
 export function parseRobots(text: string): RobotsPolicy {
   const groups: RobotsGroup[] = [];
   let group: RobotsGroup | undefined;
@@ -38,16 +46,17 @@ export function parseRobots(text: string): RobotsPolicy {
       group.agents.push(value.toLowerCase());
     } else if (group && (field === "allow" || field === "disallow")) {
       hasDirectives = true;
-      if (!value.startsWith("/")) continue;
-      const anchored = value.endsWith("$");
-      const path = anchored ? value.slice(0, -1) : value;
+      const normalized = normalizePercentEncoding(value === "*" ? "/*" : value);
+      if (!normalized.startsWith("/")) continue;
+      const anchored = normalized.endsWith("$");
+      const path = anchored ? normalized.slice(0, -1) : normalized;
       const pattern = path.split("*")
         .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
         .join(".*");
       group.rules.push({
         kind: field,
         pattern: new RegExp(`^${pattern}${anchored ? "$" : ""}`),
-        length: Buffer.byteLength(value, "utf8"),
+        length: Buffer.byteLength(normalized, "utf8"),
       });
     } else if (group && field === "crawl-delay") {
       hasDirectives = true;
@@ -60,15 +69,8 @@ export function parseRobots(text: string): RobotsPolicy {
   }
 
   const productToken = "paperboy";
-  let selectedToken = "*";
-  for (const { agents } of groups) {
-    for (const agent of agents) {
-      if (agent !== "*" && productToken.includes(agent) &&
-          (selectedToken === "*" || agent.length > selectedToken.length)) {
-        selectedToken = agent;
-      }
-    }
-  }
+  const selectedToken = groups.some(({ agents }) => agents.includes(productToken))
+    ? productToken : "*";
 
   const selectedGroups = groups.filter(({ agents }) => agents.includes(selectedToken));
   const delays = selectedGroups.flatMap(({ crawlDelaySeconds }) =>
@@ -81,9 +83,10 @@ export function parseRobots(text: string): RobotsPolicy {
 }
 
 export function isAllowedByRobots(policy: RobotsPolicy, pathAndQuery: string): boolean {
+  const normalized = normalizePercentEncoding(pathAndQuery);
   let winner: RobotsRule | undefined;
   for (const rule of policy.rules) {
-    if (!rule.pattern.test(pathAndQuery)) continue;
+    if (!rule.pattern.test(normalized)) continue;
     if (!winner || rule.length > winner.length ||
         (rule.length === winner.length && rule.kind === "allow")) {
       winner = rule;

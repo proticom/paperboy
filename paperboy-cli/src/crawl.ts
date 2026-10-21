@@ -49,12 +49,17 @@ export interface CrawlOptions {
   userAgent: string;
 }
 
+export type RobotsUnavailable =
+  | { kind: "http"; status: number }
+  | { kind: "error"; error: string };
+
 export interface CrawlResult {
   mode: CrawlOutputMode | "map";
   startUrl: string;
   outputPath: string | null;
   discoveredCount: number;
   crawledCount: number;
+  robotsUnavailable: RobotsUnavailable | null;
   warnings: string[];
   discoveredUrls: Array<{
     url: string;
@@ -209,12 +214,18 @@ function looksLikeSitemap(url: string): boolean {
   return /sitemap/i.test(url) || /\.xml(\?|$)/i.test(url);
 }
 
-async function fetchText(
+interface FetchTextExtra {
+  maxBytes?: number;
+  canFollowRedirect?: (target: string) => boolean;
+}
+
+export async function fetchText(
   url: string,
   timeoutMs: number,
   userAgent: string,
-): Promise<{ ok: boolean; status: number; body: string; contentType: string }> {
-  return fetchTextWithRedirects(url, timeoutMs, userAgent, 0);
+  extra?: FetchTextExtra,
+): Promise<{ ok: boolean; status: number; body: string; contentType: string; error?: string; redirectBlockedTarget?: string }> {
+  return fetchTextWithRedirects(url, timeoutMs, userAgent, 0, extra);
 }
 
 async function fetchTextWithRedirects(
@@ -222,13 +233,15 @@ async function fetchTextWithRedirects(
   timeoutMs: number,
   userAgent: string,
   redirects: number,
-): Promise<{ ok: boolean; status: number; body: string; contentType: string }> {
+  extra?: FetchTextExtra,
+): Promise<{ ok: boolean; status: number; body: string; contentType: string; error?: string; redirectBlockedTarget?: string }> {
   if (redirects > 5) {
     return {
       ok: false,
       status: 0,
       body: "",
       contentType: "",
+      error: "Too many redirects",
     };
   }
 
@@ -242,7 +255,13 @@ async function fetchTextWithRedirects(
         status: 0,
         body: "",
         contentType: "",
+        error: "Invalid URL",
       });
+      return;
+    }
+
+    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+      resolve({ ok: false, status: 0, body: "", contentType: "", error: "Unsupported URL protocol" });
       return;
     }
 
@@ -261,25 +280,56 @@ async function fetchTextWithRedirects(
         const status = response.statusCode ?? 0;
         const contentType = String(response.headers["content-type"] ?? "");
         const location = response.headers.location;
+        response.on("error", (error: Error) => {
+          resolve({ ok: false, status: 0, body: "", contentType: "", error: error.message });
+        });
+        response.on("aborted", () => {
+          resolve({ ok: false, status: 0, body: "", contentType: "", error: "Response aborted" });
+        });
         if (status >= 300 && status < 400 && location) {
-          response.resume();
-          const nextUrl = new URL(location, parsedUrl).toString();
-          resolve(fetchTextWithRedirects(nextUrl, timeoutMs, userAgent, redirects + 1));
+          let nextUrl: string;
+          try {
+            nextUrl = new URL(location, parsedUrl).toString();
+          } catch {
+            resolve({ ok: false, status: 0, body: "", contentType: "", error: "Invalid redirect URL" });
+            response.destroy();
+            return;
+          }
+          if (extra?.canFollowRedirect && !extra.canFollowRedirect(nextUrl)) {
+            resolve({ ok: false, status, body: "", contentType, redirectBlockedTarget: nextUrl });
+          } else {
+            resolve(fetchTextWithRedirects(nextUrl, timeoutMs, userAgent, redirects + 1, extra));
+          }
+          response.destroy();
           return;
         }
 
         const chunks: Buffer[] = [];
-        response.on("data", (chunk: string | Buffer) => {
-          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-        });
-        response.on("end", () => {
+        const maxBytes = extra?.maxBytes ?? Infinity;
+        let bytes = 0;
+        let finished = false;
+        const finish = () => {
+          if (finished) return;
+          finished = true;
           resolve({
             ok: status >= 200 && status < 300,
             status,
-            body: Buffer.concat(chunks).toString("utf8"),
+            body: Buffer.concat(chunks, bytes).toString("utf8"),
             contentType,
           });
+        };
+        response.on("data", (chunk: string | Buffer) => {
+          if (finished) return;
+          const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          const part = buffer.subarray(0, Math.max(0, maxBytes - bytes));
+          chunks.push(part);
+          bytes += part.length;
+          if (bytes >= maxBytes) {
+            finish();
+            response.destroy();
+          }
         });
+        response.on("end", finish);
       },
     );
 
@@ -287,12 +337,13 @@ async function fetchTextWithRedirects(
       request.destroy(new Error("Request timed out"));
     });
 
-    request.on("error", () => {
+    request.on("error", (error: Error) => {
       resolve({
         ok: false,
         status: 0,
         body: "",
         contentType: "",
+        error: error.message,
       });
     });
 
@@ -307,6 +358,7 @@ async function discoverSitemapUrls(
   userAgent: string,
   warnings: string[],
   isAllowed: (url: string) => boolean,
+  extra?: FetchTextExtra,
 ): Promise<string[]> {
   const rootSitemap = new URL("/sitemap.xml", rootUrl).toString();
   const queue = [rootSitemap];
@@ -319,7 +371,10 @@ async function discoverSitemapUrls(
     if (!isAllowed(sitemapUrl)) continue;
     seenSitemaps.add(sitemapUrl);
 
-    const fetched = await fetchText(sitemapUrl, timeoutMs, userAgent);
+    const fetched = await fetchText(sitemapUrl, timeoutMs, userAgent, extra);
+    if (fetched.redirectBlockedTarget) {
+      warnings.push(`Skipping ${sitemapUrl} (redirect to ${fetched.redirectBlockedTarget} disallowed by robots.txt).`);
+    }
     if (!fetched.ok) continue;
 
     const locs = parseSitemapLocs(fetched.body);
@@ -327,6 +382,7 @@ async function discoverSitemapUrls(
       const normalized = normalizeUrl(loc, rootUrl);
       if (!normalized) continue;
       if (!isInternalUrl(normalized, rootUrl)) continue;
+      if (!isAllowed(new URL(loc, rootUrl).toString())) continue;
       if (!isAllowed(normalized)) continue;
 
       if (looksLikeSitemap(normalized)) {
@@ -492,26 +548,47 @@ export async function crawlSite(
     new URL("/robots.txt", startUrl).toString(),
     options.timeoutMs,
     options.userAgent,
+    { maxBytes: 500 * 1024 },
   );
-  const robots = parseRobots(robotsResponse.ok ? robotsResponse.body : "");
-  if (!robotsResponse.ok && !(robotsResponse.status >= 400 && robotsResponse.status < 500)) {
-    warnings.push(`Could not fetch robots.txt (${robotsResponse.status || "error"}); crawling without robots rules.`);
+  let robotsUnavailable: RobotsUnavailable | null = null;
+  if (robotsResponse.error !== undefined) {
+    robotsUnavailable = { kind: "error", error: robotsResponse.error };
+  } else if (robotsResponse.status === 429 || robotsResponse.status >= 500) {
+    robotsUnavailable = { kind: "http", status: robotsResponse.status };
   }
+  if (robotsUnavailable) {
+    return {
+      mode: options.mapOnly ? "map" : options.outputMode,
+      startUrl: normalizedStart, outputPath: null,
+      discoveredCount: 0, crawledCount: 0, warnings, discoveredUrls: [],
+      robotsUnavailable,
+    };
+  }
+  const robots = parseRobots(robotsResponse.ok ? robotsResponse.body : "");
   const skippedByRobots = new Set<string>();
-  const isAllowed = (url: string): boolean => {
+  const isPermitted = (url: string): boolean => {
     const parsed = new URL(url);
-    if (isAllowedByRobots(robots, parsed.pathname + parsed.search)) return true;
+    return isAllowedByRobots(robots, parsed.pathname + parsed.search);
+  };
+  const isAllowed = (url: string): boolean => {
+    if (isPermitted(url)) return true;
     if (!skippedByRobots.has(url)) {
       skippedByRobots.add(url);
       warnings.push(`Skipping ${url} (disallowed by robots.txt).`);
     }
     return false;
   };
+  const fetchExtra: FetchTextExtra = {
+    canFollowRedirect: (target) => {
+      const normalized = normalizeUrl(target, startUrl);
+      return isPermitted(target) && (normalized === null || isPermitted(normalized));
+    },
+  };
   const robotsDelayMs = (robots.crawlDelaySeconds ?? 0) * 1000;
   if (robotsDelayMs > 30000) {
     warnings.push(`robots.txt Crawl-delay ${robots.crawlDelaySeconds}s capped at 30s.`);
   }
-  const effectiveDelayMs = Math.min(30000, Math.max(options.rateLimitMs, robotsDelayMs));
+  const effectiveDelayMs = Math.max(options.rateLimitMs, Math.min(30000, robotsDelayMs));
 
   const sitemapUrls = await discoverSitemapUrls(
     startUrl,
@@ -520,6 +597,7 @@ export async function crawlSite(
     options.userAgent,
     warnings,
     isAllowed,
+    fetchExtra,
   );
 
   if (sitemapUrls.length > 0) {
@@ -531,7 +609,7 @@ export async function crawlSite(
     }
   }
 
-  if (isAllowed(normalizedStart) && !enqueued.has(normalizedStart)) {
+  if (isAllowed(startUrl.toString()) && isAllowed(normalizedStart) && !enqueued.has(normalizedStart)) {
     queue.push({ url: normalizedStart, depth: 0, source: "seed" });
     enqueued.add(normalizedStart);
   }
@@ -554,9 +632,13 @@ export async function crawlSite(
     }
     fetches += 1;
 
-    const fetched = await fetchText(item.url, options.timeoutMs, options.userAgent);
+    const fetched = await fetchText(item.url, options.timeoutMs, options.userAgent, fetchExtra);
     if (!fetched.ok) {
-      warnings.push(`Skipping ${item.url} (HTTP ${fetched.status || "error"}).`);
+      if (fetched.redirectBlockedTarget) {
+        warnings.push(`Skipping ${item.url} (redirect to ${fetched.redirectBlockedTarget} disallowed by robots.txt).`);
+      } else {
+        warnings.push(`Skipping ${item.url} (HTTP ${fetched.status || "error"}).`);
+      }
       continue;
     }
     if (!/html|xml/i.test(fetched.contentType)) {
@@ -602,6 +684,7 @@ export async function crawlSite(
       const normalized = normalizeUrl(link, startUrl);
       if (!normalized) continue;
       if (!isInternalUrl(normalized, startUrl)) continue;
+      if (!isAllowed(link)) continue;
       if (!isAllowed(normalized)) continue;
       if (!shouldIncludeUrl(normalized, includePatterns, excludePatterns)) continue;
       if (enqueued.has(normalized) || visited.has(normalized)) continue;
@@ -631,6 +714,7 @@ export async function crawlSite(
       outputPath,
       discoveredCount: discovered.length,
       crawledCount: 0,
+      robotsUnavailable: null,
       warnings,
       discoveredUrls: discovered,
     };
@@ -655,6 +739,7 @@ export async function crawlSite(
     outputPath,
     discoveredCount: discovered.length,
     crawledCount: records.length,
+    robotsUnavailable: null,
     warnings,
     discoveredUrls: discovered,
   };

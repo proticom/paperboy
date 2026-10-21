@@ -226,6 +226,13 @@ program
         userAgent: `paperboy/${packageJson.version} (+https://github.com/proticom/paperboy)`,
       });
 
+      if (result.robotsUnavailable) {
+        const reason = result.robotsUnavailable.kind === "http"
+          ? `HTTP ${result.robotsUnavailable.status}` : result.robotsUnavailable.error;
+        console.error(`Error: robots.txt for ${new URL(url).origin} is unavailable (${reason}); per RFC 9309 the site is treated as fully disallowed.`);
+        process.exitCode = 1;
+      }
+
       if (options.json) {
         console.log(JSON.stringify(result, null, 2));
         return;

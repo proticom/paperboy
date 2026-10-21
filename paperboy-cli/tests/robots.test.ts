@@ -21,10 +21,40 @@ Disallow: /public
     expect(policy.crawlDelaySeconds).toBe(0.2);
   });
 
-  it("selects the longest matching agent substring", () => {
+  it("selects the exact product token case-insensitively", () => {
     const policy = parseRobots("User-agent: paper\nDisallow: /short\nUser-agent: PAPERBOY\nDisallow: /long");
     expect(isAllowedByRobots(policy, "/short")).toBe(true);
     expect(isAllowedByRobots(policy, "/long")).toBe(false);
+  });
+
+  it.each(["paper", "boy"])("rejects partial agent token %s", (agent) => {
+    const policy = parseRobots(`User-agent: ${agent}\nDisallow: /wrong\nCrawl-delay: 8\nUser-agent: *\nDisallow: /fallback`);
+    expect(isAllowedByRobots(policy, "/wrong")).toBe(true);
+    expect(isAllowedByRobots(policy, "/fallback")).toBe(false);
+    expect(policy.crawlDelaySeconds).toBeNull();
+    expect(isAllowedByRobots(parseRobots(`User-agent: ${agent}\nDisallow: /`), "/any")).toBe(true);
+  });
+
+  it("normalizes bare wildcard Allow and Disallow rules", () => {
+    expect(isAllowedByRobots(parseRobots("User-agent: *\nDisallow: *"), "/anything")).toBe(false);
+    const policy = parseRobots("User-agent: *\nDisallow: /*\nAllow: *");
+    expect(isAllowedByRobots(policy, "/anything")).toBe(true);
+  });
+
+  it.each([
+    ["/café", "/caf%C3%A9"],
+    ["/caf%c3%a9", "/café"],
+    ["/enc%7Ejoe", "/enc~joe"],
+    ["/enc~joe", "/enc%7ejoe"],
+    ["/reserved%2fpath", "/reserved%2Fpath"],
+  ])("percent-normalizes rule %s and path %s", (rule, path) => {
+    expect(isAllowedByRobots(parseRobots(`User-agent: *\nDisallow: ${rule}`), path)).toBe(false);
+  });
+
+  it("keeps encoded reserved characters distinct from literal characters", () => {
+    const policy = parseRobots("User-agent: *\nDisallow: /reserved%2Fpath");
+    expect(isAllowedByRobots(policy, "/reserved/path")).toBe(true);
+    expect(isAllowedByRobots(policy, "/reserved%2fpath")).toBe(false);
   });
 
   it("falls back to and merges wildcard groups", () => {

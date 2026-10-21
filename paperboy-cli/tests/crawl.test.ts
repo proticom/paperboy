@@ -137,7 +137,7 @@ describe("crawlSite", () => {
     }
   });
 
-  it.each([404, 500])("crawls without restrictions for robots HTTP %s", async (status) => {
+  it.each([403, 404])("crawls without restrictions for robots HTTP %s", async (status) => {
     const server = await startTestServer({
       "/robots.txt": { status, contentType: "text/plain", body: "User-agent: *\nDisallow: /" },
       "/": htmlPage("Home", '<h1>Home</h1><a href="/private/secret">Secret</a>'),
@@ -152,9 +152,24 @@ describe("crawlSite", () => {
       expect(result.discoveredUrls.map((entry) => entry.url)).toEqual([
         `${server.baseUrl}/`, `${server.baseUrl}/private/secret`,
       ]);
-      expect(result.warnings).toEqual(status === 404 ? [] : [
-        "Could not fetch robots.txt (500); crawling without robots rules.",
-      ]);
+      expect(result.warnings).toEqual([]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it.each([429, 503])("stops without sitemap or page requests for unavailable robots HTTP %s", async (status) => {
+    const server = await startTestServer({
+      "/robots.txt": { status, contentType: "text/plain", body: "Unavailable" },
+      "/": leafPage("Home"),
+    });
+    try {
+      const result = await crawlSite(server.baseUrl, defaultOptions({ outputPath: path.join(tempDir, "crawl.md") }));
+      expect(server.requests.map((request) => request.pathname)).toEqual(["/robots.txt"]);
+      expect(result.robotsUnavailable).toEqual({ kind: "http", status });
+      expect(result.crawledCount).toBe(0);
+      expect(result.discoveredUrls).toEqual([]);
+      expect(await fs.readdir(tempDir)).toEqual([]);
     } finally {
       await server.close();
     }
