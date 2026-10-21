@@ -979,6 +979,10 @@ export async function crawlSite(
       }
       if (fetched.kind === "failure") {
         warnings.push(`Skipping ${item.url} (${fetched.reason}).`);
+        if (item.source === "seed") {
+          seedSkipReason = fetched.reason;
+          skippedCount += 1;
+        }
         continue;
       }
       if (!fetched.ok) {
@@ -1062,6 +1066,7 @@ export async function crawlSite(
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const reason = error instanceof ConversionTimeoutError ? message : `conversion failed: ${message}`;
+        if (item.source === "seed") seedSkipReason = reason;
         warnings.push(`Skipping ${item.url} (${reason}).`);
       }
     }

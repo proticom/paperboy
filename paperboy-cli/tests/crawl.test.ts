@@ -506,6 +506,7 @@ describe("crawlSite", () => {
       expect(performance.now() - started).toBeLessThan(5000);
       expect(result.crawledCount).toBe(4);
       expect(result.skippedCount).toBe(1);
+      expect(result.seedSkipReason).toBeUndefined();
       expect(result.discoveredUrls.map((page) => page.url)).toEqual([
         `${server.baseUrl}/`, `${server.baseUrl}/before`, `${server.baseUrl}/after`, `${server.baseUrl}/last`,
       ]);
@@ -522,6 +523,30 @@ describe("crawlSite", () => {
       expect(records.map((record) => record.metadata.warnings[1])).toEqual([
         "conversion:1", "conversion:2", "conversion:1", "conversion:2",
       ]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it.each([
+    { marker: "HANG", reason: "conversion timed out after 200 ms" },
+    { marker: "ERROR", reason: "conversion failed: synthetic worker error" },
+    { marker: "CRASH", reason: "conversion failed: worker exited with code 7" },
+  ])("reports a $marker conversion failure for the seed", async ({ marker, reason }) => {
+    const server = await startTestServer({
+      "/": { status: 200, contentType: "text/html", body: marker },
+    });
+    try {
+      const result = await crawlSite(server.baseUrl, defaultOptions({
+        conversionTimeoutMs: 200,
+        conversionWorkerUrl: new URL("./fixtures/controlled-convert-worker.mjs", import.meta.url),
+        conversionResourceLimits: { maxOldGenerationSizeMb: 16, maxYoungGenerationSizeMb: 4 },
+      }));
+      expect(result.seedSkipReason).toBe(reason);
+      expect(result.crawledCount).toBe(0);
+      expect(result.skippedCount).toBe(1);
+      expect(result.failedFetchCount).toBe(0);
+      expect(result.warnings).toEqual([`Skipping ${server.baseUrl}/ (${reason}).`]);
     } finally {
       await server.close();
     }
@@ -945,6 +970,88 @@ describe("crawlSite", () => {
 
       expect(result.crawledCount).toBe(0);
       expect(result.seedSkipReason).toBe("non-HTML content type: application/json");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it.each([
+    {
+      name: "an oversized body",
+      route: (): Route => ({
+        status: 200,
+        contentType: "text/html",
+        body: "<p>" + "x".repeat(9 * 1024 * 1024) + "</p>",
+      }),
+      reason: "response larger than 8388608 bytes",
+    },
+    {
+      name: "an invalid gzip body",
+      route: (): Route => ({
+        status: 200,
+        contentType: "text/html",
+        contentEncoding: "gzip",
+        body: Buffer.from("not gzip"),
+      }),
+      reason: "unsupported or invalid content-encoding: gzip",
+    },
+    {
+      name: "an unsupported content encoding",
+      route: (): Route => ({
+        status: 200,
+        contentType: "text/html",
+        contentEncoding: "zstd-bogus",
+        body: "<p>body</p>",
+      }),
+      reason: "unsupported or invalid content-encoding: zstd-bogus",
+    },
+  ])("counts $name as a skipped seed, not a failed fetch", async ({ route, reason }) => {
+    const server = await startTestServer({ "/": route() });
+    try {
+      const result = await crawlSite(server.baseUrl, defaultOptions({ maxDepth: 0 }));
+
+      expect(result.seedSkipReason).toContain(reason);
+      expect(result.skippedCount).toBe(1);
+      expect(result.failedFetchCount).toBe(0);
+      expect(result.crawledCount).toBe(0);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("keeps a normal seed when child fetches fail", async () => {
+    const server = await startTestServer({
+      "/": htmlPage("Home", '<p>HOME BODY</p><a href="/oversize">Oversize</a><a href="/bad-gzip">Bad gzip</a><a href="/zstd">Zstd</a>'),
+      "/oversize": {
+        status: 200,
+        contentType: "text/html",
+        body: "<p>" + "x".repeat(9 * 1024 * 1024) + "</p>",
+      },
+      "/bad-gzip": {
+        status: 200,
+        contentType: "text/html",
+        contentEncoding: "gzip",
+        body: Buffer.from("not gzip"),
+      },
+      "/zstd": {
+        status: 200,
+        contentType: "text/html",
+        contentEncoding: "zstd-bogus",
+        body: "<p>body</p>",
+      },
+    });
+    try {
+      const result = await crawlSite(server.baseUrl, defaultOptions({ maxDepth: 1 }));
+
+      expect(result.crawledCount).toBe(1);
+      expect(result.skippedCount).toBe(0);
+      expect(result.failedFetchCount).toBe(0);
+      expect(result.seedSkipReason).toBeUndefined();
+      expect(result.warnings).toEqual([
+        `Skipping ${server.baseUrl}/oversize (response larger than 8388608 bytes).`,
+        `Skipping ${server.baseUrl}/bad-gzip (unsupported or invalid content-encoding: gzip).`,
+        `Skipping ${server.baseUrl}/zstd (unsupported or invalid content-encoding: zstd-bogus).`,
+      ]);
     } finally {
       await server.close();
     }
