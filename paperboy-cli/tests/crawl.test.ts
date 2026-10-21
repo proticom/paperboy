@@ -15,13 +15,16 @@ type Route = {
   contentType: string;
   contentEncoding?: string;
   body: string | Buffer;
+  location?: string;
 };
 
 async function startTestServer(
   routes: Record<string, Route>,
-): Promise<{ baseUrl: string; close: () => Promise<void> }> {
+): Promise<{ baseUrl: string; requests: string[]; close: () => Promise<void> }> {
+  const requests: string[] = [];
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
+    requests.push(url.pathname);
     const route = routes[url.pathname];
     if (!route) {
       res.statusCode = 404;
@@ -32,6 +35,7 @@ async function startTestServer(
     res.statusCode = route.status;
     res.setHeader("content-type", route.contentType);
     if (route.contentEncoding) res.setHeader("content-encoding", route.contentEncoding);
+    if (route.location) res.setHeader("location", route.location);
     res.end(route.body);
   });
   await new Promise<void>((resolve, reject) => {
@@ -41,6 +45,7 @@ async function startTestServer(
   const { port } = server.address() as AddressInfo;
   return {
     baseUrl: `http://127.0.0.1:${port}`,
+    requests,
     close: () =>
       new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));
@@ -1035,6 +1040,101 @@ describe("crawlSite", () => {
       expect(
         result.discoveredUrls.some((entry) => entry.url.includes("example.com")),
       ).toBe(false);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("resolves relative links from a trailing-slash seed", async () => {
+    const server = await startTestServer({
+      "/docs/": htmlPage("Docs", '<a href="a.html">A</a><a href="b.html">B</a>'),
+      "/docs/a.html": leafPage("A"),
+      "/docs/b.html": leafPage("B"),
+    });
+    try {
+      const result = await crawlSite(`${server.baseUrl}/docs/`, {
+        ...defaultOptions({ maxDepth: 1 }),
+        outputPath: path.join(tempDir, "crawl.md"),
+      });
+
+      expect(result.discoveredUrls.map((entry) => entry.url)).toEqual([
+        `${server.baseUrl}/docs`,
+        `${server.baseUrl}/docs/a.html`,
+        `${server.baseUrl}/docs/b.html`,
+      ]);
+      expect(server.requests).not.toContain("/a.html");
+      expect(server.requests).not.toContain("/b.html");
+      expect(result.warnings).not.toContain(
+        `Skipping ${server.baseUrl}/a.html (HTTP 404).`,
+      );
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("resolves links from the final URL after a redirect", async () => {
+    const server = await startTestServer({
+      "/docs": {
+        status: 301,
+        contentType: "text/plain",
+        body: "redirect",
+        location: "/docs/",
+      },
+      "/docs/": htmlPage("Docs", '<a href="a.html">A</a><a href="b.html">B</a>'),
+      "/docs/a.html": leafPage("A"),
+      "/docs/b.html": leafPage("B"),
+    });
+    try {
+      const result = await crawlSite(`${server.baseUrl}/docs`, {
+        ...defaultOptions({ maxDepth: 1 }),
+        outputPath: path.join(tempDir, "crawl.md"),
+      });
+
+      expect(result.discoveredUrls.map((entry) => entry.url)).toEqual([
+        `${server.baseUrl}/docs`,
+        `${server.baseUrl}/docs/a.html`,
+        `${server.baseUrl}/docs/b.html`,
+      ]);
+      expect(server.requests).not.toContain("/a.html");
+      expect(server.requests).not.toContain("/b.html");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("resolves a relative link from a no-slash nested URL", async () => {
+    const server = await startTestServer({
+      "/guide/intro": htmlPage("Intro", '<a href="next">Next</a>'),
+      "/guide/next": leafPage("Next"),
+    });
+    try {
+      const result = await crawlSite(`${server.baseUrl}/guide/intro`, {
+        ...defaultOptions({ maxDepth: 1 }),
+        outputPath: path.join(tempDir, "crawl.md"),
+      });
+
+      expect(result.discoveredUrls.map((entry) => entry.url)).toContain(
+        `${server.baseUrl}/guide/next`,
+      );
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("deduplicates slash variants of the same URL", async () => {
+    const server = await startTestServer({
+      "/": htmlPage("Home", '<a href="/dup">One</a><a href="/dup/">Two</a>'),
+      "/dup": leafPage("Duplicate"),
+    });
+    try {
+      const result = await crawlSite(server.baseUrl, {
+        ...defaultOptions(),
+        outputPath: path.join(tempDir, "crawl.md"),
+      });
+
+      expect(
+        result.discoveredUrls.filter((entry) => entry.url === `${server.baseUrl}/dup`),
+      ).toHaveLength(1);
     } finally {
       await server.close();
     }

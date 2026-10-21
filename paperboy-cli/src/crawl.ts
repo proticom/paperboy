@@ -12,7 +12,7 @@ type CrawlSource = "seed" | "sitemap" | "link";
 type CrawlOutputMode = "single" | "mirror" | "jsonl";
 
 type FetchResult =
-  | { kind: "response"; ok: boolean; status: number; body: string; contentType: string }
+  | { kind: "response"; ok: boolean; status: number; body: string; contentType: string; finalUrl: string }
   | { kind: "failure"; reason: string };
 
 type FetchOptions = Pick<CrawlOptions, "timeoutMs" | "userAgent"> & { maxPageBytes: number };
@@ -41,6 +41,7 @@ const CONTENT_DECODERS = new Map<string, ContentDecoder>([
 
 interface QueueItem {
   url: string;
+  fetchUrl: string;
   depth: number;
   source: CrawlSource;
 }
@@ -219,7 +220,11 @@ function compilePatterns(patterns: string[]): RegExp[] {
   return patterns.map((pattern) => new RegExp(pattern, "i"));
 }
 
-function normalizeUrl(rawUrl: string, base: URL): string | null {
+function normalizeUrl(
+  rawUrl: string,
+  base: URL,
+  preserveTrailingSlash = false,
+): string | null {
   try {
     const url = new URL(rawUrl, base);
     if (url.protocol !== "http:" && url.protocol !== "https:") {
@@ -230,7 +235,11 @@ function normalizeUrl(rawUrl: string, base: URL): string | null {
       url.searchParams.delete(param);
     }
     url.search = "";
-    if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
+    if (
+      !preserveTrailingSlash &&
+      url.pathname.length > 1 &&
+      url.pathname.endsWith("/")
+    ) {
       url.pathname = url.pathname.slice(0, -1);
     }
     return url.toString();
@@ -353,6 +362,7 @@ async function fetchTextWithRedirects(
       status: 0,
       body: "",
       contentType: "",
+      finalUrl: url,
     };
   }
 
@@ -367,6 +377,7 @@ async function fetchTextWithRedirects(
         status: 0,
         body: "",
         contentType: "",
+        finalUrl: url,
       });
       return;
     }
@@ -397,7 +408,7 @@ async function fetchTextWithRedirects(
         }
         if (status < 200 || status >= 300) {
           response.resume();
-          resolve({ kind: "response", ok: false, status, body: "", contentType });
+          resolve({ kind: "response", ok: false, status, body: "", contentType, finalUrl: parsedUrl.toString() });
           return;
         }
 
@@ -452,7 +463,7 @@ async function fetchTextWithRedirects(
                 }
               }
             }
-            resolve({ kind: "response", ok: true, status, body: body.toString("utf8"), contentType });
+            resolve({ kind: "response", ok: true, status, body: body.toString("utf8"), contentType, finalUrl: parsedUrl.toString() });
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             resolve({ kind: "failure", reason: `response could not be read: ${message}` });
@@ -472,6 +483,7 @@ async function fetchTextWithRedirects(
         status: 0,
         body: "",
         contentType: "",
+        finalUrl: url,
       });
     });
 
@@ -682,7 +694,13 @@ export async function crawlSite(
   );
 
   if (!enqueued.has(normalizedStart)) {
-    primaryQueue.push({ url: normalizedStart, depth: 0, source: "seed" });
+    primaryQueue.push({
+      url: normalizedStart,
+      fetchUrl:
+        normalizeUrl(startUrl.toString(), startUrl, true) ?? normalizedStart,
+      depth: 0,
+      source: "seed",
+    });
     enqueued.add(normalizedStart);
   }
 
@@ -690,7 +708,12 @@ export async function crawlSite(
     for (const url of sitemapUrls) {
       if (!shouldIncludeUrl(url, includePatterns, excludePatterns)) continue;
       if (enqueued.has(url)) continue;
-      const item = { url, depth: 0, source: "sitemap" as const };
+      const item = {
+        url,
+        fetchUrl: normalizeUrl(url, startUrl, true) ?? url,
+        depth: 0,
+        source: "sitemap" as const,
+      };
       sitemapQueue.push(item);
       waitingSitemapItems.set(url, item);
       enqueued.add(url);
@@ -726,7 +749,7 @@ export async function crawlSite(
       }
       fetches += 1;
 
-      const fetched = await fetchText(item.url, fetchOptions);
+      const fetched = await fetchText(item.fetchUrl, fetchOptions);
       if (fetched.kind === "failure") {
         warnings.push(`Skipping ${item.url} (${fetched.reason}).`);
         continue;
@@ -755,7 +778,7 @@ export async function crawlSite(
           });
         const links = item.depth >= options.maxDepth
           ? []
-          : extractLinksFromHtml(fetched.body, item.url);
+          : extractLinksFromHtml(fetched.body, fetched.finalUrl);
 
         discovered.push({
           url: item.url,
@@ -800,6 +823,8 @@ export async function crawlSite(
           if (enqueued.has(normalized) || visited.has(normalized)) continue;
           primaryQueue.push({
             url: normalized,
+            fetchUrl:
+              normalizeUrl(link, new URL(fetched.finalUrl), true) ?? normalized,
             depth: item.depth + 1,
             source: "link",
           });
