@@ -2,10 +2,42 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import https from "node:https";
 import path from "node:path";
-import { convertToMarkdown, toWordCount } from "@proticom/paperboy-converter";
+import { Worker, type ResourceLimits } from "node:worker_threads";
+import { brotliDecompressSync, gunzipSync, inflateRawSync, inflateSync } from "node:zlib";
+import { toWordCount, type ConvertResult } from "@proticom/paperboy-converter";
+
+import type { ConversionRequest, ConversionResponse } from "./convert-worker.js";
 
 type CrawlSource = "seed" | "sitemap" | "link";
 type CrawlOutputMode = "single" | "mirror" | "jsonl";
+
+type FetchResult =
+  | { kind: "response"; ok: boolean; status: number; body: string; contentType: string; finalUrl: string }
+  | { kind: "failure"; reason: string };
+
+type FetchOptions = Pick<CrawlOptions, "timeoutMs" | "userAgent"> & { maxPageBytes: number };
+type ContentDecoder = (body: Buffer, options: { maxOutputLength: number }) => Buffer;
+
+const DEFAULT_MAX_PAGE_BYTES = 8 * 1024 * 1024;
+const DEFAULT_CONVERSION_TIMEOUT_MS = 30_000;
+const CONVERSION_MAX_OLD_GENERATION_SIZE_MB = 512;
+const CONVERSION_MAX_YOUNG_GENERATION_SIZE_MB = 64;
+const CONTENT_DECODERS = new Map<string, ContentDecoder>([
+  ["gzip", gunzipSync],
+  ["x-gzip", gunzipSync],
+  ["br", brotliDecompressSync],
+  ["deflate", (body, options) => {
+    try {
+      return inflateSync(body, options);
+    } catch (error) {
+      if (error instanceof Error && "code" in error &&
+          (error.code === "Z_DATA_ERROR" || error.code === "Z_BUF_ERROR")) {
+        return inflateRawSync(body, options);
+      }
+      throw error;
+    }
+  }],
+]);
 
 interface QueueItem {
   url: string;
@@ -36,6 +68,10 @@ interface DiscoverRecord {
 export interface CrawlOptions {
   maxPages: number;
   maxDepth: number;
+  maxPageBytes?: number;
+  conversionTimeoutMs?: number;
+  conversionWorkerUrl?: URL;
+  conversionResourceLimits?: ResourceLimits;
   includePatterns?: string[];
   excludePatterns?: string[];
   minContentWords: number;
@@ -55,6 +91,10 @@ export interface CrawlResult {
   outputPath: string | null;
   discoveredCount: number;
   crawledCount: number;
+  skippedCount: number;
+  failedFetchCount: number;
+  /** Set for a seed skipped before it can produce saved output. Robots checks use this too. */
+  seedSkipReason?: string;
   warnings: string[];
   discoveredUrls: Array<{
     url: string;
@@ -63,6 +103,92 @@ export interface CrawlResult {
     title: string;
     status: number;
   }>;
+}
+
+class ConversionTimeoutError extends Error {
+  constructor(timeoutMs: number) {
+    super(`conversion timed out after ${timeoutMs} ms`);
+  }
+}
+
+class PageConverter {
+  private worker: Worker | undefined;
+  private nextId = 0;
+
+  constructor(
+    private readonly options: Pick<
+      CrawlOptions,
+      "conversionTimeoutMs" | "conversionWorkerUrl" | "conversionResourceLimits"
+    >,
+  ) {}
+
+  async close(): Promise<void> {
+    const worker = this.worker;
+    this.worker = undefined;
+    if (worker) await worker.terminate();
+  }
+
+  async convert(filename: string, body: string): Promise<ConvertResult> {
+    const timeoutMs = this.options.conversionTimeoutMs ?? DEFAULT_CONVERSION_TIMEOUT_MS;
+    if (!this.worker) {
+      // Source imports in Vitest use the worker emitted by the preceding build.
+      const workerUrl = this.options.conversionWorkerUrl ?? new URL(
+        import.meta.url.endsWith(".ts") ? "../dist/convert-worker.js" : "./convert-worker.js",
+        import.meta.url,
+      );
+      const worker = new Worker(workerUrl, {
+        resourceLimits: {
+          maxOldGenerationSizeMb: CONVERSION_MAX_OLD_GENERATION_SIZE_MB,
+          maxYoungGenerationSizeMb: CONVERSION_MAX_YOUNG_GENERATION_SIZE_MB,
+          ...this.options.conversionResourceLimits,
+        },
+      });
+      this.worker = worker;
+      const clearWorker = () => {
+        if (this.worker === worker) this.worker = undefined;
+      };
+      worker.on("error", clearWorker);
+      worker.on("exit", clearWorker);
+    }
+    const worker = this.worker;
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const cleanup = () => {
+        settled = true;
+        clearTimeout(timer);
+        worker.off("message", onMessage);
+        worker.off("error", onError);
+        worker.off("exit", onExit);
+      };
+      const fail = (error: Error) => {
+        if (settled) return;
+        cleanup();
+        if (this.worker === worker) this.worker = undefined;
+        void worker.terminate().then(() => reject(error), reject);
+      };
+      const onMessage = (message: ConversionResponse) => {
+        if (message.id !== id || settled) return;
+        if ("error" in message) {
+          fail(new Error(message.error));
+        } else {
+          cleanup();
+          resolve(message.result);
+        }
+      };
+      const onError = (error: Error) => { fail(error); };
+      const onExit = (code: number) => { fail(new Error(`worker exited with code ${code}`)); };
+      const timer = setTimeout(() => { fail(new ConversionTimeoutError(timeoutMs)); }, timeoutMs);
+      worker.on("message", onMessage);
+      worker.once("error", onError);
+      worker.once("exit", onExit);
+      try {
+        worker.postMessage({ id, filename, body } satisfies ConversionRequest);
+      } catch (error) {
+        fail(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  }
 }
 
 const TRACKING_QUERY_PARAMS = [
@@ -219,32 +345,19 @@ function looksLikeSitemap(url: string): boolean {
 
 async function fetchText(
   url: string,
-  timeoutMs: number,
-  userAgent: string,
-): Promise<{
-  ok: boolean;
-  status: number;
-  body: string;
-  contentType: string;
-  finalUrl: string;
-}> {
-  return fetchTextWithRedirects(url, timeoutMs, userAgent, 0);
+  options: FetchOptions,
+): Promise<FetchResult> {
+  return fetchTextWithRedirects(url, options, 0);
 }
 
 async function fetchTextWithRedirects(
   url: string,
-  timeoutMs: number,
-  userAgent: string,
+  options: FetchOptions,
   redirects: number,
-): Promise<{
-  ok: boolean;
-  status: number;
-  body: string;
-  contentType: string;
-  finalUrl: string;
-}> {
+): Promise<FetchResult> {
   if (redirects > 5) {
     return {
+      kind: "response",
       ok: false,
       status: 0,
       body: "",
@@ -259,6 +372,7 @@ async function fetchTextWithRedirects(
       parsedUrl = new URL(url);
     } catch {
       resolve({
+        kind: "response",
         ok: false,
         status: 0,
         body: "",
@@ -274,7 +388,7 @@ async function fetchTextWithRedirects(
       {
         method: "GET",
         headers: {
-          "User-Agent": userAgent,
+          "User-Agent": options.userAgent,
           Accept: "text/html,application/xml,text/xml;q=0.9,*/*;q=0.8",
           "Accept-Encoding": "identity",
         },
@@ -282,36 +396,89 @@ async function fetchTextWithRedirects(
       (response) => {
         const status = response.statusCode ?? 0;
         const contentType = String(response.headers["content-type"] ?? "");
+        response.on("error", (error: Error) => {
+          resolve({ kind: "failure", reason: `response could not be read: ${error.message}` });
+        });
         const location = response.headers.location;
         if (status >= 300 && status < 400 && location) {
           response.resume();
           const nextUrl = new URL(location, parsedUrl).toString();
-          resolve(fetchTextWithRedirects(nextUrl, timeoutMs, userAgent, redirects + 1));
+          resolve(fetchTextWithRedirects(nextUrl, options, redirects + 1));
+          return;
+        }
+        if (status < 200 || status >= 300) {
+          response.resume();
+          resolve({ kind: "response", ok: false, status, body: "", contentType, finalUrl: parsedUrl.toString() });
           return;
         }
 
         const chunks: Buffer[] = [];
+        let receivedBytes = 0;
         response.on("data", (chunk: string | Buffer) => {
-          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+          if (receivedBytes > options.maxPageBytes) return;
+          const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          receivedBytes += bytes.byteLength;
+          if (receivedBytes > options.maxPageBytes) {
+            chunks.length = 0;
+            resolve({ kind: "failure", reason: `response larger than ${options.maxPageBytes} bytes` });
+            response.destroy();
+            request.destroy();
+            return;
+          }
+          chunks.push(bytes);
         });
         response.on("end", () => {
-          resolve({
-            ok: status >= 200 && status < 300,
-            status,
-            body: Buffer.concat(chunks).toString("utf8"),
-            contentType,
-            finalUrl: parsedUrl.toString(),
-          });
+          if (receivedBytes > options.maxPageBytes) return;
+          try {
+            const encoding = String(response.headers["content-encoding"] ?? "");
+            const encodings = encoding.split(",").map((token) => token.trim().toLowerCase())
+              .filter((token) => token && token !== "identity");
+            const decoders: ContentDecoder[] = [];
+            const encodingFailure: FetchResult = {
+              kind: "failure", reason: `unsupported or invalid content-encoding: ${encoding}`,
+            };
+            for (const token of encodings) {
+              const decoder = CONTENT_DECODERS.get(token);
+              if (!decoder) {
+                resolve(encodingFailure);
+                return;
+              }
+              decoders.push(decoder);
+            }
+            let body: Buffer = Buffer.concat(chunks);
+            if (body.byteLength > 0) {
+              for (const decode of decoders.reverse()) {
+                try {
+                  body = decode(body, { maxOutputLength: options.maxPageBytes });
+                } catch (error) {
+                  if (error instanceof Error && "code" in error && error.code === "ERR_BUFFER_TOO_LARGE") {
+                    resolve({ kind: "failure", reason: `decoded response larger than ${options.maxPageBytes} bytes` });
+                    return;
+                  }
+                  if (error instanceof Error && "errno" in error && typeof error.errno === "number") {
+                    resolve(encodingFailure);
+                    return;
+                  }
+                  throw error;
+                }
+              }
+            }
+            resolve({ kind: "response", ok: true, status, body: body.toString("utf8"), contentType, finalUrl: parsedUrl.toString() });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            resolve({ kind: "failure", reason: `response could not be read: ${message}` });
+          }
         });
       },
     );
 
-    request.setTimeout(timeoutMs, () => {
+    request.setTimeout(options.timeoutMs, () => {
       request.destroy(new Error("Request timed out"));
     });
 
     request.on("error", () => {
       resolve({
+        kind: "response",
         ok: false,
         status: 0,
         body: "",
@@ -326,9 +493,8 @@ async function fetchTextWithRedirects(
 
 async function discoverSitemapUrls(
   rootUrl: URL,
-  timeoutMs: number,
+  options: FetchOptions,
   maxSitemaps: number,
-  userAgent: string,
   warnings: string[],
 ): Promise<string[]> {
   const rootSitemap = new URL("/sitemap.xml", rootUrl).toString();
@@ -341,7 +507,11 @@ async function discoverSitemapUrls(
     if (!sitemapUrl || seenSitemaps.has(sitemapUrl)) continue;
     seenSitemaps.add(sitemapUrl);
 
-    const fetched = await fetchText(sitemapUrl, timeoutMs, userAgent);
+    const fetched = await fetchText(sitemapUrl, options);
+    if (fetched.kind === "failure") {
+      warnings.push(`Skipping ${sitemapUrl} (${fetched.reason}).`);
+      continue;
+    }
     if (!fetched.ok) continue;
 
     const locs = parseSitemapLocs(fetched.body);
@@ -495,10 +665,17 @@ export async function crawlSite(
 ): Promise<CrawlResult> {
   const startUrl = new URL(startUrlRaw);
   const warnings: string[] = [];
+  const fetchOptions: FetchOptions = {
+    timeoutMs: options.timeoutMs,
+    userAgent: options.userAgent,
+    maxPageBytes: options.maxPageBytes ?? DEFAULT_MAX_PAGE_BYTES,
+  };
   const includePatterns = compilePatterns(splitPatterns(options.includePatterns));
   const excludePatterns = compilePatterns(splitPatterns(options.excludePatterns));
 
-  const queue: QueueItem[] = [];
+  const primaryQueue: QueueItem[] = [];
+  const sitemapQueue: QueueItem[] = [];
+  const waitingSitemapItems = new Map<string, QueueItem>();
   const enqueued = new Set<string>();
   const visited = new Set<string>();
   const records: CrawlRecord[] = [];
@@ -511,28 +688,13 @@ export async function crawlSite(
 
   const sitemapUrls = await discoverSitemapUrls(
     startUrl,
-    options.timeoutMs,
+    fetchOptions,
     options.maxSitemaps,
-    options.userAgent,
     warnings,
   );
 
-  if (sitemapUrls.length > 0) {
-    for (const url of sitemapUrls) {
-      if (!shouldIncludeUrl(url, includePatterns, excludePatterns)) continue;
-      if (enqueued.has(url)) continue;
-      queue.push({
-        url,
-        fetchUrl: normalizeUrl(url, startUrl, true) ?? url,
-        depth: 0,
-        source: "sitemap",
-      });
-      enqueued.add(url);
-    }
-  }
-
   if (!enqueued.has(normalizedStart)) {
-    queue.push({
+    primaryQueue.push({
       url: normalizedStart,
       fetchUrl:
         normalizeUrl(startUrl.toString(), startUrl, true) ?? normalizedStart,
@@ -542,131 +704,190 @@ export async function crawlSite(
     enqueued.add(normalizedStart);
   }
 
-  let processedCount = 0;
-  let fetches = 0;
-
-  while (queue.length > 0 && processedCount < options.maxPages) {
-    const item = queue.shift();
-    if (!item) break;
-    if (visited.has(item.url)) continue;
-    visited.add(item.url);
-
-    if (item.depth > options.maxDepth) continue;
-    if (!isInternalUrl(item.url, startUrl)) continue;
-    if (!shouldIncludeUrl(item.url, includePatterns, excludePatterns)) continue;
-
-    if (fetches > 0) {
-      await sleep(options.rateLimitMs);
+  if (sitemapUrls.length > 0) {
+    for (const url of sitemapUrls) {
+      if (!shouldIncludeUrl(url, includePatterns, excludePatterns)) continue;
+      if (enqueued.has(url)) continue;
+      const item = {
+        url,
+        fetchUrl: normalizeUrl(url, startUrl, true) ?? url,
+        depth: 0,
+        source: "sitemap" as const,
+      };
+      sitemapQueue.push(item);
+      waitingSitemapItems.set(url, item);
+      enqueued.add(url);
     }
-    fetches += 1;
+  }
 
-    const fetched = await fetchText(
-      item.fetchUrl,
-      options.timeoutMs,
-      options.userAgent,
-    );
-    if (!fetched.ok) {
-      warnings.push(`Skipping ${item.url} (HTTP ${fetched.status || "error"}).`);
-      continue;
-    }
-    if (!/html|xml/i.test(fetched.contentType)) {
-      warnings.push(`Skipping ${item.url} (non-HTML content type: ${fetched.contentType}).`);
-      continue;
-    }
+  const converter = new PageConverter(options);
+  let skippedCount = 0;
 
-    const title = extractTitle(fetched.body, item.url);
-    discovered.push({
-      url: item.url,
-      depth: item.depth,
-      source: item.source,
-      title,
-      status: fetched.status,
-    });
-    processedCount += 1;
+  try {
+    let processedCount = 0;
+    let fetches = 0;
+    let failedFetchCount = 0;
+    let seedSkipReason: string | undefined;
 
-    if (!options.mapOnly) {
-      const conversion = await convertToMarkdown(`${title || "page"}.html`, fetched.body);
-      const wordCount = toWordCount(conversion.markdown);
-      if (wordCount >= options.minContentWords) {
-        records.push({
+    while ((primaryQueue.length > 0 || sitemapQueue.length > 0) && processedCount < options.maxPages) {
+      const fromSitemapTier = primaryQueue.length === 0;
+      const item = primaryQueue.shift() ?? sitemapQueue.shift();
+      if (!item) break;
+      if (fromSitemapTier && item.source === "sitemap") {
+        if (waitingSitemapItems.get(item.url) !== item) continue;
+        waitingSitemapItems.delete(item.url);
+      }
+      if (visited.has(item.url)) continue;
+      visited.add(item.url);
+
+      if (item.depth > options.maxDepth) continue;
+      if (!isInternalUrl(item.url, startUrl)) continue;
+      if (!shouldIncludeUrl(item.url, includePatterns, excludePatterns)) continue;
+
+      if (fetches > 0) {
+        await sleep(options.rateLimitMs);
+      }
+      fetches += 1;
+
+      const fetched = await fetchText(item.fetchUrl, fetchOptions);
+      if (fetched.kind === "failure") {
+        warnings.push(`Skipping ${item.url} (${fetched.reason}).`);
+        continue;
+      }
+      if (!fetched.ok) {
+        failedFetchCount += 1;
+        if (item.source === "seed") seedSkipReason = "request failed";
+        warnings.push(`Skipping ${item.url} (HTTP ${fetched.status || "error"}).`);
+        continue;
+      }
+      if (!/html|xml/i.test(fetched.contentType)) {
+        if (item.source === "seed") {
+          seedSkipReason = `non-HTML content type: ${fetched.contentType}`;
+        }
+        warnings.push(`Skipping ${item.url} (non-HTML content type: ${fetched.contentType}).`);
+        continue;
+      }
+
+      try {
+        const title = extractTitle(fetched.body, item.url);
+        const conversion = options.mapOnly
+          ? null
+          : await converter.convert(`${title || "page"}.html`, fetched.body).catch((error: unknown) => {
+            skippedCount += 1;
+            throw error;
+          });
+        const links = item.depth >= options.maxDepth
+          ? []
+          : extractLinksFromHtml(fetched.body, fetched.finalUrl);
+
+        discovered.push({
           url: item.url,
-          title,
-          markdown: conversion.markdown,
           depth: item.depth,
           source: item.source,
-          wordCount,
-          warnings: conversion.warnings,
-          fetchedAt: new Date().toISOString(),
+          title,
+          status: fetched.status,
         });
-      } else {
-        warnings.push(
-          `Skipping ${item.url} (content too short: ${wordCount} words, min ${options.minContentWords}).`,
-        );
+        processedCount += 1;
+
+        if (conversion) {
+          const wordCount = toWordCount(conversion.markdown);
+          if (wordCount >= options.minContentWords) {
+            records.push({
+              url: item.url,
+              title,
+              markdown: conversion.markdown,
+              depth: item.depth,
+              source: item.source,
+              wordCount,
+              warnings: conversion.warnings,
+              fetchedAt: new Date().toISOString(),
+            });
+          } else {
+            warnings.push(
+              `Skipping ${item.url} (content too short: ${wordCount} words, min ${options.minContentWords}).`,
+            );
+          }
+        }
+
+        for (const link of links) {
+          const normalized = normalizeUrl(link, startUrl);
+          if (!normalized) continue;
+          if (!isInternalUrl(normalized, startUrl)) continue;
+          if (!shouldIncludeUrl(normalized, includePatterns, excludePatterns)) continue;
+          const promoted = waitingSitemapItems.get(normalized);
+          if (promoted) {
+            waitingSitemapItems.delete(normalized);
+            primaryQueue.push(promoted);
+            continue;
+          }
+          if (enqueued.has(normalized) || visited.has(normalized)) continue;
+          primaryQueue.push({
+            url: normalized,
+            fetchUrl:
+              normalizeUrl(link, new URL(fetched.finalUrl), true) ?? normalized,
+            depth: item.depth + 1,
+            source: "link",
+          });
+          enqueued.add(normalized);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const reason = error instanceof ConversionTimeoutError ? message : `conversion failed: ${message}`;
+        warnings.push(`Skipping ${item.url} (${reason}).`);
       }
     }
 
-    if (item.depth >= options.maxDepth) continue;
+    let outputPath: string | null = null;
 
-    const links = extractLinksFromHtml(fetched.body, fetched.finalUrl);
-    for (const link of links) {
-      const normalized = normalizeUrl(link, startUrl);
-      if (!normalized) continue;
-      if (!isInternalUrl(normalized, startUrl)) continue;
-      if (!shouldIncludeUrl(normalized, includePatterns, excludePatterns)) continue;
-      if (enqueued.has(normalized) || visited.has(normalized)) continue;
-      queue.push({
-        url: normalized,
-        fetchUrl:
-          normalizeUrl(link, new URL(fetched.finalUrl), true) ?? normalized,
-        depth: item.depth + 1,
-        source: "link",
-      });
-      enqueued.add(normalized);
+    if (options.mapOnly) {
+      if (options.outputPath) {
+        outputPath = path.resolve(process.cwd(), options.outputPath);
+        const payload = options.json
+          ? JSON.stringify(discovered, null, 2)
+          : `${discovered.map((entry) => entry.url).join("\n")}\n`;
+        await fs.mkdir(path.dirname(outputPath), { recursive: true });
+        await fs.writeFile(outputPath, payload, "utf8");
+      }
+      return {
+        mode: "map",
+        startUrl: normalizedStart,
+        outputPath,
+        discoveredCount: discovered.length,
+        crawledCount: 0,
+        skippedCount,
+        failedFetchCount,
+        seedSkipReason,
+        warnings,
+        discoveredUrls: discovered,
+      };
     }
-  }
 
-  let outputPath: string | null = null;
+    const resolvedOutputPath = options.outputPath
+      ? path.resolve(process.cwd(), options.outputPath)
+      : defaultOutputPath(startUrl, options.outputMode);
+    outputPath = resolvedOutputPath;
 
-  if (options.mapOnly) {
-    if (options.outputPath) {
-      outputPath = path.resolve(process.cwd(), options.outputPath);
-      const payload = options.json
-        ? JSON.stringify(discovered, null, 2)
-        : `${discovered.map((entry) => entry.url).join("\n")}\n`;
-      await fs.mkdir(path.dirname(outputPath), { recursive: true });
-      await fs.writeFile(outputPath, payload, "utf8");
+    if (options.outputMode === "single") {
+      await writeSingleOutput(resolvedOutputPath, startUrl, records);
+    } else if (options.outputMode === "mirror") {
+      await writeMirrorOutput(resolvedOutputPath, records);
+    } else {
+      await writeJsonlOutput(resolvedOutputPath, records);
     }
+
     return {
-      mode: "map",
+      mode: options.outputMode,
       startUrl: normalizedStart,
       outputPath,
       discoveredCount: discovered.length,
-      crawledCount: 0,
+      crawledCount: records.length,
+      skippedCount,
+      failedFetchCount,
+      seedSkipReason,
       warnings,
       discoveredUrls: discovered,
     };
+  } finally {
+    await converter.close();
   }
-
-  const resolvedOutputPath = options.outputPath
-    ? path.resolve(process.cwd(), options.outputPath)
-    : defaultOutputPath(startUrl, options.outputMode);
-  outputPath = resolvedOutputPath;
-
-  if (options.outputMode === "single") {
-    await writeSingleOutput(resolvedOutputPath, startUrl, records);
-  } else if (options.outputMode === "mirror") {
-    await writeMirrorOutput(resolvedOutputPath, records);
-  } else {
-    await writeJsonlOutput(resolvedOutputPath, records);
-  }
-
-  return {
-    mode: options.outputMode,
-    startUrl: normalizedStart,
-    outputPath,
-    discoveredCount: discovered.length,
-    crawledCount: records.length,
-    warnings,
-    discoveredUrls: discovered,
-  };
 }

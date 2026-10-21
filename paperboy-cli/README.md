@@ -61,7 +61,9 @@ paperboy-cli convert "./table.xlsx" --json
 
 ### `paperboy-cli crawl <url>`
 
-Crawl one page or a site on the same origin, convert HTML pages to Markdown, and follow links up to the depth limit. It also reads `sitemap.xml` (and nested sitemaps, up to the sitemap limit) and queues those URLs.
+Crawl one page or a site on the same origin, convert HTML pages to Markdown, and follow links up to the depth limit. It also reads `sitemap.xml` (and nested sitemaps, up to the sitemap limit), crawls the seed and the pages it links to first in breadth-first order, then crawls sitemap URLs not reached by links at depth 0.
+
+Responses are limited to 8 MiB in both raw and decoded form. Each page conversion has a 30-second limit and a 512 MB worker old-generation heap limit. Pages that time out or fail conversion are skipped and counted in the JSON report as `skippedCount`.
 
 Options:
 - `--max-pages <number>`: maximum pages to process (default `300`)
@@ -170,6 +172,8 @@ Configuration is stored in `~/.config/paperboy-cli/config.json`. Set `PAPERBOY_C
 
 - `convert`: exits non-zero on hard failures; warnings are reported in output.
 - `doctor`: exits with code `1` if any failing checks are found.
+- `crawl`: exits with code `1` on errors, including when requests fail or the seed is skipped and no pages are crawled. Otherwise it exits with code `0`.
+- In non-JSON crawl mode, warnings are written to stderr. JSON crawl output remains on stdout.
 
 ## Development
 
