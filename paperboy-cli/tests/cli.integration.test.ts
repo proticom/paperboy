@@ -39,6 +39,23 @@ describe("cli integration", () => {
     expect(result.stderr).toContain("unknown command 'foo'");
   });
 
+  it.each(["2abc", "1.9", "1e3"])('rejects invalid --max-pages value "%s" before crawling', (value) => {
+    const result = runCli(["crawl", "http://127.0.0.1:1", "--max-pages", value], configDir);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("max-pages must be a positive integer.");
+  });
+
+  it("still rejects zero max pages", () => {
+    const result = runCli(["crawl", "http://127.0.0.1:1", "--max-pages", "0"], configDir);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("max-pages must be a positive integer.");
+  });
+
+  it("accepts zero max depth and reaches the network path", () => {
+    const result = runCli(["crawl", "http://127.0.0.1:1", "--max-depth", "0"], configDir);
+    expect(result.stderr).not.toContain("max-depth must be zero or a positive integer.");
+  });
+
   it("prints config JSON", () => {
     const result = runCli(["config", "show"], configDir);
     expect(result.status).toBe(0);

@@ -7,6 +7,7 @@ import { loadConfig } from "./config.js";
 import { convertFileToMarkdown, type ConvertOptions } from "./converter.js";
 import { crawlSite } from "./crawl.js";
 import { printDoctorReport, runDoctor } from "./doctor.js";
+import { parseNonNegativeInt, parsePositiveInt } from "./options.js";
 import { runSetup } from "./setup.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -17,22 +18,6 @@ const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8")) as {
 };
 
 const program = new Command();
-
-function parsePositiveInt(value: string, label: string): number {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error(`${label} must be a positive integer.`);
-  }
-  return parsed;
-}
-
-function parseNonNegativeInt(value: string, label: string): number {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    throw new Error(`${label} must be zero or a positive integer.`);
-  }
-  return parsed;
-}
 
 function parsePatternArgs(value?: string): string[] {
   if (!value) return [];
