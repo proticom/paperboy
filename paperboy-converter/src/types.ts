@@ -23,6 +23,8 @@ export interface OcrWord {
 
 export interface OcrLine {
   words: OcrWord[];
+  /** Stable line geometry for pitch measurement; word boxes can extend outside it. */
+  bbox?: OcrWord["bbox"];
 }
 
 export interface OcrParagraph {

@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pure OCR parsing and cleanup at `@proticom/paperboy-converter/ocr-text`, shared with the browser extension.
 
 ### Fixed
+- Keep every OCR line with mean confidence at least 60, including standalone codes, URLs, emails, dates, prices and CJK characters. Lower-confidence rescue accepts uppercase/mixed-case words, weights readable support by confidence, and requires a line mean of at least 40.
+- Preserve pipe-table and standalone identifier lines. Separate heading/body wraps at font changes and unusual line pitch, using Tesseract line boxes when available.
+- Remove letter-final hyphens without spaces only on joined lowercase prose wraps.
 - Rescue readable low-confidence text and numeric table rows instead of dropping them solely by line mean. Ignore list prefixes when measuring readable content.
 - Join only prose wraps. Preserve list, label, receipt/table and code line breaks; recover prose paragraph boundaries in degraded scans.
 - Collapse consecutive rejected regions into one `<!-- image omitted -->` marker and split widely spaced captions into paragraphs.

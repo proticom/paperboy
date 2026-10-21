@@ -87,26 +87,32 @@ const result = await convertToMarkdown("scan.png", buffer, {
 });
 ```
 
-OCR text has no heading. A line is kept when its mean word confidence is at
-least **60** and it contains a readable token, or at least **60%** of its content
-tokens are readable. List prefixes do not count as content tokens. A readable
-token needs confidence at least **30** and a word or number shape. Below confidence
-60, alphabetic words need at least three letters and lowercase or title case;
-short fragments and odd case mixtures do not rescue a line. Numeric shapes
-include page numbers, decimals, currency, times and percentages. Accepted lines
-keep all words, including uncertain ones. Consecutive rejected lines become one
-`<!-- image omitted -->` marker.
+OCR text has no heading. Every line with mean word confidence at least **60** is
+kept. Lower-confidence lines need mean confidence at least **40** and at least
+**60%** of their content-token confidence assigned to readable tokens. List
+prefixes do not count as content. Tokens need confidence at least **30** to
+support rescue. Alphanumeric codes, URLs, emails, versions and Unicode letters
+are accepted at confidence 60; lower-confidence word/code shapes need at least
+three letters/digits. Numeric shapes include page numbers, decimals, currency,
+times and percentages. Uppercase and mixed-case words can rescue a line. A
+confident code statement keyword also preserves uncertain code. Accepted lines
+keep all words. Consecutive rejected lines become one `<!-- image omitted -->`.
 
 Prose wraps join only when the previous line reaches 85% of its paragraph's width,
 starts align within 1.5 average character widths, and sentence boundaries and list
-prefixes allow continuation. Labels ending in `:`, code, and rows with wide column
-gaps keep line breaks. Paragraphs and large vertical gaps produce blank lines.
+prefixes allow continuation. Labels ending in `:`, code, column gaps, standalone
+identifiers, and pipe-table rows keep their line breaks. A character-width change
+greater than 1.25 times separates a heading/body wrap into paragraphs. Tesseract
+paragraphs, large vertical gaps, and gaps greater than 1.5 times the median line
+pitch also produce blank lines. Optional `OcrLine.bbox` preserves Tesseract's
+stable line pitch; injected backends without it use word boxes.
+
 Within prose, short sentence-final lines followed by aligned uppercase text also
-start a paragraph; larger-font headings are separated in the same context.
-Confident code statement keywords preserve uncertain code, and adjoining closing
-punctuation or single-character misreads stay as read. A lone `|` becomes `I` only
-when it is the sole pipe in its line and both adjacent words start lowercase.
-Other spelling and punctuation remain unchanged.
+start a paragraph. A letter-final hyphen is removed without adding a space only
+when that line is joining to a lowercase continuation. Adjoining code punctuation
+or single-character misreads stay as read. A lone `|` becomes `I` only when it is
+the sole pipe in its line and both adjacent words start lowercase. Other spelling
+and punctuation remain unchanged.
 
 The pure parser and cleanup functions are also available at
 `@proticom/paperboy-converter/ocr-text`. The browser extension uses this same

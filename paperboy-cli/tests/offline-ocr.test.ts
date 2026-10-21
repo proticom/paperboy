@@ -84,6 +84,16 @@ describe("offline image OCR", () => {
       "function count (items) {", "let total = 0;", "for (const item of items) {", "total += item;",
       "}", "return total;", "}", "const size = count (items);",
     ] },
+    { fixture: "ocr-codes.png", lines: [
+      "SKU-7284", "https://example.org/help/42", "help@example.org", "v4.2.1", "2027-04-18", "$5",
+    ] },
+    { fixture: "ocr-pipes.png", lines: [
+      "| name | team | city |", "| erin | ops | leeds |", "| omar | dev | parma |", "| lina | ux | turin |",
+    ] },
+    { fixture: "ocr-heading.png", lines: [
+      "Community Library", "Annual Service Review", "This report covers the work completed this year.",
+      "The team improved service across every branch.",
+    ] },
     { fixture: "ocr-table.png", lines: [
       "Name Role City Start", "Eva Stone Operator Dublin 2024", "Milan Reed Analyst Bergen 2020",
     ] },
@@ -100,6 +110,9 @@ describe("offline image OCR", () => {
     expect(result.status, result.stderr).toBe(0);
     const converted = JSON.parse(result.stdout);
     expect(converted.markdown.split("\n").filter(Boolean)).toEqual(lines);
+    if (fixture === "ocr-heading.png") {
+      expect(converted.markdown).toBe("Community Library\nAnnual Service Review\n\nThis report covers the work completed this year.\nThe team improved service across every branch.");
+    }
     expect((await fs.readdir(tempDir)).filter((file) => /network|traineddata/.test(file))).toEqual([]);
   });
 

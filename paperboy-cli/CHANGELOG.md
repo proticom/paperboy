@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `defaults.includeLayoutTable` and the initial setup prompt default to false. Persisted configs with `includeLayoutTable: true` keep the table.
 - Keep `--no-layout-table` accepted as a hidden, deprecated switch to disable positioning tables.
 
+### Fixed
+- Image conversion retains confident identifier lines, keeps pipe-table rows separate, separates headings from body text, and repairs plain hyphenated prose wraps through the shared converter.
+
 ## [0.3.2] - 2026-10-20
 
 ### Changed
