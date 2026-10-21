@@ -61,7 +61,7 @@ paperboy-cli convert "./table.xlsx" --json
 
 ### `paperboy-cli crawl <url>`
 
-Crawl one page or a site on the same origin, convert HTML pages to Markdown, and follow links up to the depth limit. It also reads `sitemap.xml` (and nested sitemaps, up to the sitemap limit), crawls the seed URL first, then queues those sitemap URLs at depth 0.
+Crawl one page or a site on the same origin, convert HTML pages to Markdown, and follow links up to the depth limit. It also reads `sitemap.xml` (and nested sitemaps, up to the sitemap limit), crawls the seed and the pages it links to first in breadth-first order, then crawls sitemap URLs not reached by links at depth 0.
 
 Options:
 - `--max-pages <number>`: maximum pages to process (default `300`)

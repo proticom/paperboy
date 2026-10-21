@@ -473,7 +473,9 @@ export async function crawlSite(
   const includePatterns = compilePatterns(splitPatterns(options.includePatterns));
   const excludePatterns = compilePatterns(splitPatterns(options.excludePatterns));
 
-  const queue: QueueItem[] = [];
+  const primaryQueue: QueueItem[] = [];
+  const sitemapQueue: QueueItem[] = [];
+  const waitingSitemapItems = new Map<string, QueueItem>();
   const enqueued = new Set<string>();
   const visited = new Set<string>();
   const records: CrawlRecord[] = [];
@@ -493,7 +495,7 @@ export async function crawlSite(
   );
 
   if (!enqueued.has(normalizedStart)) {
-    queue.push({ url: normalizedStart, depth: 0, source: "seed" });
+    primaryQueue.push({ url: normalizedStart, depth: 0, source: "seed" });
     enqueued.add(normalizedStart);
   }
 
@@ -501,7 +503,9 @@ export async function crawlSite(
     for (const url of sitemapUrls) {
       if (!shouldIncludeUrl(url, includePatterns, excludePatterns)) continue;
       if (enqueued.has(url)) continue;
-      queue.push({ url, depth: 0, source: "sitemap" });
+      const item = { url, depth: 0, source: "sitemap" as const };
+      sitemapQueue.push(item);
+      waitingSitemapItems.set(url, item);
       enqueued.add(url);
     }
   }
@@ -509,9 +513,14 @@ export async function crawlSite(
   let processedCount = 0;
   let fetches = 0;
 
-  while (queue.length > 0 && processedCount < options.maxPages) {
-    const item = queue.shift();
+  while ((primaryQueue.length > 0 || sitemapQueue.length > 0) && processedCount < options.maxPages) {
+    const fromSitemapTier = primaryQueue.length === 0;
+    const item = primaryQueue.shift() ?? sitemapQueue.shift();
     if (!item) break;
+    if (fromSitemapTier && item.source === "sitemap") {
+      if (waitingSitemapItems.get(item.url) !== item) continue;
+      waitingSitemapItems.delete(item.url);
+    }
     if (visited.has(item.url)) continue;
     visited.add(item.url);
 
@@ -573,8 +582,14 @@ export async function crawlSite(
       if (!normalized) continue;
       if (!isInternalUrl(normalized, startUrl)) continue;
       if (!shouldIncludeUrl(normalized, includePatterns, excludePatterns)) continue;
+      const promoted = waitingSitemapItems.get(normalized);
+      if (promoted) {
+        waitingSitemapItems.delete(normalized);
+        primaryQueue.push(promoted);
+        continue;
+      }
       if (enqueued.has(normalized) || visited.has(normalized)) continue;
-      queue.push({
+      primaryQueue.push({
         url: normalized,
         depth: item.depth + 1,
         source: "link",
