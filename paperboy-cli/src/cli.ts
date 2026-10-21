@@ -228,7 +228,21 @@ program
 
       if (options.json) {
         console.log(JSON.stringify(result, null, 2));
+        if (
+          result.failedFetchCount > 0 &&
+          (result.mode === "map" ? result.discoveredCount : result.crawledCount) === 0
+        ) {
+          process.exitCode = 1;
+        }
         return;
+      }
+
+      const resultCount = result.mode === "map" ? result.discoveredCount : result.crawledCount;
+      if (result.failedFetchCount > 0 && resultCount === 0) {
+        process.exitCode = 1;
+        console.error(
+          `Error: no pages were crawled from ${url}; ${result.failedFetchCount} request(s) failed.`,
+        );
       }
 
       if (result.mode === "map") {
@@ -249,10 +263,10 @@ program
       }
 
       if (result.warnings.length > 0) {
-        console.log("");
-        console.log("Warnings:");
+        console.error("");
+        console.error("Warnings:");
         for (const warning of result.warnings) {
-          console.log(`- ${warning}`);
+          console.error(`- ${warning}`);
         }
       }
     },

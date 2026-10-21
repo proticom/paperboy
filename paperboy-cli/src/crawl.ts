@@ -54,6 +54,7 @@ export interface CrawlResult {
   outputPath: string | null;
   discoveredCount: number;
   crawledCount: number;
+  failedFetchCount: number;
   warnings: string[];
   discoveredUrls: Array<{
     url: string;
@@ -508,6 +509,7 @@ export async function crawlSite(
 
   let processedCount = 0;
   let fetches = 0;
+  let failedFetchCount = 0;
 
   while (queue.length > 0 && processedCount < options.maxPages) {
     const item = queue.shift();
@@ -526,6 +528,7 @@ export async function crawlSite(
 
     const fetched = await fetchText(item.url, options.timeoutMs, options.userAgent);
     if (!fetched.ok) {
+      failedFetchCount += 1;
       warnings.push(`Skipping ${item.url} (HTTP ${fetched.status || "error"}).`);
       continue;
     }
@@ -600,6 +603,7 @@ export async function crawlSite(
       outputPath,
       discoveredCount: discovered.length,
       crawledCount: 0,
+      failedFetchCount,
       warnings,
       discoveredUrls: discovered,
     };
@@ -624,6 +628,7 @@ export async function crawlSite(
     outputPath,
     discoveredCount: discovered.length,
     crawledCount: records.length,
+    failedFetchCount,
     warnings,
     discoveredUrls: discovered,
   };
