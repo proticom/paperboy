@@ -79,6 +79,93 @@ function leafPage(title: string): Route {
   );
 }
 
+async function startSitemapTestServer(): Promise<{
+  baseUrl: string;
+  close: () => Promise<void>;
+}> {
+  let baseUrl = "";
+  const server = http.createServer((req, res) => {
+    const url = new URL(req.url ?? "/", "http://127.0.0.1");
+    if (url.pathname === "/sitemap.xml") {
+      res.statusCode = 200;
+      res.setHeader("content-type", "application/xml");
+      res.end(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>${baseUrl}/sm-only</loc></url>
+  <url><loc>${baseUrl}/about</loc></url>
+</urlset>`);
+      return;
+    }
+    const routes: Record<string, Route> = {
+      "/depth/1": leafPage("Seed"),
+      "/sm-only": leafPage("Sitemap only"),
+      "/about": leafPage("About"),
+    };
+    const route = routes[url.pathname];
+    if (!route) {
+      res.statusCode = 404;
+      res.setHeader("content-type", "text/plain");
+      res.end("not found");
+      return;
+    }
+    res.statusCode = route.status;
+    res.setHeader("content-type", route.contentType);
+    res.end(route.body);
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  baseUrl = `http://127.0.0.1:${port}`;
+  return {
+    baseUrl,
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((err) => (err ? reject(err) : resolve()));
+      }),
+  };
+}
+
+async function startCustomSitemapTestServer(
+  sitemapPaths: string[],
+  routes: Record<string, Route>,
+  onRequest?: (pathname: string) => void,
+): Promise<{ baseUrl: string; close: () => Promise<void> }> {
+  let baseUrl = "";
+  const server = http.createServer((req, res) => {
+    const url = new URL(req.url ?? "/", "http://127.0.0.1");
+    onRequest?.(url.pathname);
+    if (url.pathname === "/sitemap.xml") {
+      res.statusCode = 200;
+      res.setHeader("content-type", "application/xml");
+      res.end(
+        `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${sitemapPaths
+          .map((pathname) => `<url><loc>${baseUrl}${pathname}</loc></url>`)
+          .join("")}</urlset>`,
+      );
+      return;
+    }
+    const route = routes[url.pathname];
+    if (!route) {
+      res.statusCode = 404;
+      res.setHeader("content-type", "text/plain");
+      res.end("not found");
+      return;
+    }
+    res.statusCode = route.status;
+    res.setHeader("content-type", route.contentType);
+    res.end(route.body);
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  baseUrl = `http://127.0.0.1:${port}`;
+  return {
+    baseUrl,
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((err) => (err ? reject(err) : resolve()));
+      }),
+  };
+}
+
 const homeWithAboutContact = htmlPage(
   "Home",
   `<h1>Home page</h1><p>Welcome to the test site with at least a few words of content.</p>
@@ -755,6 +842,174 @@ describe("crawlSite", () => {
       await new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));
       });
+    }
+  });
+
+  it("crawls the seed before sitemap URLs when maxPages is one", async () => {
+    const server = await startSitemapTestServer();
+    try {
+      const result = await crawlSite(`${server.baseUrl}/depth/1`, {
+        ...defaultOptions({ maxPages: 1, maxDepth: 0 }),
+        outputPath: path.join(tempDir, "crawl.md"),
+      });
+
+      expect(result.discoveredUrls).toEqual([
+        expect.objectContaining({
+          url: `${server.baseUrl}/depth/1`,
+          source: "seed",
+          depth: 0,
+        }),
+      ]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("keeps the seed first when sitemap URLs are also crawled", async () => {
+    const server = await startSitemapTestServer();
+    try {
+      const result = await crawlSite(`${server.baseUrl}/depth/1`, {
+        ...defaultOptions({ maxDepth: 0 }),
+        outputPath: path.join(tempDir, "crawl.md"),
+      });
+
+      expect(result.discoveredUrls.map((entry) => [entry.url, entry.source])).toEqual([
+        [`${server.baseUrl}/depth/1`, "seed"],
+        [`${server.baseUrl}/sm-only`, "sitemap"],
+        [`${server.baseUrl}/about`, "sitemap"],
+      ]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("lists the seed first in map mode", async () => {
+    const server = await startSitemapTestServer();
+    try {
+      const result = await crawlSite(`${server.baseUrl}/depth/1`, {
+        ...defaultOptions({ mapOnly: true, maxPages: 1, maxDepth: 0 }),
+        outputPath: path.join(tempDir, "urls.txt"),
+      });
+
+      expect(result.discoveredUrls[0]).toEqual(
+        expect.objectContaining({
+          url: `${server.baseUrl}/depth/1`,
+          source: "seed",
+        }),
+      );
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("crawls seed links before sitemap roots", async () => {
+    const server = await startCustomSitemapTestServer(
+      ["/3.11", "/3.12", "/3.13", "/3.14", "/3.15"],
+      {
+        "/3/library": htmlPage(
+          "Library",
+          `<a href="/3/library/os.html">OS</a><a href="/3/library/sys.html">Sys</a><a href="/3/library/re.html">RE</a><a href="/3/library/json.html">JSON</a><a href="/3/tutorial/index.html">Tutorial</a>`,
+        ),
+        "/3/library/": htmlPage(
+          "Library",
+          `<a href="/3/library/os.html">OS</a><a href="/3/library/sys.html">Sys</a><a href="/3/library/re.html">RE</a><a href="/3/library/json.html">JSON</a><a href="/3/tutorial/index.html">Tutorial</a>`,
+        ),
+        "/3/library/os.html": leafPage("OS"),
+        "/3/library/sys.html": leafPage("Sys"),
+        "/3/library/re.html": leafPage("RE"),
+        "/3/library/json.html": leafPage("JSON"),
+        "/3/tutorial/index.html": leafPage("Tutorial"),
+        "/3.11": leafPage("3.11"),
+        "/3.12": leafPage("3.12"),
+        "/3.13": leafPage("3.13"),
+        "/3.14": leafPage("3.14"),
+        "/3.15": leafPage("3.15"),
+      },
+    );
+    try {
+      const result = await crawlSite(`${server.baseUrl}/3/library/`, {
+        ...defaultOptions({ mapOnly: true, maxDepth: 1, maxPages: 5 }),
+        outputPath: path.join(tempDir, "urls.txt"),
+      });
+
+      expect(result.discoveredUrls.map((entry) => entry.url)).toEqual([
+        `${server.baseUrl}/3/library`,
+        `${server.baseUrl}/3/library/os.html`,
+        `${server.baseUrl}/3/library/sys.html`,
+        `${server.baseUrl}/3/library/re.html`,
+        `${server.baseUrl}/3/library/json.html`,
+      ]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("keeps breadth-first links ahead of sitemap URLs", async () => {
+    const server = await startCustomSitemapTestServer(
+      ["/sm1", "/sm2"],
+      {
+        "/seed": htmlPage("Seed", `<a href="/l1">L1</a><a href="/l2">L2</a>`),
+        "/l1": leafPage("L1"),
+        "/l2": leafPage("L2"),
+        "/sm1": leafPage("SM1"),
+        "/sm2": leafPage("SM2"),
+      },
+    );
+    try {
+      const limited = await crawlSite(`${server.baseUrl}/seed`, {
+        ...defaultOptions({ maxPages: 2 }),
+        outputPath: path.join(tempDir, "limited.md"),
+      });
+      expect(limited.discoveredUrls.map((entry) => entry.url)).toEqual([
+        `${server.baseUrl}/seed`,
+        `${server.baseUrl}/l1`,
+      ]);
+
+      const complete = await crawlSite(`${server.baseUrl}/seed`, {
+        ...defaultOptions(),
+        outputPath: path.join(tempDir, "complete.md"),
+      });
+      expect(complete.discoveredUrls.map((entry) => entry.url)).toEqual([
+        `${server.baseUrl}/seed`,
+        `${server.baseUrl}/l1`,
+        `${server.baseUrl}/l2`,
+        `${server.baseUrl}/sm1`,
+        `${server.baseUrl}/sm2`,
+      ]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("promotes a linked sitemap URL without fetching it twice", async () => {
+    let l1Requests = 0;
+    const server = await startCustomSitemapTestServer(
+      ["/sm1", "/l1"],
+      {
+        "/seed": htmlPage("Seed", `<a href="/l1">L1</a>`),
+        "/l1": leafPage("L1"),
+        "/sm1": leafPage("SM1"),
+      },
+      (pathname) => {
+        if (pathname === "/l1") l1Requests += 1;
+      },
+    );
+    try {
+      const result = await crawlSite(`${server.baseUrl}/seed`, {
+        ...defaultOptions(),
+        outputPath: path.join(tempDir, "promotion.md"),
+      });
+
+      expect(result.discoveredUrls.map((entry) => entry.url)).toEqual([
+        `${server.baseUrl}/seed`,
+        `${server.baseUrl}/l1`,
+        `${server.baseUrl}/sm1`,
+      ]);
+      expect(l1Requests).toBe(1);
+      expect(result.discoveredUrls[1].source).toBe("sitemap");
+      expect(result.discoveredUrls[1].depth).toBe(0);
+    } finally {
+      await server.close();
     }
   });
 
