@@ -172,6 +172,8 @@ Configuration is stored in `~/.config/paperboy-cli/config.json`. Set `PAPERBOY_C
 
 - `convert`: exits non-zero on hard failures; warnings are reported in output.
 - `doctor`: exits with code `1` if any failing checks are found.
+- `crawl`: exits with code `1` on errors, including when requests fail or the seed is skipped and no pages are crawled. Otherwise it exits with code `0`.
+- In non-JSON crawl mode, warnings are written to stderr. JSON crawl output remains on stdout.
 
 ## Development
 

@@ -91,6 +91,9 @@ export interface CrawlResult {
   discoveredCount: number;
   crawledCount: number;
   skippedCount: number;
+  failedFetchCount: number;
+  /** Set for a seed skipped before it can produce saved output. Robots checks use this too. */
+  seedSkipReason?: string;
   warnings: string[];
   discoveredUrls: Array<{
     url: string;
@@ -696,6 +699,8 @@ export async function crawlSite(
   try {
     let processedCount = 0;
     let fetches = 0;
+    let failedFetchCount = 0;
+    let seedSkipReason: string | undefined;
 
     while (queue.length > 0 && processedCount < options.maxPages) {
       const item = queue.shift();
@@ -718,10 +723,15 @@ export async function crawlSite(
         continue;
       }
       if (!fetched.ok) {
+        failedFetchCount += 1;
+        if (item.source === "seed") seedSkipReason = "request failed";
         warnings.push(`Skipping ${item.url} (HTTP ${fetched.status || "error"}).`);
         continue;
       }
       if (!/html|xml/i.test(fetched.contentType)) {
+        if (item.source === "seed") {
+          seedSkipReason = `non-HTML content type: ${fetched.contentType}`;
+        }
         warnings.push(`Skipping ${item.url} (non-HTML content type: ${fetched.contentType}).`);
         continue;
       }
@@ -805,6 +815,8 @@ export async function crawlSite(
         discoveredCount: discovered.length,
         crawledCount: 0,
         skippedCount,
+        failedFetchCount,
+        seedSkipReason,
         warnings,
         discoveredUrls: discovered,
       };
@@ -830,6 +842,8 @@ export async function crawlSite(
       discoveredCount: discovered.length,
       crawledCount: records.length,
       skippedCount,
+      failedFetchCount,
+      seedSkipReason,
       warnings,
       discoveredUrls: discovered,
     };

@@ -651,6 +651,60 @@ describe("crawlSite", () => {
     }
   });
 
+  it.each([
+    { name: "HTTP 404", status: 404 },
+    { name: "HTTP 500", status: 500 },
+  ])("counts a failed $name seed fetch", async ({ status }) => {
+    const server = await startTestServer({
+      "/": { status, contentType: "text/plain", body: "failed" },
+    });
+    try {
+      const result = await crawlSite(server.baseUrl, {
+        ...defaultOptions(),
+        maxDepth: 0,
+        outputPath: path.join(tempDir, "failed.md"),
+      });
+
+      expect(result.crawledCount).toBe(0);
+      expect(result.failedFetchCount).toBe(1);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("reports when the seed is skipped for a non-HTML response", async () => {
+    const server = await startTestServer({
+      "/": { status: 200, contentType: "application/json", body: "{}" },
+    });
+    try {
+      const result = await crawlSite(server.baseUrl, {
+        ...defaultOptions(),
+        maxDepth: 0,
+        outputPath: path.join(tempDir, "non-html.md"),
+      });
+
+      expect(result.crawledCount).toBe(0);
+      expect(result.seedSkipReason).toBe("non-HTML content type: application/json");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("counts a connection-refused page fetch", async () => {
+    const server = await startTestServer({ "/": leafPage("Temporary") });
+    const closedUrl = server.baseUrl;
+    await server.close();
+
+    const result = await crawlSite(closedUrl, {
+      ...defaultOptions(),
+      maxDepth: 0,
+      outputPath: path.join(tempDir, "refused.md"),
+    });
+
+    expect(result.crawledCount).toBe(0);
+    expect(result.failedFetchCount).toBe(1);
+  });
+
   it("discovers URLs via /sitemap.xml", async () => {
     const staticRoutes: Record<string, Route> = {
       "/": leafPage("Home"),
