@@ -3,6 +3,7 @@ import http from "node:http";
 import https from "node:https";
 import path from "node:path";
 import { convertToMarkdown, toWordCount } from "@proticom/paperboy-converter";
+import { isAllowedByRobots, parseRobots } from "./robots.js";
 
 type CrawlSource = "seed" | "sitemap" | "link";
 type CrawlOutputMode = "single" | "mirror" | "jsonl";
@@ -305,6 +306,7 @@ async function discoverSitemapUrls(
   maxSitemaps: number,
   userAgent: string,
   warnings: string[],
+  isAllowed: (url: string) => boolean,
 ): Promise<string[]> {
   const rootSitemap = new URL("/sitemap.xml", rootUrl).toString();
   const queue = [rootSitemap];
@@ -314,6 +316,7 @@ async function discoverSitemapUrls(
   while (queue.length > 0 && seenSitemaps.size < maxSitemaps) {
     const sitemapUrl = queue.shift();
     if (!sitemapUrl || seenSitemaps.has(sitemapUrl)) continue;
+    if (!isAllowed(sitemapUrl)) continue;
     seenSitemaps.add(sitemapUrl);
 
     const fetched = await fetchText(sitemapUrl, timeoutMs, userAgent);
@@ -324,6 +327,7 @@ async function discoverSitemapUrls(
       const normalized = normalizeUrl(loc, rootUrl);
       if (!normalized) continue;
       if (!isInternalUrl(normalized, rootUrl)) continue;
+      if (!isAllowed(normalized)) continue;
 
       if (looksLikeSitemap(normalized)) {
         if (!seenSitemaps.has(normalized)) {
@@ -484,12 +488,38 @@ export async function crawlSite(
     throw new Error(`Unsupported crawl URL: ${startUrlRaw}`);
   }
 
+  const robotsResponse = await fetchText(
+    new URL("/robots.txt", startUrl).toString(),
+    options.timeoutMs,
+    options.userAgent,
+  );
+  const robots = parseRobots(robotsResponse.ok ? robotsResponse.body : "");
+  if (!robotsResponse.ok && !(robotsResponse.status >= 400 && robotsResponse.status < 500)) {
+    warnings.push(`Could not fetch robots.txt (${robotsResponse.status || "error"}); crawling without robots rules.`);
+  }
+  const skippedByRobots = new Set<string>();
+  const isAllowed = (url: string): boolean => {
+    const parsed = new URL(url);
+    if (isAllowedByRobots(robots, parsed.pathname + parsed.search)) return true;
+    if (!skippedByRobots.has(url)) {
+      skippedByRobots.add(url);
+      warnings.push(`Skipping ${url} (disallowed by robots.txt).`);
+    }
+    return false;
+  };
+  const robotsDelayMs = (robots.crawlDelaySeconds ?? 0) * 1000;
+  if (robotsDelayMs > 30000) {
+    warnings.push(`robots.txt Crawl-delay ${robots.crawlDelaySeconds}s capped at 30s.`);
+  }
+  const effectiveDelayMs = Math.min(30000, Math.max(options.rateLimitMs, robotsDelayMs));
+
   const sitemapUrls = await discoverSitemapUrls(
     startUrl,
     options.timeoutMs,
     options.maxSitemaps,
     options.userAgent,
     warnings,
+    isAllowed,
   );
 
   if (sitemapUrls.length > 0) {
@@ -501,7 +531,7 @@ export async function crawlSite(
     }
   }
 
-  if (!enqueued.has(normalizedStart)) {
+  if (isAllowed(normalizedStart) && !enqueued.has(normalizedStart)) {
     queue.push({ url: normalizedStart, depth: 0, source: "seed" });
     enqueued.add(normalizedStart);
   }
@@ -520,7 +550,7 @@ export async function crawlSite(
     if (!shouldIncludeUrl(item.url, includePatterns, excludePatterns)) continue;
 
     if (fetches > 0) {
-      await sleep(options.rateLimitMs);
+      await sleep(effectiveDelayMs);
     }
     fetches += 1;
 
@@ -572,6 +602,7 @@ export async function crawlSite(
       const normalized = normalizeUrl(link, startUrl);
       if (!normalized) continue;
       if (!isInternalUrl(normalized, startUrl)) continue;
+      if (!isAllowed(normalized)) continue;
       if (!shouldIncludeUrl(normalized, includePatterns, excludePatterns)) continue;
       if (enqueued.has(normalized) || visited.has(normalized)) continue;
       queue.push({
