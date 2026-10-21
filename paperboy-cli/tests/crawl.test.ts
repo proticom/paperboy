@@ -453,6 +453,10 @@ describe("crawlSite", () => {
           "Library",
           `<a href="/3/library/os.html">OS</a><a href="/3/library/sys.html">Sys</a><a href="/3/library/re.html">RE</a><a href="/3/library/json.html">JSON</a><a href="/3/tutorial/index.html">Tutorial</a>`,
         ),
+        "/3/library/": htmlPage(
+          "Library",
+          `<a href="/3/library/os.html">OS</a><a href="/3/library/sys.html">Sys</a><a href="/3/library/re.html">RE</a><a href="/3/library/json.html">JSON</a><a href="/3/tutorial/index.html">Tutorial</a>`,
+        ),
         "/3/library/os.html": leafPage("OS"),
         "/3/library/sys.html": leafPage("Sys"),
         "/3/library/re.html": leafPage("RE"),
