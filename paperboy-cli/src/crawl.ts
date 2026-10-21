@@ -308,9 +308,34 @@ function decodeHtmlEntities(value: string): string {
   });
 }
 
-function extractTitle(html: string, fallbackUrl: string): string {
-  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  const title = match?.[1]?.replace(/\s+/g, " ").trim();
+function matchesAsciiCaseInsensitive(input: string, start: number, literal: string): boolean {
+  for (let offset = 0; offset < literal.length; offset += 1) {
+    const code = input.charCodeAt(start + offset);
+    const lower = code >= 65 && code <= 90 ? code + 32 : code;
+    if (lower !== literal.charCodeAt(offset)) return false;
+  }
+  return true;
+}
+
+function findTitleContent(html: string): string | undefined {
+  let start = html.indexOf("<");
+  while (start !== -1 && !matchesAsciiCaseInsensitive(html, start, "<title")) {
+    start = html.indexOf("<", start + 1);
+  }
+  if (start === -1) return undefined;
+  const openingEnd = html.indexOf(">", start + 6);
+  if (openingEnd === -1) return undefined;
+
+  // Any later opening has its first '>' here or later, so it cannot rescue a missing close.
+  let end = html.indexOf("<", openingEnd + 1);
+  while (end !== -1 && !matchesAsciiCaseInsensitive(html, end, "</title>")) {
+    end = html.indexOf("<", end + 1);
+  }
+  return end === -1 ? undefined : html.slice(openingEnd + 1, end);
+}
+
+export function extractTitle(html: string, fallbackUrl: string): string {
+  const title = findTitleContent(html)?.replace(/\s+/g, " ").trim();
   if (title) return decodeHtmlEntities(title);
   try {
     const parsed = new URL(fallbackUrl);
@@ -323,13 +348,81 @@ function extractTitle(html: string, fallbackUrl: string): string {
   }
 }
 
-function extractLinksFromHtml(html: string, baseUrl: string): string[] {
-  const links: string[] = [];
-  const linkPattern =
-    /<a\b[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>`]+))/gi;
+function isWordCode(code: number): boolean {
+  return (code >= 65 && code <= 90) || (code >= 97 && code <= 122) ||
+    (code >= 48 && code <= 57) || code === 95;
+}
 
-  for (const match of html.matchAll(linkPattern)) {
-    const href = decodeHtmlEntities((match[1] ?? match[2] ?? match[3] ?? "").trim());
+function isWhitespace(input: string, position: number): boolean {
+  return /\s/.test(input.charAt(position));
+}
+
+function nextOccurrence(html: string, character: string): (from: number) => number {
+  let next = -1;
+  return (from) => {
+    // Callers move forward. Cache misses as well as hits to avoid rescanning a suffix.
+    if (next < from) {
+      next = html.indexOf(character, from);
+      if (next === -1) next = html.length;
+    }
+    return next;
+  };
+}
+
+function* scanHrefs(html: string): Generator<string> {
+  const nextTagEnd = nextOccurrence(html, ">");
+  const nextDoubleQuote = nextOccurrence(html, '"');
+  const nextSingleQuote = nextOccurrence(html, "'");
+  let cursor = 0;
+
+  while (cursor < html.length) {
+    const start = html.indexOf("<", cursor);
+    if (start === -1) return;
+    cursor = start + 1;
+    if (!matchesAsciiCaseInsensitive(html, start, "<a") || isWordCode(html.charCodeAt(start + 2))) {
+      continue;
+    }
+
+    const tagEnd = nextTagEnd(start + 2);
+    // Nested candidates before the same '>' see a subset of these href positions.
+    cursor = tagEnd + 1;
+    for (let position = start + 2; position < tagEnd; position += 1) {
+      if (isWordCode(html.charCodeAt(position - 1)) ||
+          !matchesAsciiCaseInsensitive(html, position, "href")) continue;
+      let valueStart = position + 4;
+      while (isWhitespace(html, valueStart)) valueStart += 1;
+      if (html.charCodeAt(valueStart) !== 61) continue;
+      valueStart += 1;
+      while (isWhitespace(html, valueStart)) valueStart += 1;
+
+      const quote = html.charCodeAt(valueStart);
+      let valueEnd: number;
+      if (quote === 34 || quote === 39) {
+        valueEnd = (quote === 34 ? nextDoubleQuote : nextSingleQuote)(valueStart + 1);
+        if (valueEnd === html.length) continue;
+        cursor = valueEnd + 1;
+        valueStart += 1;
+      } else {
+        valueEnd = valueStart;
+        while (valueEnd < html.length) {
+          const code = html.charCodeAt(valueEnd);
+          if (isWhitespace(html, valueEnd) || code === 34 || code === 39 ||
+              code === 60 || code === 62 || code === 96) break;
+          valueEnd += 1;
+        }
+        if (valueEnd === valueStart) continue;
+        cursor = valueEnd;
+      }
+      yield html.slice(valueStart, valueEnd);
+      break;
+    }
+  }
+}
+
+export function extractLinksFromHtml(html: string, baseUrl: string): string[] {
+  const links: string[] = [];
+  for (const rawHref of scanHrefs(html)) {
+    const href = decodeHtmlEntities(rawHref.trim());
     if (!href) continue;
     const lower = href.toLowerCase();
     if (
