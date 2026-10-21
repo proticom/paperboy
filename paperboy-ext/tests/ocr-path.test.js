@@ -27,9 +27,10 @@ test("parseHtmlToDocument is exported and parses with the global DOMParser", asy
   }
 });
 
-test("OCR annotation uses the exported parser and inserts the blockquote", async () => {
+async function annotate(ocrData) {
   const { document } = parseHTML(read("sidepanel.html"));
   let pageRequest = null;
+  const recognizeCalls = [];
   const context = vm.createContext({
     console,
     document,
@@ -70,7 +71,10 @@ test("OCR annotation uses the exported parser and inserts the blockquote", async
     },
     Tesseract: {
       createWorker: async () => ({
-        recognize: async () => ({ data: { text: "PAPERBOY OCR 4217" } }),
+        recognize: async (...args) => {
+          recognizeCalls.push(args);
+          return { data: ocrData };
+        },
       }),
     },
     Readability: class {
@@ -92,9 +96,47 @@ test("OCR annotation uses the exported parser and inserts the blockquote", async
 
   const output = document.getElementById("markdown-output").textContent;
   const status = document.getElementById("meta-text").textContent;
+  return { output, status, pageRequest, recognizeCalls };
+}
+
+test("OCR annotation uses the shared cleanup and requests structured blocks", async () => {
+  const { output, status, pageRequest, recognizeCalls } = await annotate({ text: "PAPERBOY OCR 4217" });
+  assert.equal(recognizeCalls.length, 1);
+  assert.equal(recognizeCalls[0][0] instanceof Blob, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(recognizeCalls[0].slice(1))), [{}, { text: true, blocks: true }]);
   const combined = `${output}\n${status}`;
   assert.equal(pageRequest.type, "paperboy:request-page-data");
   assert.equal(combined.includes("Error:"), false, combined);
   assert.equal(combined.includes("parseHtmlToDocument is not defined"), false, combined);
   assert.match(output, /!\[[^\]]*Scan[^\]]*\]\([^)]*ocr\.png[^)]*\)\n\n> OCR: PAPERBOY OCR 4217/);
+});
+
+
+function ocrLine(text, confidence) {
+  return { words: text.split(" ").map((text, index) => ({
+    text, confidence, bbox: { x0: index * 100, y0: 0, x1: index * 100 + 80, y1: 20 },
+  })) };
+}
+
+test("OCR annotation filters junk and collapses its markers through the built bundle", async () => {
+  const { output } = await annotate({
+    text: "Raw junk must not appear",
+    blocks: [{ paragraphs: [
+      { lines: [ocrLine("Caption stays.", 96)] },
+      { lines: [ocrLine("r~ SNE", 18), ocrLine("~~ =", 93)] },
+      { lines: [ocrLine("Final caption.", 96)] },
+    ] }],
+  });
+  assert.match(output, /> OCR: Caption stays\.\n> \n> <!-- image omitted -->\n> \n> Final caption\./);
+  assert.equal(output.includes("Raw junk"), false);
+});
+
+test("OCR annotation skips images whose cleaned text contains only omission markers", async () => {
+  const { output } = await annotate({
+    text: "Photo junk",
+    blocks: [{ paragraphs: [{ lines: [ocrLine("r~ SNE", 18)] }] }],
+  });
+  assert.equal(output.includes("> OCR:"), false);
+  assert.equal(output.includes("image omitted"), false);
+  assert.match(output, /!\[[^\]]*Scan[^\]]*\]\([^)]*ocr\.png[^)]*\)/);
 });

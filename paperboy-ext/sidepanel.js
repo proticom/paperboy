@@ -1,5 +1,6 @@
 import { convertHtmlToMarkdown, parseHtmlToDocument } from "./lib/convert.mjs";
 import markdownit from "markdown-it";
+import { cleanOcrText, collectParagraphsFromTesseractBlocks } from "@proticom/paperboy-converter/ocr-text";
 import { createPreviewController } from "./lib/preview.mjs";
 
 /* global PAPERBOY_CONVERTER_VERSION */ // banner in sidepanel.bundle.js from build.js
@@ -210,9 +211,13 @@ async function annotateMarkdownWithOcr(markdown, payload) {
     try {
       const blob = await fetchImageBytes(src);
       if (!blob) continue;
-      const { data } = await worker.recognize(blob);
-      const text = (data?.text || "").trim();
-      if (!text) continue;
+      const { data } = await worker.recognize(blob, {}, { text: true, blocks: true });
+      const { text, hasText } = cleanOcrText({
+        text: data?.text ?? "",
+        words: [],
+        paragraphs: collectParagraphsFromTesseractBlocks(data?.blocks),
+      });
+      if (!hasText) continue;
 
       // Find the image's markdown line in the output. turndown emits ![alt](src)
       // or sometimes just the src as a fallback. Prefer alt+src match.
