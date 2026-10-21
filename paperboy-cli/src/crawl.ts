@@ -2,10 +2,20 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import https from "node:https";
 import path from "node:path";
+import { brotliDecompressSync, gunzipSync, inflateRawSync, inflateSync } from "node:zlib";
 import { convertToMarkdown, toWordCount } from "@proticom/paperboy-converter";
 
 type CrawlSource = "seed" | "sitemap" | "link";
 type CrawlOutputMode = "single" | "mirror" | "jsonl";
+
+type FetchResult = {
+  status: number;
+  body: string;
+  contentType: string;
+} & (
+  | { kind: "response"; ok: boolean }
+  | { kind: "encoding-error"; ok: false; encoding: string }
+);
 
 interface QueueItem {
   url: string;
@@ -212,7 +222,7 @@ async function fetchText(
   url: string,
   timeoutMs: number,
   userAgent: string,
-): Promise<{ ok: boolean; status: number; body: string; contentType: string }> {
+): Promise<FetchResult> {
   return fetchTextWithRedirects(url, timeoutMs, userAgent, 0);
 }
 
@@ -221,9 +231,10 @@ async function fetchTextWithRedirects(
   timeoutMs: number,
   userAgent: string,
   redirects: number,
-): Promise<{ ok: boolean; status: number; body: string; contentType: string }> {
+): Promise<FetchResult> {
   if (redirects > 5) {
     return {
+      kind: "response",
       ok: false,
       status: 0,
       body: "",
@@ -237,6 +248,7 @@ async function fetchTextWithRedirects(
       parsedUrl = new URL(url);
     } catch {
       resolve({
+        kind: "response",
         ok: false,
         status: 0,
         body: "",
@@ -272,10 +284,39 @@ async function fetchTextWithRedirects(
           chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
         });
         response.on("end", () => {
+          const encoding = String(response.headers["content-encoding"] ?? "");
+          let body = Buffer.concat(chunks);
+          try {
+            switch (encoding.trim().toLowerCase()) {
+              case "":
+              case "identity":
+                break;
+              case "gzip":
+              case "x-gzip":
+                body = gunzipSync(body);
+                break;
+              case "deflate":
+                try {
+                  body = inflateSync(body);
+                } catch {
+                  body = inflateRawSync(body);
+                }
+                break;
+              case "br":
+                body = brotliDecompressSync(body);
+                break;
+              default:
+                throw new Error("Unsupported content-encoding");
+            }
+          } catch {
+            resolve({ kind: "encoding-error", ok: false, status, body: "", contentType, encoding });
+            return;
+          }
           resolve({
+            kind: "response",
             ok: status >= 200 && status < 300,
             status,
-            body: Buffer.concat(chunks).toString("utf8"),
+            body: body.toString("utf8"),
             contentType,
           });
         });
@@ -288,6 +329,7 @@ async function fetchTextWithRedirects(
 
     request.on("error", () => {
       resolve({
+        kind: "response",
         ok: false,
         status: 0,
         body: "",
@@ -317,6 +359,10 @@ async function discoverSitemapUrls(
     seenSitemaps.add(sitemapUrl);
 
     const fetched = await fetchText(sitemapUrl, timeoutMs, userAgent);
+    if (fetched.kind === "encoding-error") {
+      warnings.push(`Skipping ${sitemapUrl} (unsupported or invalid content-encoding: ${fetched.encoding}).`);
+      continue;
+    }
     if (!fetched.ok) continue;
 
     const locs = parseSitemapLocs(fetched.body);
@@ -525,6 +571,10 @@ export async function crawlSite(
     fetches += 1;
 
     const fetched = await fetchText(item.url, options.timeoutMs, options.userAgent);
+    if (fetched.kind === "encoding-error") {
+      warnings.push(`Skipping ${item.url} (unsupported or invalid content-encoding: ${fetched.encoding}).`);
+      continue;
+    }
     if (!fetched.ok) {
       warnings.push(`Skipping ${item.url} (HTTP ${fetched.status || "error"}).`);
       continue;
@@ -534,52 +584,60 @@ export async function crawlSite(
       continue;
     }
 
-    const title = extractTitle(fetched.body, item.url);
-    discovered.push({
-      url: item.url,
-      depth: item.depth,
-      source: item.source,
-      title,
-      status: fetched.status,
-    });
-    processedCount += 1;
+    try {
+      const title = extractTitle(fetched.body, item.url);
+      const conversion = options.mapOnly
+        ? null
+        : await convertToMarkdown(`${title || "page"}.html`, fetched.body);
+      const links = item.depth >= options.maxDepth
+        ? []
+        : extractLinksFromHtml(fetched.body, item.url);
 
-    if (!options.mapOnly) {
-      const conversion = await convertToMarkdown(`${title || "page"}.html`, fetched.body);
-      const wordCount = toWordCount(conversion.markdown);
-      if (wordCount >= options.minContentWords) {
-        records.push({
-          url: item.url,
-          title,
-          markdown: conversion.markdown,
-          depth: item.depth,
-          source: item.source,
-          wordCount,
-          warnings: conversion.warnings,
-          fetchedAt: new Date().toISOString(),
-        });
-      } else {
-        warnings.push(
-          `Skipping ${item.url} (content too short: ${wordCount} words, min ${options.minContentWords}).`,
-        );
-      }
-    }
-
-    if (item.depth >= options.maxDepth) continue;
-
-    const links = extractLinksFromHtml(fetched.body, item.url);
-    for (const link of links) {
-      const normalized = normalizeUrl(link, startUrl);
-      if (!normalized) continue;
-      if (!isInternalUrl(normalized, startUrl)) continue;
-      if (!shouldIncludeUrl(normalized, includePatterns, excludePatterns)) continue;
-      if (enqueued.has(normalized) || visited.has(normalized)) continue;
-      queue.push({
-        url: normalized,
-        depth: item.depth + 1,
-        source: "link",
+      discovered.push({
+        url: item.url,
+        depth: item.depth,
+        source: item.source,
+        title,
+        status: fetched.status,
       });
-      enqueued.add(normalized);
+      processedCount += 1;
+
+      if (conversion) {
+        const wordCount = toWordCount(conversion.markdown);
+        if (wordCount >= options.minContentWords) {
+          records.push({
+            url: item.url,
+            title,
+            markdown: conversion.markdown,
+            depth: item.depth,
+            source: item.source,
+            wordCount,
+            warnings: conversion.warnings,
+            fetchedAt: new Date().toISOString(),
+          });
+        } else {
+          warnings.push(
+            `Skipping ${item.url} (content too short: ${wordCount} words, min ${options.minContentWords}).`,
+          );
+        }
+      }
+
+      for (const link of links) {
+        const normalized = normalizeUrl(link, startUrl);
+        if (!normalized) continue;
+        if (!isInternalUrl(normalized, startUrl)) continue;
+        if (!shouldIncludeUrl(normalized, includePatterns, excludePatterns)) continue;
+        if (enqueued.has(normalized) || visited.has(normalized)) continue;
+        queue.push({
+          url: normalized,
+          depth: item.depth + 1,
+          source: "link",
+        });
+        enqueued.add(normalized);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      warnings.push(`Skipping ${item.url} (conversion failed: ${message}).`);
     }
   }
 

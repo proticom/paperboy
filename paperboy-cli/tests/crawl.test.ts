@@ -3,11 +3,18 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { brotliCompressSync, deflateRawSync, deflateSync, gzipSync } from "node:zlib";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as converter from "@proticom/paperboy-converter";
 
 import { crawlSite, type CrawlOptions } from "../src/crawl.ts";
 
-type Route = { status: number; contentType: string; body: string };
+type Route = {
+  status: number;
+  contentType: string;
+  contentEncoding?: string;
+  body: string | Buffer;
+};
 
 async function startTestServer(
   routes: Record<string, Route>,
@@ -23,9 +30,13 @@ async function startTestServer(
     }
     res.statusCode = route.status;
     res.setHeader("content-type", route.contentType);
+    if (route.contentEncoding) res.setHeader("content-encoding", route.contentEncoding);
     res.end(route.body);
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
   const { port } = server.address() as AddressInfo;
   return {
     baseUrl: `http://127.0.0.1:${port}`,
@@ -102,6 +113,137 @@ describe("crawlSite", () => {
       const output = await fs.readFile(outputPath, "utf8");
       expect(output).toContain(`# Page: ${server.baseUrl}/about`);
     } finally {
+      await server.close();
+    }
+  });
+
+  it("keeps decoded, empty, and plain-text HTML pages when one gzip response is invalid", async () => {
+    const server = await startTestServer({
+      "/": htmlPage("Home", `<p>HOME BODY</p>
+        <a href="/gz">Gzip</a><a href="/br">Brotli</a><a href="/deflate">Deflate</a>
+        <a href="/raw-deflate">Raw deflate</a><a href="/x-gzip">X-gzip</a>
+        <a href="/empty">Empty</a><a href="/plain">Plain</a>
+        <a href="/bad-gzip">Bad gzip</a><a href="/about">About</a>`),
+      "/gz": {
+        ...htmlPage("Gzip", ""),
+        contentEncoding: "gzip",
+        body: gzipSync("<p>GZIP BODY</p><a href='/gzip-child'>Child</a>"),
+      },
+      "/gzip-child": leafPage("GZIP CHILD BODY"),
+      "/br": {
+        ...htmlPage("Brotli", ""),
+        contentEncoding: "br",
+        body: brotliCompressSync("<p>BROTLI BODY</p>"),
+      },
+      "/deflate": {
+        ...htmlPage("Deflate", ""),
+        contentEncoding: "deflate",
+        body: deflateSync("<p>DEFLATE BODY</p>"),
+      },
+      "/raw-deflate": {
+        ...htmlPage("Raw deflate", ""),
+        contentEncoding: "deflate",
+        body: deflateRawSync("<p>RAW DEFLATE BODY</p>"),
+      },
+      "/x-gzip": {
+        ...htmlPage("X-gzip", ""),
+        contentEncoding: "x-gzip",
+        body: gzipSync("<p>X-GZIP BODY</p>"),
+      },
+      "/empty": { status: 200, contentType: "text/html", body: "" },
+      "/plain": { status: 200, contentType: "text/html", body: "PLAIN BODY" },
+      "/bad-gzip": {
+        status: 200,
+        contentType: "text/html",
+        contentEncoding: "gzip",
+        body: Buffer.from("invalid gzip bytes"),
+      },
+      "/about": leafPage("ABOUT BODY"),
+    });
+    try {
+      const outputPath = path.join(tempDir, "crawl.md");
+      const result = await crawlSite(server.baseUrl, defaultOptions({
+        minContentWords: 0,
+        outputPath,
+      }));
+
+      expect(result.outputPath).toBe(outputPath);
+      expect(result.crawledCount).toBe(10);
+      expect(result.discoveredCount).toBe(10);
+      expect(result.discoveredUrls.map((page) => page.url)).toContain(`${server.baseUrl}/empty`);
+      expect(result.discoveredUrls.map((page) => page.url)).not.toContain(`${server.baseUrl}/bad-gzip`);
+      expect(result.warnings).toEqual([
+        `Skipping ${server.baseUrl}/bad-gzip (unsupported or invalid content-encoding: gzip).`,
+      ]);
+      const output = await fs.readFile(outputPath, "utf8");
+      for (const marker of [
+        "HOME BODY", "GZIP BODY", "BROTLI BODY", "DEFLATE BODY", "RAW DEFLATE BODY",
+        "X-GZIP BODY", "PLAIN BODY", "ABOUT BODY", "GZIP CHILD BODY",
+      ]) {
+        expect(output).toContain(marker);
+      }
+      expect(output).toContain(`# Page: ${server.baseUrl}/empty`);
+      expect(output).toContain(`# Page: ${server.baseUrl}/about`);
+      expect(output).not.toContain(`# Page: ${server.baseUrl}/bad-gzip`);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it.each(["br", "deflate", "unknown"])("skips invalid or unsupported %s encoding and keeps other pages", async (encoding) => {
+    const server = await startTestServer({
+      "/": htmlPage("Home", '<p>HOME BODY</p><a href="/bad">Bad</a><a href="/about">About</a>'),
+      "/bad": {
+        status: 200,
+        contentType: "text/html",
+        contentEncoding: encoding,
+        body: Buffer.from("invalid encoded body"),
+      },
+      "/about": leafPage("ABOUT BODY"),
+    });
+    try {
+      const outputPath = path.join(tempDir, "crawl.md");
+      const result = await crawlSite(server.baseUrl, defaultOptions({ outputPath }));
+      expect(result.crawledCount).toBe(2);
+      expect(result.warnings).toEqual([
+        `Skipping ${server.baseUrl}/bad (unsupported or invalid content-encoding: ${encoding}).`,
+      ]);
+      const output = await fs.readFile(outputPath, "utf8");
+      expect(output).toContain("HOME BODY");
+      expect(output).toContain("ABOUT BODY");
+      expect(output).not.toContain(`# Page: ${server.baseUrl}/bad`);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("skips a conversion failure without counting it or losing earlier pages", async () => {
+    const server = await startTestServer({
+      "/": htmlPage("Home", '<p>HOME BODY</p><a href="/broken">Broken</a><a href="/about">About</a>'),
+      "/broken": { status: 200, contentType: "text/html", body: "CONVERSION FAILURE" },
+      "/about": leafPage("ABOUT BODY"),
+    });
+    const originalConvert = converter.convertToMarkdown;
+    const convert = vi.spyOn(converter, "convertToMarkdown").mockImplementation(async (filename, data, options) => {
+      if (data === "CONVERSION FAILURE") throw new Error("synthetic conversion failure");
+      return originalConvert(filename, data, options);
+    });
+    try {
+      const outputPath = path.join(tempDir, "crawl.md");
+      const result = await crawlSite(server.baseUrl, defaultOptions({ maxPages: 2, outputPath }));
+      expect(result.crawledCount).toBe(2);
+      expect(result.discoveredUrls.map((page) => page.url)).toEqual([
+        `${server.baseUrl}/`, `${server.baseUrl}/about`,
+      ]);
+      expect(result.warnings).toEqual([
+        `Skipping ${server.baseUrl}/broken (conversion failed: synthetic conversion failure).`,
+      ]);
+      const output = await fs.readFile(outputPath, "utf8");
+      expect(output).toContain("HOME BODY");
+      expect(output).toContain("ABOUT BODY");
+      expect(output).not.toContain(`# Page: ${server.baseUrl}/broken`);
+    } finally {
+      convert.mockRestore();
       await server.close();
     }
   });

@@ -72,6 +72,15 @@ describe("cli integration", () => {
     expect(markdown).toBe("Local\nEdition");
   });
 
+  it("converts empty HTML and writes an empty markdown file", async () => {
+    const inputPath = path.join(tempDir, "empty.html");
+    await fs.writeFile(inputPath, "", "utf8");
+
+    const result = runCli(["convert", inputPath], configDir);
+    expect(result.status, result.stderr).toBe(0);
+    expect(await fs.readFile(path.join(tempDir, "empty.md"), "utf8")).toBe("");
+  });
+
   it("creates missing parent directories for -o output", async () => {
     const inputPath = path.join(tempDir, "scan.txt");
     await fs.writeFile(inputPath, "Morning edition", "utf8");

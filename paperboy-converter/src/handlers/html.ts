@@ -10,6 +10,15 @@ export async function convertHtml(
 ): Promise<ConvertResult> {
   const rawHtml = toText(data);
   const documentNode = parseHtml(rawHtml);
+  if (documentNode.documentElement == null) {
+    return {
+      markdown: rawHtml
+        .replace(/<!--[\s\S]*?-->|<!doctype\b[^>]*>|<\?[\s\S]*?\?>/gi, "")
+        .trim(),
+      title: stripFileExtension(filename),
+      warnings: [],
+    };
+  }
   const source =
     documentNode.body && documentNode.body.innerHTML.trim()
       ? documentNode.body.innerHTML
