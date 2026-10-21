@@ -643,6 +643,55 @@ describe("PDF fixture conversion", () => {
     );
   });
 
+  const cardFixtures = ["pdf-card-gutters.pdf", "pdf-card-bands.pdf"];
+
+  it.each(cardFixtures)("keeps each multi-line card contiguous in %s", async (name) => {
+    const bytes = new Uint8Array(readFileSync(new URL(`./fixtures/${name}`, import.meta.url)));
+    const { markdown } = await convertToMarkdown(name, bytes);
+    const plain = markdown.replace(/[#*`|\n]+/g, " ").replace(/\s+/g, " ");
+
+    expect(plain).toContain("24 Amber trials Notes stored Checks passed");
+    expect(plain).toContain("18 Blue trials Files sorted Tasks closed");
+    expect(plain.indexOf("Checks passed")).toBeLessThan(plain.indexOf("Blue trials"));
+  });
+
+  it.each(cardFixtures)("recovers spaced heading words beside a distant label in %s", async (name) => {
+    const bytes = new Uint8Array(readFileSync(new URL(`./fixtures/${name}`, import.meta.url)));
+    const { markdown } = await convertToMarkdown(name, bytes);
+
+    expect(markdown.split("\n").filter((line) => line.includes("HOW WE START"))).toEqual(["## HOW WE START"]);
+    expect(markdown).toContain("\n\nONE SMALL LOCAL WORKFLOW");
+  });
+
+  it("keeps wrapped table labels beside all three numeric values", async () => {
+    const bytes = new Uint8Array(readFileSync(new URL("./fixtures/pdf-card-table.pdf", import.meta.url)));
+    const { markdown } = await convertToMarkdown("pdf-card-table.pdf", bytes);
+
+    expect(markdown.split("\n").filter((line) => /All teams|Cedar group|Birch \(early|Other crews/.test(line))).toEqual([
+      "| All teams | 14% | $240K | 3% |",
+      "| Cedar group | 12% | $110K | 4% |",
+      "| Birch (early, late | 16% | $80K | 5% |",
+      "Other crews 18% $50K 6%",
+    ]);
+    expect(markdown).toContain("Group Cycle Budget Rate");
+    expect(markdown).toContain("and winter crews)");
+  });
+
+  it("regenerates card and table fixtures with identical bytes on consecutive runs", () => {
+    const directory = mkdtempSync(join(tmpdir(), "paperboy-card-fixtures-"));
+    const script = fileURLToPath(new URL("./fixtures/make-card-bands-pdf.mjs", import.meta.url));
+    try {
+      for (let run = 0; run < 2; run++) {
+        execFileSync(process.execPath, [script, directory]);
+        for (const name of [...cardFixtures, "pdf-card-table.pdf"]) {
+          expect(readFileSync(join(directory, name))).toEqual(readFileSync(new URL(`./fixtures/${name}`, import.meta.url)));
+        }
+      }
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it.each(fixtures)("converts $name with readable blocks in order", async ({ name, markdown }) => {
     const bytes = new Uint8Array(readFileSync(new URL(`./fixtures/${name}`, import.meta.url)));
     const result = await convertToMarkdown(name, bytes);
