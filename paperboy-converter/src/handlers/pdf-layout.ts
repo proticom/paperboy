@@ -48,6 +48,9 @@ function horizontalBands(items: readonly PdfTextItem[], bodySize: number): PdfTe
   const right = Math.max(...items.map((item) => item.x + item.width));
   const columnRows = spans.map((row) => row.filter((span) => span.right - span.left >= bodySize * 4).length >= 2);
   const hasColumns = columnRows.filter(Boolean).length >= 3;
+  const gutters = spans.filter((row, index) => columnRows[index] && row.length === 2)
+    .map((row) => (row[0].right + row[1].left) / 2);
+  const gutter = gutters.length >= 3 ? median(gutters) : undefined;
   let spanning = false;
   const wide = spans.map((row, index) => {
     if (columnRows[index]) spanning = false;
@@ -61,8 +64,11 @@ function horizontalBands(items: readonly PdfTextItem[], bodySize: number): PdfTe
   for (let i = 0; i < rows.length; i++) {
     const previous = rows[i - 1];
     const gap = previous ? previous.bottom - rows[i].y : 0;
+    const sectionStart = gutter !== undefined && gap > bodySize * 1.5
+      && previous.items.some((item) => item.x >= gutter)
+      && rows[i].items.every((item) => item.x + item.width <= gutter);
     // Spanning lines separate column bands. Ordinary line and paragraph spacing stays inside a region.
-    if (!i || (!hasSpanningBoundary && gap > bodySize * 1.5 && gap >= largestGap - 0.01) || wide[i] !== wide[i - 1]) bands.push([]);
+    if (!i || sectionStart || (!hasSpanningBoundary && gap > bodySize * 1.5 && gap >= largestGap - 0.01) || wide[i] !== wide[i - 1]) bands.push([]);
     bands[bands.length - 1].push(...rows[i].items);
   }
   return bands;
@@ -155,7 +161,21 @@ export function segmentPage(items: readonly PdfTextItem[], bodySize: number): {
           bands[bands.length - 1].push(...row.items);
           previous = spanning;
         }
-        if (bands.length > 1) return { kind: "bands", children: bands.map((band) => visit(band, depth + 1)) };
+        if (bands.length > 1) return { kind: "bands", children: bands.map((band) => {
+          const columns = splitColumns(band, [crossed]);
+          const multiline = columns.every((column) => {
+            const rows = rowsOf(column);
+            const prose = rows.filter((row) =>
+              (row.items.map((item) => item.text).join(" ").match(/\p{L}{2,}/gu) ?? []).length >= 2);
+            return prose.length > rows.length / 2
+              && prose.some((row, index) => index > 0 && prose[index - 1].bottom - row.y <= bodySize * 1.5);
+          });
+          const atMostTwoWideSpans = rowsOf(band).every((row) => rowSpans(row, bodySize)
+            .filter((span) => span.right - span.left >= bodySize * 4).length <= 2);
+          return !band.some(crosses) && atMostTwoWideSpans && multiline
+            ? { kind: "columns", children: columns.map((column) => visit(column, depth + 2)) }
+            : visit(band, depth + 1);
+        }) };
       }
     }
     const bands = horizontalBands(part, bodySize);
