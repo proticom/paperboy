@@ -5,17 +5,21 @@ import { extractLinksFromHtml, extractTitle } from "../src/crawl.ts";
 
 const baseUrl = "https://example.test/dir/page";
 
+// Reference copy of master's single-pass entity decoder (post-#42), applied to reference titles and hrefs.
+const REFERENCE_NAMED_ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+function referenceDecode(value: string): string {
+  return value.replace(/&(?:#(\d+)|#x([\da-f]+)|([a-z]+));/gi, (entity, dec?: string, hex?: string, name?: string) => {
+    if (name !== undefined) return REFERENCE_NAMED_ENTITIES[name.toLowerCase()] ?? entity;
+    const code = dec !== undefined ? Number(dec) : Number.parseInt(hex ?? "", 16);
+    if (!Number.isInteger(code) || code < 0 || code > 0x10ffff) return entity;
+    return String.fromCodePoint(code);
+  });
+}
+
 function oldTitle(html: string, fallbackUrl: string): string {
   const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   const title = match?.[1]?.replace(/\s+/g, " ").trim();
-  if (title) {
-    return title
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'");
-  }
+  if (title) return referenceDecode(title);
   try {
     const parsed = new URL(fallbackUrl);
     if (parsed.pathname === "/" || parsed.pathname === "") return parsed.hostname;
@@ -29,7 +33,7 @@ function oldLinks(html: string, base: string): string[] {
   const links: string[] = [];
   const pattern = /<a\b[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>`]+))/gi;
   for (const match of html.matchAll(pattern)) {
-    const href = (match[1] ?? match[2] ?? match[3] ?? "").trim();
+    const href = referenceDecode((match[1] ?? match[2] ?? match[3] ?? "").trim());
     if (!href) continue;
     const lower = href.toLowerCase();
     if (
@@ -115,7 +119,7 @@ describe("crawl extraction", () => {
     ['<title>first<title>second', "page"],
     ['<title<title', "page"],
     ['<title> \t </title><title>later</title>', "page"],
-    ['<title>&amp;lt;&quot;&#39;&gt;</title>', '<"\'>'],
+    ['<title>&amp;lt;&quot;&#39;&gt;</title>', '&lt;"\'>'],
   ])("preserves title semantics for %j", (html, expected) => {
     expect(oldTitle(html, baseUrl)).toBe(expected);
     expect(extractTitle(html, baseUrl)).toBe(expected);
@@ -137,7 +141,8 @@ describe("crawl extraction", () => {
     expect(extractTitle("", fallback)).toBe(oldTitle("", fallback));
   });
 
-  it.each(["<title>", "<a ", '<a href="', "<a href='"])(
+  // The worst inputs for the old regexes: repeated "<title>", unclosed "<title", "<a " and "<a" with no space.
+  it.each(["<title>", "<title", "<a ", "<a"])(
     "extracts a 1 MiB repeated %j body in under two seconds",
     (unit) => {
       const html = unit.repeat(Math.ceil(2 ** 20 / unit.length)).slice(0, 2 ** 20);

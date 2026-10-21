@@ -7,6 +7,7 @@ import { loadConfig } from "./config.js";
 import { convertFileToMarkdown, type ConvertOptions } from "./converter.js";
 import { crawlSite } from "./crawl.js";
 import { printDoctorReport, runDoctor } from "./doctor.js";
+import { parseNonNegativeInt, parsePositiveInt } from "./options.js";
 import { runSetup } from "./setup.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -17,22 +18,6 @@ const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8")) as {
 };
 
 const program = new Command();
-
-function parsePositiveInt(value: string, label: string): number {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error(`${label} must be a positive integer.`);
-  }
-  return parsed;
-}
-
-function parseNonNegativeInt(value: string, label: string): number {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    throw new Error(`${label} must be zero or a positive integer.`);
-  }
-  return parsed;
-}
 
 function parsePatternArgs(value?: string): string[] {
   if (!value) return [];
@@ -226,9 +211,37 @@ program
         userAgent: `paperboy/${packageJson.version} (+https://github.com/proticom/paperboy)`,
       });
 
+      if (result.robotsUnavailable) {
+        const reason = result.robotsUnavailable.kind === "http"
+          ? `HTTP ${result.robotsUnavailable.status}` : result.robotsUnavailable.error;
+        console.error(`Error: robots.txt for ${result.robotsUnavailable.origin} is unavailable (${reason}); per RFC 9309 the site is treated as fully disallowed.`);
+        process.exitCode = 1;
+      }
+      for (const unavailable of result.robotsUnavailableOrigins) {
+        if (unavailable.origin === result.robotsUnavailable?.origin) continue;
+        const reason = unavailable.kind === "http" ? `HTTP ${unavailable.status}` : unavailable.error;
+        console.error(`Error: robots.txt for ${unavailable.origin} is unavailable (${reason}); per RFC 9309 pages on that host were treated as disallowed.`);
+      }
+
       if (options.json) {
         console.log(JSON.stringify(result, null, 2));
+        if (
+          (result.failedFetchCount > 0 || result.seedSkipReason) &&
+          (result.mode === "map" ? result.discoveredCount : result.crawledCount) === 0
+        ) {
+          process.exitCode = 1;
+        }
         return;
+      }
+
+      const resultCount = result.mode === "map" ? result.discoveredCount : result.crawledCount;
+      if ((result.failedFetchCount > 0 || result.seedSkipReason) && resultCount === 0) {
+        process.exitCode = 1;
+        if (result.failedFetchCount > 0) {
+          console.error(`Error: no pages were crawled from ${url}; ${result.failedFetchCount} request(s) failed.`);
+        } else {
+          console.error(`Error: no pages were crawled from ${url}; the seed was skipped (${result.seedSkipReason}).`);
+        }
       }
 
       if (result.mode === "map") {
@@ -249,10 +262,10 @@ program
       }
 
       if (result.warnings.length > 0) {
-        console.log("");
-        console.log("Warnings:");
+        console.error("");
+        console.error("Warnings:");
         for (const warning of result.warnings) {
-          console.log(`- ${warning}`);
+          console.error(`- ${warning}`);
         }
       }
     },

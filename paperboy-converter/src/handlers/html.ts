@@ -10,6 +10,19 @@ export async function convertHtml(
 ): Promise<ConvertResult> {
   const rawHtml = toText(data);
   const documentNode = parseHtml(rawHtml);
+  if (documentNode.documentElement == null) {
+    const text = rawHtml
+      .replace(/<!--[\s\S]*?-->|<!doctype\b[^>]*>|<\?[\s\S]*?\?>/gi, "")
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+      .trim();
+    const service = createTurndownService();
+    return {
+      markdown: text.replace(/^([ \t]*)([^\r\n]+)/gm,
+        (_match, indentation: string, line: string) => indentation + service.escape(line)),
+      title: stripFileExtension(filename),
+      warnings: [],
+    };
+  }
   const source =
     documentNode.body && documentNode.body.innerHTML.trim()
       ? documentNode.body.innerHTML

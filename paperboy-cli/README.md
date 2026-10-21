@@ -61,7 +61,13 @@ paperboy-cli convert "./table.xlsx" --json
 
 ### `paperboy-cli crawl <url>`
 
-Crawl one page or a site on the same origin, convert HTML pages to Markdown, and follow links up to the depth limit. It also reads `sitemap.xml` (and nested sitemaps, up to the sitemap limit) and queues those URLs.
+Crawl one page or a site on the same origin, convert HTML pages to Markdown, and follow links up to the depth limit. It also reads `sitemap.xml` (and nested sitemaps, up to the sitemap limit), crawls the seed and the pages it links to first in breadth-first order, then crawls sitemap URLs not reached by links at depth 0.
+
+Responses are limited to 8 MiB in both raw and decoded form. Each page conversion has a 30-second limit and a 512 MB worker old-generation heap limit. Pages that time out or fail conversion are skipped and counted in the JSON report as `skippedCount`.
+
+The crawler reads up to 500 KiB of `/robots.txt` before sitemap discovery and selects the exact `paperboy` user-agent token (case-insensitive), falling back to `*`. It checks original and normalized paths and every redirect target; disallowed URLs are skipped with a warning and omitted from `--map`. Page requests wait for the greater of `--rate-limit-ms` and `Crawl-delay`; only `Crawl-delay` is capped at 30 seconds. HTTP 4xx responses other than 429 allow crawling without robots rules. HTTP 429, 5xx, network failures, timeouts, and redirect loops stop the crawl as fully disallowed, print an error to stderr (also with `--json`), expose `robotsUnavailable` in the result, and exit with code 1 without writing an output file.
+
+Cross-origin redirects use the target origin's robots policy at every hop, including sitemap redirects. An origin includes the scheme, host, and port. Each origin's robots policy is fetched once per crawl and shares any in-flight lookup. If another origin's robots is unavailable, the crawler skips that page, continues, records `robotsUnavailableOrigins`, and prints one stderr error per origin without changing the exit code. If the seed redirects to that origin, the crawl stops with `robotsUnavailable`, exit code 1, and no output file. Only the seed origin's `Crawl-delay` applies.
 
 Options:
 - `--max-pages <number>`: maximum pages to process (default `300`)
@@ -71,6 +77,9 @@ Options:
 - `--min-content-words <number>`: skip converted pages with fewer words (default `0`)
 - `--output-mode <mode>`: `single`, `mirror`, or `jsonl` (default `single`)
 - `-o, --output <path>`: output file for `single` and `jsonl`, or a directory for `mirror`
+
+In `mirror` mode, query URLs receive a readable, hashed filename suffix such as
+`q__page-1__a1b2c3d4.md`. URLs without queries keep their existing filenames.
 - `--map`: list discovered URLs only; do not convert pages to Markdown
 - `--json`: print the crawl report as JSON
 - `--rate-limit-ms <number>`: delay between requests in milliseconds (default `500`)
@@ -170,6 +179,8 @@ Configuration is stored in `~/.config/paperboy-cli/config.json`. Set `PAPERBOY_C
 
 - `convert`: exits non-zero on hard failures; warnings are reported in output.
 - `doctor`: exits with code `1` if any failing checks are found.
+- `crawl`: exits with code `1` on errors, including when requests fail or the seed is skipped and no pages are crawled. Otherwise it exits with code `0`.
+- In non-JSON crawl mode, warnings are written to stderr. JSON crawl output remains on stdout.
 
 ## Development
 
