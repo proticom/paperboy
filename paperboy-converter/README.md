@@ -87,16 +87,30 @@ const result = await convertToMarkdown("scan.png", buffer, {
 });
 ```
 
-OCR text has no heading. Lines with mean word confidence below **60** are omitted
-as a whole. Accepted lines keep every word, including uncertain words supported
-by their neighbors. A line must also contain a token with at least two consecutive
-letters/digits, or a letter-only word with optional trailing punctuation. This
-keeps page numbers such as `12` and dates such as `2026 10 20`, while rejecting
-lines made only of isolated digits or symbols such as `4`, `=`, or `~~ \`.
-Each consecutive omitted region becomes `<!-- image omitted -->`.
-Wrapped lines in a Tesseract paragraph join with spaces; paragraphs and large
-vertical gaps produce blank lines. A standalone `|` between words containing
-letters becomes `I`. Other spelling and punctuation remain unchanged.
+OCR text has no heading. A line is kept when its mean word confidence is at
+least **60** and it contains a readable token, or at least **60%** of its content
+tokens are readable. List prefixes do not count as content tokens. A readable
+token needs confidence at least **30** and a word or number shape. Below confidence
+60, alphabetic words need at least three letters and lowercase or title case;
+short fragments and odd case mixtures do not rescue a line. Numeric shapes
+include page numbers, decimals, currency, times and percentages. Accepted lines
+keep all words, including uncertain ones. Consecutive rejected lines become one
+`<!-- image omitted -->` marker.
+
+Prose wraps join only when the previous line reaches 85% of its paragraph's width,
+starts align within 1.5 average character widths, and sentence boundaries and list
+prefixes allow continuation. Labels ending in `:`, code, and rows with wide column
+gaps keep line breaks. Paragraphs and large vertical gaps produce blank lines.
+Within prose, short sentence-final lines followed by aligned uppercase text also
+start a paragraph; larger-font headings are separated in the same context.
+Confident code statement keywords preserve uncertain code, and adjoining closing
+punctuation or single-character misreads stay as read. A lone `|` becomes `I` only
+when it is the sole pipe in its line and both adjacent words start lowercase.
+Other spelling and punctuation remain unchanged.
+
+The pure parser and cleanup functions are also available at
+`@proticom/paperboy-converter/ocr-text`. The browser extension uses this same
+module without importing Tesseract or Node APIs into its bundle.
 
 `includeLayoutTable` defaults to **false**, including in web converters using
 these options. When enabled, the table lists raw, unfiltered words and confidence

@@ -74,4 +74,33 @@ describe("offline image OCR", () => {
       expect(files.includes("network.log")).toBe(false);
     }
   });
+
+  it.each([
+    { fixture: "ocr-lists.png", lines: [
+      "Supply list", "« Notebook", "« Water bottle", "« Spare cable", "Name:", "Email:",
+      "Receipt", "Tea 2.50", "Bread 3.25", "Total 5.75",
+    ] },
+    { fixture: "ocr-code.png", lines: [
+      "function count (items) {", "let total = 0;", "for (const item of items) {", "total += item;",
+      "}", "return total;", "}", "const size = count (items);",
+    ] },
+    { fixture: "ocr-table.png", lines: [
+      "Name Role City Start", "Eva Stone Operator Dublin 2024", "Milan Reed Analyst Bergen 2020",
+    ] },
+  ])("preserves real OCR line structure and complete text in $fixture offline", async ({ fixture, lines }) => {
+    const inputPath = fileURLToPath(new URL(`./fixtures/${fixture}`, import.meta.url));
+    const networkLog = path.join(tempDir, "network.log");
+    const result = spawnSync(process.execPath, [
+      "--require", preload, cliPath, "convert", inputPath, "--stdout", "--json",
+    ], {
+      cwd: tempDir,
+      env: { ...process.env, PAPERBOY_CLI_CONFIG_DIR: path.join(tempDir, "config"), PAPERBOY_TEST_NETWORK_LOG: networkLog },
+      encoding: "utf8", timeout: 30000,
+    });
+    expect(result.status, result.stderr).toBe(0);
+    const converted = JSON.parse(result.stdout);
+    expect(converted.markdown.split("\n").filter(Boolean)).toEqual(lines);
+    expect((await fs.readdir(tempDir)).filter((file) => /network|traineddata/.test(file))).toEqual([]);
+  });
+
 });

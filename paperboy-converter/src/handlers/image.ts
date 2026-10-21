@@ -1,3 +1,4 @@
+import { cleanOcrText, collectParagraphsFromTesseractBlocks } from "../ocr-text.js";
 import { stripFileExtension, toBytes } from "../helpers.js";
 import type {
   ConvertInputData,
@@ -5,15 +6,12 @@ import type {
   ConvertResult,
   ImageConversionOptions,
   OcrFunction,
-  OcrParagraph,
   OcrResult,
   OcrWord,
   OcrWordPosition,
 } from "../types.js";
 
 const MAX_POSITION_ROWS = 300;
-const MIN_LINE_CONFIDENCE = 60;
-const IMAGE_OMITTED = "<!-- image omitted -->";
 
 function escapeMarkdownCell(value: string): string {
   return value.replace(/\|/g, "\\|").replace(/\r\n/g, " ").replace(/\n/g, " ");
@@ -38,96 +36,6 @@ function toOcrWordPositions(words: OcrWord[]): OcrWordPosition[] {
       };
     })
     .filter((word): word is OcrWordPosition => Boolean(word));
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function objectArray(value: unknown): Record<string, unknown>[] {
-  return Array.isArray(value) ? value.filter(isRecord) : [];
-}
-
-function collectParagraphsFromTesseractBlocks(blocks: unknown): OcrParagraph[] {
-  return objectArray(blocks).flatMap((block) =>
-    objectArray(block.paragraphs).map((paragraph) => ({
-      lines: objectArray(paragraph.lines).map((line) => ({
-        words: objectArray(line.words).map((word): OcrWord => {
-          const bbox = isRecord(word.bbox) ? word.bbox : {};
-          const x0 = typeof bbox.x0 === "number" ? bbox.x0 : 0;
-          const y0 = typeof bbox.y0 === "number" ? bbox.y0 : 0;
-          return {
-            text: typeof word.text === "string" ? word.text : "",
-            confidence: typeof word.confidence === "number" ? word.confidence : 0,
-            bbox: {
-              x0,
-              y0,
-              x1: typeof bbox.x1 === "number" ? bbox.x1 : x0,
-              y1: typeof bbox.y1 === "number" ? bbox.y1 : y0,
-            },
-          };
-        }),
-      })).filter((line) => line.words.length > 0),
-    })).filter((paragraph) => paragraph.lines.length > 0),
-  );
-}
-
-function cleanOcrText(result: OcrResult): { text: string; hasText: boolean } {
-  // Legacy backends can supply partial word lists, so text remains authoritative without structure.
-  if (!result.paragraphs?.length) {
-    const text = result.text.trim();
-    return { text, hasText: text.length > 0 };
-  }
-
-  const sections: string[] = [];
-  let hasText = false;
-  for (const paragraph of result.paragraphs) {
-    let keptLines: string[] = [];
-    let previousBounds: { top: number; bottom: number } | undefined;
-    const flush = () => {
-      if (keptLines.length) sections.push(keptLines.join(" "));
-      keptLines = [];
-      previousBounds = undefined;
-    };
-    for (const line of paragraph.lines) {
-      const words = line.words.filter((word) => word.text.trim().length > 0);
-      if (!words.length) continue;
-      const mean = words.reduce((sum, word) => sum + word.confidence, 0) / words.length;
-      const hasReadableWord = words.some((word) =>
-        /[\p{L}\p{N}]{2}/u.test(word.text) || /^\p{L}+[.,!?;:]?$/u.test(word.text),
-      );
-      if (mean < MIN_LINE_CONFIDENCE || !hasReadableWord) {
-        flush();
-        if (sections.at(-1) !== IMAGE_OMITTED) sections.push(IMAGE_OMITTED);
-        continue;
-      }
-
-      const bounds = {
-        top: Math.min(...words.map((word) => word.bbox.y0)),
-        bottom: Math.max(...words.map((word) => word.bbox.y1)),
-      };
-      // Tesseract can merge widely spaced captions into one paragraph.
-      if (
-        previousBounds &&
-        bounds.top - previousBounds.bottom > Math.max(
-          bounds.bottom - bounds.top,
-          previousBounds.bottom - previousBounds.top,
-        )
-      ) flush();
-
-      const tokens = words.map((word) => word.text.trim());
-      keptLines.push(tokens.map((token, index) =>
-        token === "|" &&
-        /\p{L}/u.test(tokens[index - 1] ?? "") &&
-        /\p{L}/u.test(tokens[index + 1] ?? "")
-          ? "I" : token,
-      ).join(" "));
-      previousBounds = bounds;
-      hasText = true;
-    }
-    flush();
-  }
-  return { text: sections.join("\n\n"), hasText };
 }
 
 // Lazy import keeps tesseract.js out of the test path when callers inject ocr.

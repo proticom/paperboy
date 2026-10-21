@@ -113,6 +113,7 @@ describe("cli integration", () => {
     const result = runCli(["convert", "--help"], configDir);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("--ocr-layout");
+    expect(result.stdout).toContain("--no-ocr-layout");
     expect(result.stdout).toContain("Include the OCR word-position table for image conversion");
     expect(result.stdout).not.toContain("--no-layout-table");
   });
@@ -121,6 +122,10 @@ describe("cli integration", () => {
     { flags: [], configured: undefined, table: false },
     { flags: ["--ocr-layout"], configured: undefined, table: true },
     { flags: ["--no-layout-table"], configured: undefined, table: false },
+    { flags: ["--no-ocr-layout"], configured: undefined, table: false },
+    { flags: ["--no-ocr-layout"], configured: true, table: false },
+    { flags: ["--ocr-layout", "--no-ocr-layout"], configured: true, table: false },
+    { flags: ["--no-ocr-layout", "--ocr-layout"], configured: true, table: false },
     { flags: [], configured: true, table: true },
     { flags: ["--no-layout-table"], configured: true, table: false },
     { flags: ["--ocr-layout"], configured: false, table: true },

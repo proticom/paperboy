@@ -1,86 +1,166 @@
 import { describe, expect, it } from "vitest";
-import { convertToMarkdown, type OcrWord } from "../src/index.js";
+import { convertToMarkdown, type OcrLine, type OcrParagraph, type OcrWord } from "../src/index.js";
 
-function line(tokens: [string, number][], top = 0) {
-  return { words: tokens.map(([text, confidence], index): OcrWord => ({
-    text, confidence, bbox: { x0: index * 50, y0: top, x1: index * 50 + 40, y1: top + 20 },
-  })) };
+function line(text: string, options: {
+  confidence?: number; confidences?: number[]; top?: number; left?: number; width?: number;
+} = {}): OcrLine {
+  const { top = 0, left = 0, confidence = 96 } = options;
+  const scale = (options.width ?? text.length * 10) / text.length;
+  let offset = 0;
+  return { words: text.split(" ").map((token, index) => {
+    const x0 = left + offset * scale;
+    offset += token.length + 1;
+    return {
+      text: token, confidence: options.confidences?.[index] ?? confidence,
+      bbox: { x0, y0: top, x1: x0 + token.length * scale, y1: top + 20 },
+    };
+  }) };
 }
 
-async function convert(paragraphs: { lines: { words: OcrWord[] }[] }[], includeLayoutTable = false) {
+async function convert(paragraphs: OcrParagraph[], includeLayoutTable = false) {
   return convertToMarkdown("scan.png", new Uint8Array([1]), {
     image: { includeLayoutTable, ocr: async () => ({
       text: "Raw text is superseded by structured words",
-      words: paragraphs.flatMap(p => p.lines.flatMap(l => l.words)),
-      paragraphs,
+      words: paragraphs.flatMap(p => p.lines.flatMap(l => l.words)), paragraphs,
     }) },
   });
 }
 
 describe("image OCR cleanup", () => {
-  it("filters whole lines, collapses omitted regions across paragraphs, and preserves weak words in good lines", async () => {
+  it("reflows captions, keeps weak words in good lines, and collapses consecutive junk regions", async () => {
     const result = await convert([
       { lines: [
-        line([["Person:", 96], ["how", 96], ["do", 91], ["|", 76], ["lose", 95], ["weight?", 96]]),
-        line([["Me:", 95], ["We", 96], ["have", 96]], 70),
-        line([["a", 95], ["way.", 96]], 100),
+        line("Person: how do | lose weight?", { confidences: [96, 96, 91, 76, 95, 96], width: 950 }),
+        line("Me: We have", { top: 70, width: 850 }),
+        line("a way.", { top: 100, width: 200 }),
       ] },
-      { lines: [line([["r~", 63], ["SNE", 18], ["dy", 38]]), line([["=", 93]])] },
-      { lines: [line([["4", 94]]), line([["vi", 70], ["ol", 0]]), line([["~~", 62], ["\\", 76]])] },
-      { lines: [line([["All", 92], ["right,", 78], ["then.", 85], ["Keep'your,", 21], ["secrets.", 90]])] },
+      { lines: [line("r~ i SNE 3 dy CU", { confidences: [63, 38, 18, 33, 38, 23] }), line("=", { confidence: 93 })] },
+      { lines: [
+        line("4", { confidence: 94 }),
+        line("Rta? = 0 2\\ be vi", { confidences: [36, 93, 0, 0, 46, 70] }),
+        line("~~ . ol \\ 4 ea N", { confidences: [62, 25, 0, 76, 94, 49, 58] }),
+        line("} Pout andi", { confidences: [0, 16, 3] }),
+      ] },
+      { lines: [line("All right, then. Keep'your, secrets.", { confidences: [92, 78, 85, 21, 90] })] },
     ]);
     expect(result.markdown).toBe("Person: how do I lose weight?\n\nMe: We have a way.\n\n<!-- image omitted -->\n\nAll right, then. Keep'your, secrets.");
   });
 
-  it("joins wrapped lines and separates clean paragraphs without markers", async () => {
+  it("joins prose wraps that reach the right edge and keeps separate paragraphs", async () => {
     const result = await convert([
-      { lines: [line([["Clean", 96], ["text", 95]]), line([["wraps", 93], ["here.", 92]], 30)] },
-      { lines: [line([["Next", 91], ["paragraph.", 94]])] },
+      { lines: [line("Clean text flows across", { width: 400 }), line("the page.", { top: 30, width: 150 })] },
+      { lines: [line("Next paragraph.")] },
     ]);
-    expect(result.markdown).toBe("Clean text wraps here.\n\nNext paragraph.");
+    expect(result.markdown).toBe("Clean text flows across the page.\n\nNext paragraph.");
   });
 
-  it("uses a mean of 60 inclusively and rejects lines below it", async () => {
-    const result = await convert([{ lines: [
-      line([["Below", 59]]), line([["Boundary", 60]]), line([["Low", 0]]), line([["Again", 10]]),
-    ] }]);
-    expect(result.markdown).toBe("<!-- image omitted -->\n\nBoundary\n\n<!-- image omitted -->");
-  });
-
-  it("retains short words and numbers inside readable lines", async () => {
-    const result = await convert([{ lines: [line([["I", 95], ["am", 95], ["4", 94]])] }]);
-    expect(result.markdown).toBe("I am 4");
-  });
-
-  it("keeps high-confidence page numbers and numeric dates", async () => {
+  it("keeps heading, list, form-label and receipt line breaks", async () => {
+    const receipt: OcrLine[] = ["Coffee", "Bagel", "Total"].map((text, index) => ({ words: [
+      { text, confidence: 96, bbox: { x0: 0, y0: index * 30, x1: 60, y1: index * 30 + 20 } },
+      { text: ["4.50", "3.25", "7.75"][index], confidence: 96, bbox: { x0: 450, y0: index * 30, x1: 500, y1: index * 30 + 20 } },
+    ] }));
     const result = await convert([
-      { lines: [line([["12", 96]])] },
-      { lines: [line([["2026", 96], ["10", 96], ["20", 96]])] },
+      { lines: [line("Heading", { width: 100 }), line("Body text reaches the edge", { top: 30, width: 600 }), line("and wraps here.", { top: 60, width: 300 })] },
+      { lines: [line("Packing"), line("• Passport", { top: 30 }), line("- Phone charger", { top: 60 }), line("1. Book hotel", { top: 90 }), line("a) Print ticket", { top: 120 }), line("[ ] Check bag", { top: 150 })] },
+      { lines: [line("Name:"), line("Email:", { top: 30 }), line("Phone:", { top: 60 })] },
+      { lines: receipt },
     ]);
-    expect(result.markdown).toBe("12\n\n2026 10 20");
+    expect(result.markdown).toBe("Heading\nBody text reaches the edge and wraps here.\n\nPacking\n• Passport\n- Phone charger\n1. Book hotel\na) Print ticket\n[ ] Check bag\n\nName:\nEmail:\nPhone:\n\nCoffee 4.50\nBagel 3.25\nTotal 7.75");
   });
 
-  it("still rejects isolated single digits and symbols", async () => {
+  it("does not join short, indented or sentence-final lines before uppercase text", async () => {
+    const result = await convert([
+      { lines: [line("Short line", { width: 100 }), line("a longer line below", { top: 30, width: 500 })] },
+      { lines: [line("A line that fills the width", { width: 500 }), line("an indented line", { left: 100, top: 30, width: 400 })] },
+      { lines: [line("A complete sentence.", { width: 500 }), line("Another sentence.", { top: 30, width: 500 })] },
+    ]);
+    expect(result.markdown).toBe("Short line\na longer line below\n\nA line that fills the width\nan indented line\n\nA complete sentence.\nAnother sentence.");
+  });
+
+  it("recovers prose paragraph breaks after short sentence-final lines", async () => {
     const result = await convert([{ lines: [
-      line([["4", 94]]), line([["=", 93]]), line([["~~", 94], ["\\", 96]]),
+      line("A paragraph fills the line", { width: 500 }), line("and ends.", { top: 30, width: 150 }),
+      line("The next paragraph fills it", { top: 60, width: 500 }), line("and ends too.", { top: 90, width: 200 }),
     ] }]);
-    expect(result.markdown).toBe("<!-- image omitted -->");
+    expect(result.markdown).toBe("A paragraph fills the line and ends.\n\nThe next paragraph fills it and ends too.");
   });
 
-  it("leaves apostrophes, pipes outside prose, and punctuation unchanged", async () => {
-    const result = await convert([{ lines: [line([["|", 76], ["don't", 91], ["edit", 95], ["|", 76]])] }]);
-    expect(result.markdown).toBe("| don't edit |");
+  it("rescues the captured low-confidence table row without changing its words", async () => {
+    const words = [
+      { text: "AliceMartin", confidence: 86, bbox: { x0: 48, y0: 121, x1: 136, y1: 133 } },
+      { text: "Engineer", confidence: 52, bbox: { x0: 181, y0: 121, x1: 247, y1: 137 } },
+      { text: "Denver", confidence: 35, bbox: { x0: 285, y0: 121, x1: 337, y1: 133 } },
+      { text: "2021", confidence: 42, bbox: { x0: 379, y0: 121, x1: 411, y1: 133 } },
+    ] satisfies OcrWord[];
+    const result = await convert([{ lines: [{ words }] }]);
+    expect(result.markdown).toBe("AliceMartin Engineer Denver 2021");
+  });
+
+  it("rescues readable amounts, times and percentages at modest confidence", async () => {
+    const result = await convert([{ lines: [line("2021 3.25 $4.50 10:30 12%", { confidence: 35 })] }]);
+    expect(result.markdown).toBe("2021 3.25 $4.50 10:30 12%");
+  });
+
+  it("keeps numeric page lines but rejects isolated single digits and symbols", async () => {
+    const result = await convert([
+      { lines: [line("12")] }, { lines: [line("2026 10 20")] },
+      { lines: [line("4", { confidence: 94 }), line("=", { confidence: 93 }), line("~~ \\")] },
+    ]);
+    expect(result.markdown).toBe("12\n\n2026 10 20\n\n<!-- image omitted -->");
+  });
+
+  it.each([
+    ["how do | lose weight?", "how do I lose weight?"],
+    ["Home | Reports | Weekly | Export", "Home | Reports | Weekly | Export"],
+    ["Status | Ready", "Status | Ready"],
+    ["how do | lose | weight?", "how do | lose | weight?"],
+    ["left | Right", "left | Right"],
+    ["return left | right;", "return left | right;"],
+    ["| don't edit |", "| don't edit |"],
+  ])("handles pipes in %s", async (text, expected) => {
+    const result = await convert([{ lines: [line(text)] }]);
+    expect(result.markdown).toBe(expected);
+  });
+
+  it("keeps code lines and adjoining low-confidence closing punctuation as read", async () => {
+    const text = ["function total(items) {", "return items.length;", "i", "}", ");", "]", "};", "const count = total([]);"];
+    const result = await convert([{ lines: text.map((text, index) => line(text, {
+      confidence: index >= 2 && index <= 6 ? 0 : 96, top: index * 30,
+    })) }]);
+    expect(result.markdown).toBe(text.join("\n"));
+  });
+
+  it("ignores an uncertain list prefix when rescuing readable text", async () => {
+    const result = await convert([{ lines: [line("« Notebook", { confidences: [0, 96] })] }]);
+    expect(result.markdown).toBe("« Notebook");
+  });
+
+  it("keeps code statements with a confident keyword and uncertain arguments", async () => {
+    const result = await convert([{ lines: [line("const size = count ([1l, 21);", {
+      confidences: [96, 96, 96, 0, 0, 42],
+    })] }]);
+    expect(result.markdown).toBe("const size = count ([1l, 21);");
+  });
+
+  it("retains adjoining closing code fragments across Tesseract paragraphs", async () => {
+    const result = await convert([
+      { lines: [line("return count;", { top: 0 })] },
+      { lines: [line("}", { confidence: 0, top: 30 })] },
+    ]);
+    expect(result.markdown).toBe("return count;\n\n}");
   });
 
   it("keeps raw rejected words in the opt-in debugging table", async () => {
-    const result = await convert([{ lines: [line([["junk", 12]])] }], true);
+    const result = await convert([{ lines: [{ words: [{
+      text: "junk", confidence: 12, bbox: { x0: 0, y0: 0, x1: 40, y1: 20 },
+    }] }] }], true);
     expect(result.markdown).toBe("<!-- image omitted -->\n\n## Text Positioning\n\n| Text | Confidence | Left | Top | Width | Height |\n| --- | ---: | ---: | ---: | ---: | ---: |\n| junk | 12.0 | 0 | 0 | 40 | 20 |");
     expect(result.warnings).toContain("No readable text was detected in this image.");
   });
 
-  it("preserves legacy injected text when line structure is unavailable", async () => {
+  it("preserves legacy injected text without line structure", async () => {
     const result = await convertToMarkdown("scan.png", new Uint8Array([1]), {
-      image: { ocr: async () => ({ text: "Complete text\nwith original breaks.", words: line([["Complete", 95]]).words }) },
+      image: { ocr: async () => ({ text: "Complete text\nwith original breaks.", words: line("Complete").words }) },
     });
     expect(result.markdown).toBe("Complete text\nwith original breaks.");
   });

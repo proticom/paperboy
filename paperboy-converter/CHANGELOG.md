@@ -8,14 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- Image OCR emits reflowed paragraphs without the `## OCR Text` heading.
-- `image.includeLayoutTable` defaults to false. The optional table retains raw, unfiltered words for debugging.
+- **Breaking for 0.x consumers:** image OCR removes the `## OCR Text` heading and defaults `image.includeLayoutTable` to false. Release this output change with a MINOR version bump. Versions remain unchanged in this patch.
+- The optional positioning table retains raw, unfiltered words for debugging.
+
+### Added
+- Pure OCR parsing and cleanup at `@proticom/paperboy-converter/ocr-text`, shared with the browser extension.
 
 ### Fixed
-- Filter image OCR by mean line confidence (minimum 60), keeping uncertain words within accepted lines. Require a token with at least two consecutive letters/digits or a letter-only word with optional trailing punctuation; retain page numbers such as `12` and reject lines made only of isolated digits or symbols.
-- Parse missing or malformed Tesseract blocks, paragraphs, lines, and words defensively, with defaults for word fields and partial bounding boxes.
+- Rescue readable low-confidence text and numeric table rows instead of dropping them solely by line mean. Ignore list prefixes when measuring readable content.
+- Join only prose wraps. Preserve list, label, receipt/table and code line breaks; recover prose paragraph boundaries in degraded scans.
 - Collapse consecutive rejected regions into one `<!-- image omitted -->` marker and split widely spaced captions into paragraphs.
-- Read a standalone `|` between words containing letters as `I`.
+- Parse malformed Tesseract structures defensively with defaults for word fields and partial bounding boxes.
+- Restrict `|` to `I` cleanup to a single pipe flanked by lowercase words. Keep real pipe separators.
+- Keep code statements with confident keywords and adjoining closing punctuation or single-character misreads.
 
 ## [0.3.1] - 2026-10-20
 

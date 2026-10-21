@@ -60,6 +60,10 @@ program
   .option("-o, --output <path>", "Output markdown file path")
   .option("--stdout", "Print markdown to stdout instead of writing file")
   .option("--ocr-layout", "Include the OCR word-position table for image conversion")
+  .option("--no-ocr-layout", "Omit the OCR word-position table, overriding saved config")
+  .on("option:no-ocr-layout", function (this: Command) {
+    this.setOptionValue("ocrLayoutOff", true);
+  })
   .addOption(
     new Option("--no-layout-table", "Deprecated: disable the OCR word-position table").hideHelp(),
   )
@@ -72,6 +76,7 @@ program
         stdout?: boolean;
         layoutTable?: boolean;
         ocrLayout?: boolean;
+        ocrLayoutOff?: boolean;
         json?: boolean;
       },
     ) => {
@@ -79,7 +84,7 @@ program
       const config = await loadConfig();
       const convertOptions: ConvertOptions = {
         image: {
-          includeLayoutTable: options.layoutTable === false
+          includeLayoutTable: options.layoutTable === false || options.ocrLayoutOff
             ? false
             : options.ocrLayout ?? config.defaults.includeLayoutTable,
         },

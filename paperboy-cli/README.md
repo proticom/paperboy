@@ -39,6 +39,7 @@ Options:
 - `-o, --output <path>`: write to a specific markdown path
 - `--stdout`: print markdown directly to stdout
 - `--ocr-layout`: include the OCR word-position table for image conversion (off by default)
+- `--no-ocr-layout`: omit the table, overriding saved config. Either off switch wins when combined with `--ocr-layout`, in any order.
 - `--no-layout-table`: deprecated, hidden switch; still accepted to disable the table, including when config enables it. It takes precedence if both switches are passed.
 - `--json`: emit JSON metadata
 
@@ -130,20 +131,23 @@ data from the pinned `@tesseract.js-data/eng@1.0.0` package into `dist/lang/`, w
 ships with the CLI. OCR reads this local data without downloading or writing a
 language cache to the current directory.
 
-Image conversion emits text without an OCR heading. It joins wrapped lines into
-paragraphs and replaces consecutive rejected regions with one
-`<!-- image omitted -->` marker. Lines need mean word confidence of at least 60.
-Each line must also contain a token with at least two consecutive letters/digits,
-or a letter-only word with optional trailing punctuation. Page numbers such as `12` and dates such as
-`2026 10 20` are kept. Lines made only of isolated digits or symbols such as `4`,
-`=`, or `~~ \` are rejected. Accepted lines retain all their words. A standalone
-`|` between words containing letters becomes `I`. Other spelling and punctuation
-remain unchanged.
+Image conversion emits text without an OCR heading. Confident lines are kept;
+readable words and numeric tokens can also rescue lower-confidence lines. The
+converter keeps every word in accepted lines and replaces consecutive rejected
+regions with one `<!-- image omitted -->` marker.
+
+Only prose wraps join with spaces. Lists, form labels, receipt/table rows, headings
+and code keep their line breaks. Adjoining code punctuation stays as read. A lone
+`|` becomes `I` only when it is the sole pipe in its line and both adjacent words
+start lowercase. Other spelling and punctuation remain unchanged. See the
+converter README for the confidence and geometry rules.
 
 The word-position table is off by default. Pass `--ocr-layout` to append
-`## Text Positioning` with the raw, unfiltered `Text`, `Confidence`, `Left`, `Top`,
-`Width`, and `Height` values (up to 300 words). Saved config can also enable it.
-The hidden `--no-layout-table` switch remains accepted and disables the table.
+`## Text Positioning` with raw, unfiltered `Text`, `Confidence`, `Left`, `Top`,
+`Width`, and `Height` values (up to 300 words). Existing saved configs with
+`includeLayoutTable: true` still enable the table. Pass `--no-ocr-layout` to disable
+it for one run. The hidden `--no-layout-table` switch remains accepted. Either off
+switch takes precedence over `--ocr-layout`, regardless of flag order.
 
 ## Config
 

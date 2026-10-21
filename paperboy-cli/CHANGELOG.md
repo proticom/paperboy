@@ -9,9 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `convert --ocr-layout` includes the OCR word-position table for image conversion.
+- `convert --no-ocr-layout` visibly disables that table for one run. Either off switch overrides `--ocr-layout` in any order.
 
 ### Changed
-- Image positioning tables are off by default. `defaults.includeLayoutTable` and the initial setup prompt default to false.
+- **Breaking for 0.x consumers:** OCR removes the `## OCR Text` heading and positioning tables are off by default. Release this output change with a MINOR version bump. Versions remain unchanged in this patch.
+- `defaults.includeLayoutTable` and the initial setup prompt default to false. Persisted configs with `includeLayoutTable: true` keep the table.
 - Keep `--no-layout-table` accepted as a hidden, deprecated switch to disable positioning tables.
 
 ## [0.3.2] - 2026-10-20
