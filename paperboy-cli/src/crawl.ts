@@ -492,6 +492,11 @@ export async function crawlSite(
     warnings,
   );
 
+  if (!enqueued.has(normalizedStart)) {
+    queue.push({ url: normalizedStart, depth: 0, source: "seed" });
+    enqueued.add(normalizedStart);
+  }
+
   if (sitemapUrls.length > 0) {
     for (const url of sitemapUrls) {
       if (!shouldIncludeUrl(url, includePatterns, excludePatterns)) continue;
@@ -499,11 +504,6 @@ export async function crawlSite(
       queue.push({ url, depth: 0, source: "sitemap" });
       enqueued.add(url);
     }
-  }
-
-  if (!enqueued.has(normalizedStart)) {
-    queue.push({ url: normalizedStart, depth: 0, source: "seed" });
-    enqueued.add(normalizedStart);
   }
 
   let processedCount = 0;
