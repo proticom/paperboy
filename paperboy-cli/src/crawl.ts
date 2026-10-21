@@ -9,6 +9,7 @@ type CrawlOutputMode = "single" | "mirror" | "jsonl";
 
 interface QueueItem {
   url: string;
+  fetchUrl: string;
   depth: number;
   source: CrawlSource;
 }
@@ -93,7 +94,11 @@ function compilePatterns(patterns: string[]): RegExp[] {
   return patterns.map((pattern) => new RegExp(pattern, "i"));
 }
 
-function normalizeUrl(rawUrl: string, base: URL): string | null {
+function normalizeUrl(
+  rawUrl: string,
+  base: URL,
+  preserveTrailingSlash = false,
+): string | null {
   try {
     const url = new URL(rawUrl, base);
     if (url.protocol !== "http:" && url.protocol !== "https:") {
@@ -104,7 +109,11 @@ function normalizeUrl(rawUrl: string, base: URL): string | null {
       url.searchParams.delete(param);
     }
     url.search = "";
-    if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
+    if (
+      !preserveTrailingSlash &&
+      url.pathname.length > 1 &&
+      url.pathname.endsWith("/")
+    ) {
       url.pathname = url.pathname.slice(0, -1);
     }
     return url.toString();
@@ -212,7 +221,13 @@ async function fetchText(
   url: string,
   timeoutMs: number,
   userAgent: string,
-): Promise<{ ok: boolean; status: number; body: string; contentType: string }> {
+): Promise<{
+  ok: boolean;
+  status: number;
+  body: string;
+  contentType: string;
+  finalUrl: string;
+}> {
   return fetchTextWithRedirects(url, timeoutMs, userAgent, 0);
 }
 
@@ -221,13 +236,20 @@ async function fetchTextWithRedirects(
   timeoutMs: number,
   userAgent: string,
   redirects: number,
-): Promise<{ ok: boolean; status: number; body: string; contentType: string }> {
+): Promise<{
+  ok: boolean;
+  status: number;
+  body: string;
+  contentType: string;
+  finalUrl: string;
+}> {
   if (redirects > 5) {
     return {
       ok: false,
       status: 0,
       body: "",
       contentType: "",
+      finalUrl: url,
     };
   }
 
@@ -241,6 +263,7 @@ async function fetchTextWithRedirects(
         status: 0,
         body: "",
         contentType: "",
+        finalUrl: url,
       });
       return;
     }
@@ -277,6 +300,7 @@ async function fetchTextWithRedirects(
             status,
             body: Buffer.concat(chunks).toString("utf8"),
             contentType,
+            finalUrl: parsedUrl.toString(),
           });
         });
       },
@@ -292,6 +316,7 @@ async function fetchTextWithRedirects(
         status: 0,
         body: "",
         contentType: "",
+        finalUrl: url,
       });
     });
 
@@ -496,13 +521,24 @@ export async function crawlSite(
     for (const url of sitemapUrls) {
       if (!shouldIncludeUrl(url, includePatterns, excludePatterns)) continue;
       if (enqueued.has(url)) continue;
-      queue.push({ url, depth: 0, source: "sitemap" });
+      queue.push({
+        url,
+        fetchUrl: normalizeUrl(url, startUrl, true) ?? url,
+        depth: 0,
+        source: "sitemap",
+      });
       enqueued.add(url);
     }
   }
 
   if (!enqueued.has(normalizedStart)) {
-    queue.push({ url: normalizedStart, depth: 0, source: "seed" });
+    queue.push({
+      url: normalizedStart,
+      fetchUrl:
+        normalizeUrl(startUrl.toString(), startUrl, true) ?? normalizedStart,
+      depth: 0,
+      source: "seed",
+    });
     enqueued.add(normalizedStart);
   }
 
@@ -524,7 +560,11 @@ export async function crawlSite(
     }
     fetches += 1;
 
-    const fetched = await fetchText(item.url, options.timeoutMs, options.userAgent);
+    const fetched = await fetchText(
+      item.fetchUrl,
+      options.timeoutMs,
+      options.userAgent,
+    );
     if (!fetched.ok) {
       warnings.push(`Skipping ${item.url} (HTTP ${fetched.status || "error"}).`);
       continue;
@@ -567,7 +607,7 @@ export async function crawlSite(
 
     if (item.depth >= options.maxDepth) continue;
 
-    const links = extractLinksFromHtml(fetched.body, item.url);
+    const links = extractLinksFromHtml(fetched.body, fetched.finalUrl);
     for (const link of links) {
       const normalized = normalizeUrl(link, startUrl);
       if (!normalized) continue;
@@ -576,6 +616,8 @@ export async function crawlSite(
       if (enqueued.has(normalized) || visited.has(normalized)) continue;
       queue.push({
         url: normalized,
+        fetchUrl:
+          normalizeUrl(link, new URL(fetched.finalUrl), true) ?? normalized,
         depth: item.depth + 1,
         source: "link",
       });
