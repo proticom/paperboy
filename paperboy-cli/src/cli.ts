@@ -229,7 +229,7 @@ program
       if (options.json) {
         console.log(JSON.stringify(result, null, 2));
         if (
-          result.failedFetchCount > 0 &&
+          (result.failedFetchCount > 0 || result.seedSkipReason) &&
           (result.mode === "map" ? result.discoveredCount : result.crawledCount) === 0
         ) {
           process.exitCode = 1;
@@ -238,11 +238,13 @@ program
       }
 
       const resultCount = result.mode === "map" ? result.discoveredCount : result.crawledCount;
-      if (result.failedFetchCount > 0 && resultCount === 0) {
+      if ((result.failedFetchCount > 0 || result.seedSkipReason) && resultCount === 0) {
         process.exitCode = 1;
-        console.error(
-          `Error: no pages were crawled from ${url}; ${result.failedFetchCount} request(s) failed.`,
-        );
+        if (result.failedFetchCount > 0) {
+          console.error(`Error: no pages were crawled from ${url}; ${result.failedFetchCount} request(s) failed.`);
+        } else {
+          console.error(`Error: no pages were crawled from ${url}; the seed was skipped (${result.seedSkipReason}).`);
+        }
       }
 
       if (result.mode === "map") {

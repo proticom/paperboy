@@ -46,6 +46,12 @@ async function startCrawlServer(): Promise<{
   close: () => Promise<void>;
 }> {
   const server = http.createServer((req, res) => {
+    if (req.url === "/json") {
+      res.statusCode = 200;
+      res.setHeader("content-type", "application/json");
+      res.end("{}");
+      return;
+    }
     if (req.url === "/missing") {
       res.statusCode = 404;
       res.end("missing");
@@ -232,6 +238,27 @@ describe("cli integration", () => {
         "--rate-limit-ms", "0", "--timeout-ms", "3000",
       ], configDir);
       expect(result.status).toBe(1);
+    } finally { await server.close(); }
+  });
+
+  it("returns an error when the seed is non-HTML", async () => {
+    const server = await startCrawlServer();
+    try {
+      const textResult = await runCliAsync([
+        "crawl", `${server.baseUrl}/json`, "--max-depth", "0", "-o", path.join(tempDir, "json.md"),
+        "--rate-limit-ms", "0", "--timeout-ms", "3000",
+      ], configDir);
+      expect(textResult.status).toBe(1);
+      expect(textResult.stderr).toContain("Error: no pages were crawled from");
+      expect(textResult.stderr).toContain("the seed was skipped (non-HTML content type: application/json)");
+
+      const jsonResult = await runCliAsync([
+        "crawl", `${server.baseUrl}/json`, "--max-depth", "0", "--json", "-o", path.join(tempDir, "json.jsonl"),
+        "--rate-limit-ms", "0", "--timeout-ms", "3000",
+      ], configDir);
+      expect(jsonResult.status).toBe(1);
+      expect(JSON.parse(jsonResult.stdout).seedSkipReason).toContain("non-HTML content type");
+      expect(jsonResult.stdout).not.toContain("Error:");
     } finally { await server.close(); }
   });
 
