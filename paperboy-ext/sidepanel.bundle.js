@@ -3642,8 +3642,8 @@ ${content}
       }
       pos++;
     }
-    let lineText = getLine(state2, startLine + 1);
-    let columns = lineText.split("|");
+    let lineText2 = getLine(state2, startLine + 1);
+    let columns = lineText2.split("|");
     const aligns = [];
     for (let i = 0; i < columns.length; i++) {
       const t = columns[i].trim();
@@ -3665,14 +3665,14 @@ ${content}
         aligns.push("");
       }
     }
-    lineText = getLine(state2, startLine).trim();
-    if (lineText.indexOf("|") === -1) {
+    lineText2 = getLine(state2, startLine).trim();
+    if (lineText2.indexOf("|") === -1) {
       return false;
     }
     if (state2.sCount[startLine] - state2.blkIndent >= 4) {
       return false;
     }
-    columns = escapedSplit(lineText);
+    columns = escapedSplit(lineText2);
     if (columns.length && columns[0] === "") columns.shift();
     if (columns.length && columns[columns.length - 1] === "") columns.pop();
     const columnCount = columns.length;
@@ -3720,14 +3720,14 @@ ${content}
       if (terminate) {
         break;
       }
-      lineText = getLine(state2, nextLine).trim();
-      if (!lineText) {
+      lineText2 = getLine(state2, nextLine).trim();
+      if (!lineText2) {
         break;
       }
       if (state2.sCount[nextLine] - state2.blkIndent >= 4) {
         break;
       }
-      columns = escapedSplit(lineText);
+      columns = escapedSplit(lineText2);
       if (columns.length && columns[0] === "") columns.shift();
       if (columns.length && columns[columns.length - 1] === "") columns.pop();
       autocompletedCells += columnCount - columns.length;
@@ -4520,10 +4520,10 @@ ${content}
     if (state2.src.charCodeAt(pos) !== 60) {
       return false;
     }
-    let lineText = state2.src.slice(pos, max);
+    let lineText2 = state2.src.slice(pos, max);
     let i = 0;
     for (; i < HTML_SEQUENCES.length; i++) {
-      if (HTML_SEQUENCES[i][0].test(lineText)) {
+      if (HTML_SEQUENCES[i][0].test(lineText2)) {
         break;
       }
     }
@@ -4534,16 +4534,16 @@ ${content}
       return HTML_SEQUENCES[i][2];
     }
     let nextLine = startLine + 1;
-    if (!HTML_SEQUENCES[i][1].test(lineText)) {
+    if (!HTML_SEQUENCES[i][1].test(lineText2)) {
       for (; nextLine < endLine; nextLine++) {
         if (state2.sCount[nextLine] < state2.blkIndent) {
           break;
         }
         pos = state2.bMarks[nextLine] + state2.tShift[nextLine];
         max = state2.eMarks[nextLine];
-        lineText = state2.src.slice(pos, max);
-        if (HTML_SEQUENCES[i][1].test(lineText)) {
-          if (lineText.length !== 0) {
+        lineText2 = state2.src.slice(pos, max);
+        if (HTML_SEQUENCES[i][1].test(lineText2)) {
+          if (lineText2.length !== 0) {
             nextLine++;
           }
           break;
@@ -6755,6 +6755,192 @@ ${content}
   };
   var lib_default = MarkdownIt;
 
+  // ../paperboy-converter/dist/ocr-text.js
+  function isRecord(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+  function objectArray(value) {
+    return Array.isArray(value) ? value.filter(isRecord) : [];
+  }
+  function lineBounds(value) {
+    if (!isRecord(value) || typeof value.x0 !== "number" || typeof value.y0 !== "number" || typeof value.x1 !== "number" || typeof value.y1 !== "number")
+      return void 0;
+    return { x0: value.x0, y0: value.y0, x1: value.x1, y1: value.y1 };
+  }
+  function collectParagraphsFromTesseractBlocks(blocks) {
+    return objectArray(blocks).flatMap((block2) => objectArray(block2.paragraphs).map((paragraph2) => ({
+      lines: objectArray(paragraph2.lines).map((line) => ({
+        bbox: lineBounds(line.bbox),
+        words: objectArray(line.words).map((word) => {
+          const bbox = isRecord(word.bbox) ? word.bbox : {};
+          const x0 = typeof bbox.x0 === "number" ? bbox.x0 : 0;
+          const y0 = typeof bbox.y0 === "number" ? bbox.y0 : 0;
+          return {
+            text: typeof word.text === "string" ? word.text : "",
+            confidence: typeof word.confidence === "number" ? word.confidence : 0,
+            bbox: {
+              x0,
+              y0,
+              x1: typeof bbox.x1 === "number" ? bbox.x1 : x0,
+              y1: typeof bbox.y1 === "number" ? bbox.y1 : y0
+            }
+          };
+        })
+      })).filter((line) => line.words.length > 0)
+    })).filter((paragraph2) => paragraph2.lines.length > 0));
+  }
+  var MIN_LINE_CONFIDENCE = 60;
+  var MIN_WORD_CONFIDENCE = 30;
+  var MIN_RESCUE_CONFIDENCE = 40;
+  var MIN_READABLE_FRACTION = 0.6;
+  var WRAP_EDGE_FRACTION = 0.85;
+  var IMAGE_OMITTED = "<!-- image omitted -->";
+  function isReadableWord(word) {
+    if (word.confidence < MIN_WORD_CONFIDENCE)
+      return false;
+    const text2 = word.text.trim();
+    const alphanumeric = /^[\p{P}\p{Sc}]*[\p{L}\p{N}][\p{L}\p{N}\-_.@/:$%#+]*[\p{P}\p{Sc}]*$/u.test(text2);
+    const alphabetic = /^[\p{P}]*\p{L}{2,}(?:['’\-]\p{L}+)*[\p{P}]*$/u.test(text2);
+    if (/^[\p{Sc}]?\d{2,}(?:[.,:]\d+)*%?$|^[\p{Sc}]?\d+[.,:]\d+%?$|^\d+%$/u.test(text2))
+      return true;
+    if (word.confidence >= MIN_LINE_CONFIDENCE)
+      return alphanumeric || alphabetic;
+    return (alphanumeric || alphabetic) && text2.replace(/[^\p{L}\p{N}]/gu, "").length >= 3;
+  }
+  function analyzeLine(line) {
+    const words = line.words;
+    const tokens = words.map((word) => word.text.trim());
+    const text2 = tokens.join(" ");
+    const mean = words.reduce((sum, word) => sum + word.confidence, 0) / words.length;
+    const content = hasListPrefix(text2) ? words.slice(1) : words;
+    const confidence = content.reduce((sum, word) => sum + word.confidence, 0);
+    const readableConfidence = content.filter(isReadableWord).reduce((sum, word) => sum + word.confidence, 0);
+    const readableFraction = readableConfidence / Math.max(1, confidence);
+    const code2 = /[{}()]|=>|[;=]\s*$/.test(text2);
+    const codeStatement = code2 && words[0].confidence >= MIN_LINE_CONFIDENCE && /^(?:const|let|var|function|return|for|if|while|class|import|export)\b/.test(text2);
+    const charWidth = words.reduce((sum, word) => sum + word.bbox.x1 - word.bbox.x0, 0) / tokens.reduce((sum, token) => sum + token.length, 0);
+    return {
+      words,
+      text: text2,
+      bounds: {
+        x0: Math.min(...words.map((word) => word.bbox.x0)),
+        y0: Math.min(...words.map((word) => word.bbox.y0)),
+        x1: Math.max(...words.map((word) => word.bbox.x1)),
+        y1: Math.max(...words.map((word) => word.bbox.y1))
+      },
+      charWidth,
+      top: line.bbox?.y0 ?? Math.min(...words.map((word) => word.bbox.y0)),
+      keep: mean >= MIN_LINE_CONFIDENCE || mean >= MIN_RESCUE_CONFIDENCE && readableFraction >= MIN_READABLE_FRACTION || codeStatement,
+      code: code2,
+      columns: words.some((word, index) => index > 0 && word.bbox.x0 - words[index - 1].bbox.x1 > charWidth * 4),
+      literal: text2.startsWith("|") || text2.endsWith("|") || tokens.filter((token) => token === "|").length >= 2 || words.length === 1 && /[\p{N}@_/$%#+]/u.test(text2)
+    };
+  }
+  function hasListPrefix(text2) {
+    return /^(?:[•·«»*–—-](?:\s|$)|\d+[.)]\s|[a-zA-Z][.)]\s|\[[ xX]?\](?:\s|$))/.test(text2);
+  }
+  function isCodeFragment(line) {
+    return /^[{}\[\]();,]+$/.test(line.text.replace(/\s/g, "")) || line.words.length === 1 && [...line.text].length === 1;
+  }
+  function keepCodeFragments(lines) {
+    const adjacent = (left, right) => Math.abs(right.bounds.y0 - left.bounds.y1) <= Math.max(left.bounds.y1 - left.bounds.y0, right.bounds.y1 - right.bounds.y0) * 2;
+    for (let start = 0; start < lines.length; start++) {
+      if (!isCodeFragment(lines[start]))
+        continue;
+      let end = start + 1;
+      while (end < lines.length && isCodeFragment(lines[end]))
+        end++;
+      const before = lines[start - 1];
+      const after = lines[end];
+      if (before?.keep && before.code && adjacent(before, lines[start]) || after?.keep && after.code && adjacent(lines[end - 1], after)) {
+        for (let index = start; index < end; index++) {
+          lines[index].keep = true;
+          lines[index].code = true;
+        }
+      }
+      start = end - 1;
+    }
+  }
+  function aligned(previous, next2) {
+    return Math.abs(previous.bounds.x0 - next2.bounds.x0) <= Math.max(previous.charWidth, next2.charWidth) * 1.5;
+  }
+  function reachesEdge(line, bounds) {
+    return line.bounds.x1 - bounds.left >= (bounds.right - bounds.left) * WRAP_EDGE_FRACTION;
+  }
+  function fontChange(previous, next2) {
+    return Math.max(previous.charWidth, next2.charWidth) > Math.min(previous.charWidth, next2.charWidth) * 1.25;
+  }
+  function wrapBoundary(previous, next2, bounds) {
+    const canWrap = previous.keep && next2.keep && !previous.code && !next2.code && !previous.columns && !next2.columns && !previous.literal && !next2.literal && !hasListPrefix(previous.text) && !hasListPrefix(next2.text) && !previous.text.endsWith(":") && reachesEdge(previous, bounds) && aligned(previous, next2) && (/^\p{Ll}/u.test(next2.text) || !/[.!?:]$/.test(previous.text));
+    if (!canWrap)
+      return "line";
+    return fontChange(previous, next2) ? "paragraph" : "space";
+  }
+  function lineText(line) {
+    if (line.code)
+      return line.text;
+    const tokens = line.words.map((word) => word.text.trim());
+    if (tokens.filter((token) => token === "|").length !== 1)
+      return line.text;
+    return tokens.map((token, index) => token === "|" && /^\p{Ll}/u.test(tokens[index - 1] ?? "") && /^\p{Ll}/u.test(tokens[index + 1] ?? "") ? "I" : token).join(" ");
+  }
+  function cleanOcrText(result) {
+    if (!result.paragraphs?.length) {
+      const text2 = result.text.trim();
+      return { text: text2, hasText: text2.length > 0 };
+    }
+    const sections = [];
+    let hasText = false;
+    const paragraphs = result.paragraphs.map((paragraph2) => paragraph2.lines.map((line) => ({ ...line, words: line.words.filter((word) => word.text.trim()) })).filter((line) => line.words.length > 0).map(analyzeLine));
+    keepCodeFragments(paragraphs.flat());
+    for (const lines of paragraphs) {
+      const kept = lines.filter((line) => line.keep);
+      const bounds = {
+        left: Math.min(...kept.map((line) => line.bounds.x0)),
+        right: Math.max(...kept.map((line) => line.bounds.x1))
+      };
+      const hasWraps = lines.some((line, index) => index > 0 && wrapBoundary(lines[index - 1], line, bounds) === "space");
+      const pitches = kept.slice(1).map((line, index) => line.top - kept[index].top).filter((pitch) => pitch > 0).sort((a, b) => a - b);
+      const middle = Math.floor(pitches.length / 2);
+      const normalPitch = pitches.length ? (pitches[middle] + pitches[Math.floor((pitches.length - 1) / 2)]) / 2 : 0;
+      let text2 = "";
+      let previous;
+      const flush = () => {
+        if (text2)
+          sections.push(text2);
+        text2 = "";
+        previous = void 0;
+      };
+      for (const line of lines) {
+        if (!line.keep) {
+          flush();
+          if (sections.at(-1) !== IMAGE_OMITTED)
+            sections.push(IMAGE_OMITTED);
+          continue;
+        }
+        if (previous) {
+          const largeGap = line.bounds.y0 - previous.bounds.y1 > Math.max(line.bounds.y1 - line.bounds.y0, previous.bounds.y1 - previous.bounds.y0) || normalPitch > 0 && line.top - previous.top > normalPitch * 1.5;
+          const boundary = wrapBoundary(previous, line, bounds);
+          const paragraphEnd = hasWraps && !previous.code && !line.code && !previous.columns && !line.columns && !hasListPrefix(previous.text) && !hasListPrefix(line.text) && aligned(previous, line) && !reachesEdge(previous, bounds) && /^\p{Lu}/u.test(line.text) && (/[.!?]$/.test(previous.text) || previous.charWidth > line.charWidth * 1.25);
+          if (largeGap || boundary === "paragraph" || paragraphEnd)
+            flush();
+          else if (boundary === "space") {
+            if (/\p{L}-$/u.test(previous.text) && /^\p{Ll}/u.test(line.text)) {
+              text2 = text2.replace(/(\p{L})-$/u, "$1");
+            } else
+              text2 += " ";
+          } else
+            text2 += "\n";
+        }
+        text2 += lineText(line);
+        previous = line;
+        hasText = true;
+      }
+      flush();
+    }
+    return { text: sections.join("\n\n"), hasText };
+  }
+
   // lib/preview.mjs
   var MAX_IMAGE_BYTES = 20 * 1024 * 1024;
   function createPreviewController({
@@ -7040,6 +7226,7 @@ ${content}
     const documentClone = parseHtmlToDocument(payload.html, payload.url);
     const images = [...documentClone.querySelectorAll("img")];
     if (!images.length) {
+      setStatus("No images found to OCR on this page.", "idle");
       return { markdown, count: 0 };
     }
     const worker = await getTesseractWorker();
@@ -7054,9 +7241,13 @@ ${content}
       try {
         const blob = await fetchImageBytes(src);
         if (!blob) continue;
-        const { data } = await worker.recognize(blob);
-        const text2 = (data?.text || "").trim();
-        if (!text2) continue;
+        const { data } = await worker.recognize(blob, {}, { text: true, blocks: true });
+        const { text: text2, hasText } = cleanOcrText({
+          text: data?.text ?? "",
+          words: [],
+          paragraphs: collectParagraphsFromTesseractBlocks(data?.blocks)
+        });
+        if (!hasText) continue;
         const block2 = `
 
 ${escapeBlockquote(`OCR: ${text2}`)}
@@ -7085,6 +7276,7 @@ ${escapeBlockquote(`OCR: ${text2}`)}
         console.warn("OCR failed for", src, err);
       }
     }
+    if (count === 0) setStatus(`No readable text in ${images.length} image(s).`, "idle");
     return { markdown: annotated, count };
   }
   function renderError(error2) {
@@ -7261,8 +7453,6 @@ ${escapeBlockquote(`OCR: ${text2}`)}
               state.lastPayload.capturedAt
             );
             setStatus(`Annotated ${count} image(s) with OCR.`, "success");
-          } else {
-            setStatus("No images found to OCR on this page.", "idle");
           }
         } catch (err) {
           renderError(err instanceof Error ? err : new Error(String(err)));

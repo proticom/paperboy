@@ -1,5 +1,6 @@
 import { convertHtmlToMarkdown, parseHtmlToDocument } from "./lib/convert.mjs";
 import markdownit from "markdown-it";
+import { cleanOcrText, collectParagraphsFromTesseractBlocks } from "@proticom/paperboy-converter/ocr-text";
 import { createPreviewController } from "./lib/preview.mjs";
 
 /* global PAPERBOY_CONVERTER_VERSION */ // banner in sidepanel.bundle.js from build.js
@@ -193,6 +194,7 @@ async function annotateMarkdownWithOcr(markdown, payload) {
   const documentClone = parseHtmlToDocument(payload.html, payload.url);
   const images = [...documentClone.querySelectorAll("img")];
   if (!images.length) {
+    setStatus("No images found to OCR on this page.", "idle");
     return { markdown, count: 0 };
   }
 
@@ -210,9 +212,13 @@ async function annotateMarkdownWithOcr(markdown, payload) {
     try {
       const blob = await fetchImageBytes(src);
       if (!blob) continue;
-      const { data } = await worker.recognize(blob);
-      const text = (data?.text || "").trim();
-      if (!text) continue;
+      const { data } = await worker.recognize(blob, {}, { text: true, blocks: true });
+      const { text, hasText } = cleanOcrText({
+        text: data?.text ?? "",
+        words: [],
+        paragraphs: collectParagraphsFromTesseractBlocks(data?.blocks),
+      });
+      if (!hasText) continue;
 
       // Find the image's markdown line in the output. turndown emits ![alt](src)
       // or sometimes just the src as a fallback. Prefer alt+src match.
@@ -244,6 +250,7 @@ async function annotateMarkdownWithOcr(markdown, payload) {
     }
   }
 
+  if (count === 0) setStatus(`No readable text in ${images.length} image(s).`, "idle");
   return { markdown: annotated, count };
 }
 
@@ -461,8 +468,6 @@ dom.ocrButton.addEventListener("click", () => {
             state.lastPayload.capturedAt,
           );
           setStatus(`Annotated ${count} image(s) with OCR.`, "success");
-        } else {
-          setStatus("No images found to OCR on this page.", "idle");
         }
       } catch (err) {
         renderError(err instanceof Error ? err : new Error(String(err)));

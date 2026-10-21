@@ -81,11 +81,52 @@ Images are converted with **Tesseract.js** (local OCR). The first run may downlo
 ```javascript
 const result = await convertToMarkdown("scan.png", buffer, {
   image: {
-    // default true: adds a "## Text Positioning" markdown table
+    // default false: opt in to the raw "## Text Positioning" word table
     includeLayoutTable: true,
   },
 });
 ```
+
+OCR text has no heading. Every line with mean word confidence at least **60** is
+kept. Lower-confidence lines need mean confidence at least **40** and at least
+**60%** of their content-token confidence assigned to readable tokens. List
+prefixes do not count as content. Tokens need confidence at least **30** to
+support rescue. Alphanumeric codes, URLs, emails, versions and Unicode letters
+are accepted at confidence 60; lower-confidence word/code shapes need at least
+three letters/digits. Numeric shapes include page numbers, decimals, currency,
+times and percentages. Uppercase and mixed-case words can rescue a line. A
+confident code statement keyword also preserves uncertain code. Accepted lines
+keep all words. Consecutive rejected lines become one `<!-- image omitted -->`.
+
+Prose wraps join only when the previous line reaches 85% of its paragraph's width,
+starts align within 1.5 average character widths, and sentence boundaries and list
+prefixes allow continuation. Labels ending in `:`, code, column gaps, standalone
+identifiers, and pipe-table rows keep their line breaks. A character-width change
+greater than 1.25 times separates a heading/body wrap into paragraphs. Tesseract
+paragraphs, large vertical gaps, and gaps greater than 1.5 times the median line
+pitch also produce blank lines. Optional `OcrLine.bbox` preserves Tesseract's
+stable line pitch; injected backends without it use word boxes.
+
+Within prose, short sentence-final lines followed by aligned uppercase text also
+start a paragraph. A letter-final hyphen is removed without adding a space only
+when that line is joining to a lowercase continuation. Adjoining code punctuation
+or single-character misreads stay as read. A lone `|` becomes `I` only when it is
+the sole pipe in its line and both adjacent words start lowercase. Other spelling
+and punctuation remain unchanged.
+
+The pure parser and cleanup functions are also available at
+`@proticom/paperboy-converter/ocr-text`. The browser extension uses this same
+module without importing Tesseract or Node APIs into its bundle.
+
+`includeLayoutTable` defaults to **false**, including in web converters using
+these options. When enabled, the table lists raw, unfiltered words and confidence
+values, up to 300 rows, for debugging.
+
+Injected `ocr` functions may return optional `paragraphs: { lines: { words:
+OcrWord[] }[] }[]` alongside `text` and `words`. Non-empty `paragraphs` enables
+filtering and reflow. Without that structure (or with an empty array), the
+converter preserves trimmed `text` verbatim because legacy `words` lists can be
+partial. The optional table still uses `words`.
 
 ## Command-line usage
 

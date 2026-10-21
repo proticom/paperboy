@@ -33,6 +33,7 @@
     ".": "./dist/index.js",
     "./turndown": "./dist/turndown.js",
     "./helpers": "./dist/helpers.js",
+    "./ocr-text": "./dist/ocr-text.js",
     "./types": "./dist/types.js",
     "./package.json": "./package.json"
   },

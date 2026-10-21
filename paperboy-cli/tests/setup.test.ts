@@ -40,6 +40,11 @@ describe("setup flow", () => {
     const setupModule = await importSetupModule();
     await setupModule.runSetup();
 
+    expect(promptMocks.confirm).toHaveBeenCalledWith({
+      message: "Include OCR text-position table by default?",
+      default: false,
+    });
+
     const configModule = await importConfigModule();
     const config = await configModule.loadConfig();
 

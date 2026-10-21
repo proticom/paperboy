@@ -92,12 +92,13 @@ describe("converter", () => {
     expect(result.warnings[0]).toContain("Unsupported file format");
   });
 
-  it("converts image files with OCR text and layout", async () => {
+  it("converts image files with OCR text and opt-in layout", async () => {
     const filePath = path.join(tempDir, "scan.png");
     await fs.writeFile(filePath, Buffer.from([137, 80, 78, 71]));
 
     const result = await convertFileToMarkdown(filePath, {
       image: {
+        includeLayoutTable: true,
         ocr: async () => ({
           text: "Detected text",
           words: [
@@ -111,7 +112,7 @@ describe("converter", () => {
       },
     });
 
-    expect(result.markdown).toContain("## OCR Text");
+    expect(result.markdown.startsWith("Detected text\n\n")).toBe(true);
     expect(result.markdown).toContain("Detected text");
     expect(result.markdown).toContain("## Text Positioning");
     expect(result.markdown).toContain("| Detected | 96.3 | 10 | 20 | 70 | 20 |");

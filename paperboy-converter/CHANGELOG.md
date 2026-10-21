@@ -5,6 +5,26 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Breaking for 0.x consumers:** image OCR removes the `## OCR Text` heading and defaults `image.includeLayoutTable` to false. Release this output change with a MINOR version bump. Versions remain unchanged in this patch.
+- The optional positioning table retains raw, unfiltered words for debugging.
+
+### Added
+- Pure OCR parsing and cleanup at `@proticom/paperboy-converter/ocr-text`, shared with the browser extension.
+
+### Fixed
+- Keep every OCR line with mean confidence at least 60, including standalone codes, URLs, emails, dates, prices and CJK characters. Lower-confidence rescue accepts uppercase/mixed-case words, weights readable support by confidence, and requires a line mean of at least 40.
+- Preserve pipe-table and standalone identifier lines. Separate heading/body wraps at font changes and unusual line pitch, using Tesseract line boxes when available.
+- Remove letter-final hyphens without spaces only on joined lowercase prose wraps.
+- Rescue readable low-confidence text and numeric table rows instead of dropping them solely by line mean. Ignore list prefixes when measuring readable content.
+- Join only prose wraps. Preserve list, label, receipt/table and code line breaks; recover prose paragraph boundaries in degraded scans.
+- Collapse consecutive rejected regions into one `<!-- image omitted -->` marker and split widely spaced captions into paragraphs.
+- Parse malformed Tesseract structures defensively with defaults for word fields and partial bounding boxes.
+- Restrict `|` to `I` cleanup to a single pipe flanked by lowercase words. Keep real pipe separators.
+- Keep code statements with confident keywords and adjoining closing punctuation or single-character misreads.
+
 ## [0.3.1] - 2026-10-20
 
 ### Changed

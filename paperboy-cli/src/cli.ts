@@ -2,7 +2,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { loadConfig } from "./config.js";
 import { convertFileToMarkdown, type ConvertOptions } from "./converter.js";
 import { crawlSite } from "./crawl.js";
@@ -59,7 +59,14 @@ program
   .description("Convert a supported file into markdown")
   .option("-o, --output <path>", "Output markdown file path")
   .option("--stdout", "Print markdown to stdout instead of writing file")
-  .option("--no-layout-table", "Skip OCR positioning table for image conversion")
+  .option("--ocr-layout", "Include the OCR word-position table for image conversion")
+  .option("--no-ocr-layout", "Omit the OCR word-position table, overriding saved config")
+  .on("option:no-ocr-layout", function (this: Command) {
+    this.setOptionValue("ocrLayoutOff", true);
+  })
+  .addOption(
+    new Option("--no-layout-table", "Deprecated: disable the OCR word-position table").hideHelp(),
+  )
   .option("--json", "Print JSON metadata about the conversion")
   .action(
     async (
@@ -68,6 +75,8 @@ program
         output?: string;
         stdout?: boolean;
         layoutTable?: boolean;
+        ocrLayout?: boolean;
+        ocrLayoutOff?: boolean;
         json?: boolean;
       },
     ) => {
@@ -75,7 +84,9 @@ program
       const config = await loadConfig();
       const convertOptions: ConvertOptions = {
         image: {
-          includeLayoutTable: options.layoutTable ?? config.defaults.includeLayoutTable,
+          includeLayoutTable: options.layoutTable === false || options.ocrLayoutOff
+            ? false
+            : options.ocrLayout ?? config.defaults.includeLayoutTable,
         },
       };
 

@@ -38,7 +38,9 @@ Convert a supported file into Markdown.
 Options:
 - `-o, --output <path>`: write to a specific markdown path
 - `--stdout`: print markdown directly to stdout
-- `--no-layout-table`: skip OCR text-position table
+- `--ocr-layout`: include the OCR word-position table for image conversion (off by default)
+- `--no-ocr-layout`: omit the table, overriding saved config. Either off switch wins when combined with `--ocr-layout`, in any order.
+- `--no-layout-table`: deprecated, hidden switch; still accepted to disable the table, including when config enables it. It takes precedence if both switches are passed.
 - `--json`: emit JSON metadata
 
 Examples:
@@ -129,15 +131,27 @@ data from the pinned `@tesseract.js-data/eng@1.0.0` package into `dist/lang/`, w
 ships with the CLI. OCR reads this local data without downloading or writing a
 language cache to the current directory.
 
-Image conversion can produce:
-- `## OCR Text`
-- `## Text Positioning` table with:
-  - `Text`
-  - `Confidence`
-  - `Left`
-  - `Top`
-  - `Width`
-  - `Height`
+Image conversion emits text without an OCR heading. Lines with mean confidence
+of at least 60 are always kept;
+readable words and numeric tokens can also rescue lower-confidence lines. The
+converter keeps every word in accepted lines and replaces consecutive rejected
+regions with one `<!-- image omitted -->` marker.
+
+Only prose wraps join with spaces. Lists, form labels, receipt/table rows, headings
+and code keep their line breaks. Pipe-table rows and standalone identifiers also
+keep their lines. Font changes and unusual line pitch separate headings and body
+text. Letter-final hyphens are removed on joined lowercase prose wraps. Adjoining
+code punctuation stays as read. A lone
+`|` becomes `I` only when it is the sole pipe in its line and both adjacent words
+start lowercase. Other spelling and punctuation remain unchanged. See the
+converter README for the confidence and geometry rules.
+
+The word-position table is off by default. Pass `--ocr-layout` to append
+`## Text Positioning` with raw, unfiltered `Text`, `Confidence`, `Left`, `Top`,
+`Width`, and `Height` values (up to 300 words). Existing saved configs with
+`includeLayoutTable: true` still enable the table. Pass `--no-ocr-layout` to disable
+it for one run. The hidden `--no-layout-table` switch remains accepted. Either off
+switch takes precedence over `--ocr-layout`, regardless of flag order.
 
 ## Config
 
@@ -147,7 +161,7 @@ Configuration is stored in `~/.config/paperboy-cli/config.json`. Set `PAPERBOY_C
 {
   "version": 1,
   "defaults": {
-    "includeLayoutTable": true
+    "includeLayoutTable": false
   }
 }
 ```

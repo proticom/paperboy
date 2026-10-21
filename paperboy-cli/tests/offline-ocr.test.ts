@@ -48,9 +48,9 @@ describe("offline image OCR", () => {
     const networkLog = path.join(tempDir, "network.log");
     await fs.copyFile(new URL("./fixtures/offline-ocr.png", import.meta.url), inputPath);
 
-    for (let run = 0; run < 2; run += 1) {
+    for (const flags of [[], ["--no-layout-table"]]) {
       const result = spawnSync(process.execPath, [
-        "--require", preload, cliPath, "convert", inputPath, "--stdout", "--json", "--no-layout-table",
+        "--require", preload, cliPath, "convert", inputPath, "--stdout", "--json", ...flags,
       ], {
         cwd: tempDir,
         env: {
@@ -66,7 +66,7 @@ describe("offline image OCR", () => {
       expect(result.status, result.stderr).toBe(0);
       const converted: unknown = JSON.parse(result.stdout);
       expect(converted).toMatchObject({
-        markdown: "## OCR Text\n\nPAPERBOY OFFLINE",
+        markdown: "PAPERBOY OFFLINE",
         warnings: ["OCR runs locally and may take longer on large images."],
       });
       const files = await fs.readdir(tempDir);
@@ -74,4 +74,46 @@ describe("offline image OCR", () => {
       expect(files.includes("network.log")).toBe(false);
     }
   });
+
+  it.each([
+    { fixture: "ocr-lists.png", lines: [
+      "Supply list", "« Notebook", "« Water bottle", "« Spare cable", "Name:", "Email:",
+      "Receipt", "Tea 2.50", "Bread 3.25", "Total 5.75",
+    ] },
+    { fixture: "ocr-code.png", lines: [
+      "function count (items) {", "let total = 0;", "for (const item of items) {", "total += item;",
+      "}", "return total;", "}", "const size = count (items);",
+    ] },
+    { fixture: "ocr-codes.png", lines: [
+      "SKU-7284", "https://example.org/help/42", "help@example.org", "v4.2.1", "2027-04-18", "$5",
+    ] },
+    { fixture: "ocr-pipes.png", lines: [
+      "| name | team | city |", "| erin | ops | leeds |", "| omar | dev | parma |", "| lina | ux | turin |",
+    ] },
+    { fixture: "ocr-heading.png", lines: [
+      "Community Library", "Annual Service Review", "This report covers the work completed this year.",
+      "The team improved service across every branch.",
+    ] },
+    { fixture: "ocr-table.png", lines: [
+      "Name Role City Start", "Eva Stone Operator Dublin 2024", "Milan Reed Analyst Bergen 2020",
+    ] },
+  ])("preserves real OCR line structure and complete text in $fixture offline", async ({ fixture, lines }) => {
+    const inputPath = fileURLToPath(new URL(`./fixtures/${fixture}`, import.meta.url));
+    const networkLog = path.join(tempDir, "network.log");
+    const result = spawnSync(process.execPath, [
+      "--require", preload, cliPath, "convert", inputPath, "--stdout", "--json",
+    ], {
+      cwd: tempDir,
+      env: { ...process.env, PAPERBOY_CLI_CONFIG_DIR: path.join(tempDir, "config"), PAPERBOY_TEST_NETWORK_LOG: networkLog },
+      encoding: "utf8", timeout: 30000,
+    });
+    expect(result.status, result.stderr).toBe(0);
+    const converted = JSON.parse(result.stdout);
+    expect(converted.markdown.split("\n").filter(Boolean)).toEqual(lines);
+    if (fixture === "ocr-heading.png") {
+      expect(converted.markdown).toBe("Community Library\nAnnual Service Review\n\nThis report covers the work completed this year.\nThe team improved service across every branch.");
+    }
+    expect((await fs.readdir(tempDir)).filter((file) => /network|traineddata/.test(file))).toEqual([]);
+  });
+
 });

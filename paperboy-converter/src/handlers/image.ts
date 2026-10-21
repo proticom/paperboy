@@ -1,3 +1,4 @@
+import { cleanOcrText, collectParagraphsFromTesseractBlocks } from "../ocr-text.js";
 import { stripFileExtension, toBytes } from "../helpers.js";
 import type {
   ConvertInputData,
@@ -37,55 +38,6 @@ function toOcrWordPositions(words: OcrWord[]): OcrWordPosition[] {
     .filter((word): word is OcrWordPosition => Boolean(word));
 }
 
-function collectWordsFromTesseractBlocks(rawBlocks: unknown): OcrWord[] {
-  if (!Array.isArray(rawBlocks)) return [];
-  const words: OcrWord[] = [];
-
-  for (const rawBlock of rawBlocks) {
-    if (!rawBlock || typeof rawBlock !== "object") continue;
-    const paragraphs = (rawBlock as { paragraphs?: unknown[] }).paragraphs;
-    if (!Array.isArray(paragraphs)) continue;
-
-    for (const rawParagraph of paragraphs) {
-      if (!rawParagraph || typeof rawParagraph !== "object") continue;
-      const lines = (rawParagraph as { lines?: unknown[] }).lines;
-      if (!Array.isArray(lines)) continue;
-
-      for (const rawLine of lines) {
-        if (!rawLine || typeof rawLine !== "object") continue;
-        const lineWords = (rawLine as { words?: unknown[] }).words;
-        if (!Array.isArray(lineWords)) continue;
-
-        for (const rawWord of lineWords) {
-          if (!rawWord || typeof rawWord !== "object") continue;
-          const word = rawWord as Partial<OcrWord> & {
-            bbox?: { x0?: number; y0?: number; x1?: number; y1?: number };
-          };
-          const bbox: {
-            x0?: number;
-            y0?: number;
-            x1?: number;
-            y1?: number;
-          } = word.bbox ?? {};
-          words.push({
-            text: typeof word.text === "string" ? word.text : "",
-            confidence:
-              typeof word.confidence === "number" ? word.confidence : 0,
-            bbox: {
-              x0: bbox.x0 ?? 0,
-              y0: bbox.y0 ?? 0,
-              x1: bbox.x1 ?? bbox.x0 ?? 0,
-              y1: bbox.y1 ?? bbox.y0 ?? 0,
-            },
-          });
-        }
-      }
-    }
-  }
-
-  return words;
-}
-
 // Lazy import keeps tesseract.js out of the test path when callers inject ocr.
 async function defaultOcr(
   bytes: Uint8Array,
@@ -104,14 +56,14 @@ async function defaultOcr(
           gzip: true,
           cacheMethod: "none",
         });
-  // tesseract.js v6 returns only text unless output formats are requested.
-  // The convenience recognize() cannot pass that third argument, so words
-  // never arrive and the positioning table stays empty.
+  // Tesseract v6 requires blocks output for line confidence and paragraph structure.
   try {
     const result = await worker.recognize(recognizeArg, {}, { text: true, blocks: true });
+    const paragraphs = collectParagraphsFromTesseractBlocks(result.data?.blocks);
     return {
       text: result.data?.text ?? "",
-      words: collectWordsFromTesseractBlocks(result.data?.blocks),
+      words: paragraphs.flatMap((paragraph) => paragraph.lines.flatMap((line) => line.words)),
+      paragraphs,
     };
   } finally {
     await worker.terminate();
@@ -145,16 +97,13 @@ export async function convertImage(
     options?.image?.ocr ??
     ((bytes, language) => defaultOcr(bytes, language, options?.image));
   const ocrResult = await ocr(fileBytes, "eng");
-  const ocrText = (ocrResult.text ?? "").trim();
+  const { text: ocrText, hasText } = cleanOcrText(ocrResult);
   const words = toOcrWordPositions(ocrResult.words ?? []);
-  const includeLayout = options?.image?.includeLayoutTable ?? true;
+  const includeLayout = options?.image?.includeLayoutTable ?? false;
   const sections: string[] = [];
 
-  if (ocrText.length > 0) {
-    sections.push(`## OCR Text\n\n${ocrText}`);
-  } else {
-    warnings.push("No readable text was detected in this image.");
-  }
+  if (ocrText.length > 0) sections.push(ocrText);
+  if (!hasText) warnings.push("No readable text was detected in this image.");
   if (includeLayout && words.length > 0) {
     if (words.length > MAX_POSITION_ROWS) {
       warnings.push(
