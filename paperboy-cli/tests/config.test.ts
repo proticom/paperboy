@@ -26,7 +26,7 @@ describe("config module", () => {
     const config = await configModule.loadConfig();
 
     expect(config.version).toBe(1);
-    expect(config.defaults.includeLayoutTable).toBe(true);
+    expect(config.defaults.includeLayoutTable).toBe(false);
   });
 
   it("saves and reloads config", async () => {
@@ -36,7 +36,7 @@ describe("config module", () => {
       ...current,
       defaults: {
         ...current.defaults,
-        includeLayoutTable: false,
+        includeLayoutTable: true,
       },
     };
 
@@ -45,7 +45,7 @@ describe("config module", () => {
 
     expect(loaded).toEqual({
       version: 1,
-      defaults: { includeLayoutTable: false },
+      defaults: { includeLayoutTable: true },
     });
   });
 

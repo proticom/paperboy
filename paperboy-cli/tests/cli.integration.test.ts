@@ -43,7 +43,7 @@ describe("cli integration", () => {
     const result = runCli(["config", "show"], configDir);
     expect(result.status).toBe(0);
     const parsed = JSON.parse(result.stdout);
-    expect(parsed).toEqual({ version: 1, defaults: { includeLayoutTable: true } });
+    expect(parsed).toEqual({ version: 1, defaults: { includeLayoutTable: false } });
   });
 
   it("runs doctor in JSON mode", () => {
@@ -90,7 +90,7 @@ describe("cli integration", () => {
     const networkLog = path.join(tempDir, "network.log");
 
     const result = spawnSync(process.execPath, [
-      "--require", blockNetwork, cliPath, "convert", inputPath, "--stdout", "--no-layout-table",
+      "--require", blockNetwork, cliPath, "convert", inputPath, "--stdout",
     ], {
       cwd: tempDir,
       env: {
@@ -103,10 +103,42 @@ describe("cli integration", () => {
     });
 
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain("PAPERBOY OFFLINE");
+    expect(result.stdout).toBe("PAPERBOY OFFLINE\n");
     expect(result.stdout).not.toContain("Warnings:");
     expect(result.stderr).toContain("Warnings:");
     expect(await fs.readFile(networkLog, "utf8").catch(() => "")).toBe("");
+  });
+
+  it("documents --ocr-layout and hides the deprecated switch", () => {
+    const result = runCli(["convert", "--help"], configDir);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("--ocr-layout");
+    expect(result.stdout).toContain("Include the OCR word-position table for image conversion");
+    expect(result.stdout).not.toContain("--no-layout-table");
+  });
+
+  it.each([
+    { flags: [], configured: undefined, table: false },
+    { flags: ["--ocr-layout"], configured: undefined, table: true },
+    { flags: ["--no-layout-table"], configured: undefined, table: false },
+    { flags: [], configured: true, table: true },
+    { flags: ["--no-layout-table"], configured: true, table: false },
+    { flags: ["--ocr-layout"], configured: false, table: true },
+    { flags: ["--ocr-layout", "--no-layout-table"], configured: true, table: false },
+    { flags: ["--no-layout-table", "--ocr-layout"], configured: true, table: false },
+  ])("wires OCR layout options %j", async ({ flags, configured, table }) => {
+    if (configured !== undefined) {
+      await fs.writeFile(path.join(configDir, "config.json"), JSON.stringify({
+        version: 1, defaults: { includeLayoutTable: configured },
+      }));
+    }
+    const fixture = fileURLToPath(new URL("./fixtures/offline-ocr.png", import.meta.url));
+    const result = runCli(["convert", fixture, "--stdout", "--json", ...flags], configDir);
+    expect(result.status, result.stderr).toBe(0);
+    const { markdown } = JSON.parse(result.stdout);
+    expect(markdown).toBe(table
+      ? "PAPERBOY OFFLINE\n\n## Text Positioning\n\n| Text | Confidence | Left | Top | Width | Height |\n| --- | ---: | ---: | ---: | ---: | ---: |\n| PAPERBOY | 96.0 | 24 | 42 | 236 | 37 |\n| OFFLINE | 96.0 | 275 | 42 | 188 | 37 |"
+      : "PAPERBOY OFFLINE");
   });
 
   it("converts file with stdout JSON output", async () => {

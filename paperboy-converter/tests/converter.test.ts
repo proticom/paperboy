@@ -73,12 +73,13 @@ describe("shared converter", () => {
     expect(result.warnings[0]).toContain("Unsupported file format");
   });
 
-  it("converts image files with OCR text and layout", async () => {
+  it("converts image files with OCR text and opt-in layout", async () => {
     const result = await convertToMarkdown(
       "scan.png",
       new Uint8Array([137, 80, 78, 71]),
       {
         image: {
+          includeLayoutTable: true,
           ocr: async () => ({
             text: "Detected text",
             words: [
@@ -93,13 +94,13 @@ describe("shared converter", () => {
       },
     );
 
-    expect(result.markdown).toContain("## OCR Text");
+    expect(result.markdown.startsWith("Detected text\n\n")).toBe(true);
     expect(result.markdown).toContain("Detected text");
     expect(result.markdown).toContain("## Text Positioning");
     expect(result.markdown).toContain("| Detected | 96.3 | 10 | 20 | 70 | 20 |");
   });
 
-  it("omits the text positioning table only when includeLayoutTable is false", async () => {
+  it("omits the text positioning table by default and when explicitly disabled", async () => {
     const ocr = async () => ({
       text: "Detected text",
       words: [
@@ -122,11 +123,8 @@ describe("shared converter", () => {
       { image: { ocr, includeLayoutTable: false } },
     );
 
-    expect(withDefault.markdown).toContain("## Text Positioning");
-    expect(withDefault.markdown).toContain("| Detected | 96.3 | 10 | 20 | 70 | 20 |");
-    expect(withoutTable.markdown).toContain("## OCR Text");
-    expect(withoutTable.markdown).not.toContain("## Text Positioning");
-    expect(withoutTable.markdown).not.toContain("| Detected |");
+    expect(withDefault.markdown).toBe("Detected text");
+    expect(withoutTable.markdown).toBe("Detected text");
   });
 
   it("warns when OCR finds no text", async () => {

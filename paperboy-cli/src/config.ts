@@ -18,7 +18,7 @@ export const CONFIG_PATH = path.join(CONFIG_DIRECTORY, "config.json");
 export const DEFAULT_CONFIG: PaperboyCliConfig = {
   version: 1,
   defaults: {
-    includeLayoutTable: true,
+    includeLayoutTable: false,
   },
 };
 

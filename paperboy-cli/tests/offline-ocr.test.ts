@@ -48,9 +48,9 @@ describe("offline image OCR", () => {
     const networkLog = path.join(tempDir, "network.log");
     await fs.copyFile(new URL("./fixtures/offline-ocr.png", import.meta.url), inputPath);
 
-    for (let run = 0; run < 2; run += 1) {
+    for (const flags of [[], ["--no-layout-table"]]) {
       const result = spawnSync(process.execPath, [
-        "--require", preload, cliPath, "convert", inputPath, "--stdout", "--json", "--no-layout-table",
+        "--require", preload, cliPath, "convert", inputPath, "--stdout", "--json", ...flags,
       ], {
         cwd: tempDir,
         env: {
@@ -66,7 +66,7 @@ describe("offline image OCR", () => {
       expect(result.status, result.stderr).toBe(0);
       const converted: unknown = JSON.parse(result.stdout);
       expect(converted).toMatchObject({
-        markdown: "## OCR Text\n\nPAPERBOY OFFLINE",
+        markdown: "PAPERBOY OFFLINE",
         warnings: ["OCR runs locally and may take longer on large images."],
       });
       const files = await fs.readdir(tempDir);

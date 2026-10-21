@@ -30,7 +30,8 @@ Use this checklist before publishing `@proticom/paperboy-cli`.
 
 - [ ] Image OCR conversion works on a sample image
 - [ ] English OCR works with network access blocked and creates no language cache in the current directory
-- [ ] `--no-layout-table` removes positioning table
+- [ ] Positioning table is off by default; `--ocr-layout` includes raw word positions
+- [ ] Deprecated `--no-layout-table` is accepted and disables a table enabled by config
 
 ## 5) Documentation
 

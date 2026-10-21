@@ -5,6 +5,15 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `convert --ocr-layout` includes the OCR word-position table for image conversion.
+
+### Changed
+- Image positioning tables are off by default. `defaults.includeLayoutTable` and the initial setup prompt default to false.
+- Keep `--no-layout-table` accepted as a hidden, deprecated switch to disable positioning tables.
+
 ## [0.3.2] - 2026-10-20
 
 ### Changed

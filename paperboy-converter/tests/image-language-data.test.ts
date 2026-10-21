@@ -22,7 +22,7 @@ describe("Tesseract language data options", () => {
     const result = await convertToMarkdown("scan.png", bytes, {
       image: { languageDataPath: "/local/lang/" },
     });
-    expect(result.markdown).toBe("## OCR Text\n\nLocal OCR");
+    expect(result.markdown).toBe("Local OCR");
     expect(Tesseract.createWorker).toHaveBeenLastCalledWith("eng", undefined, {
       langPath: "/local/lang/",
       gzip: true,
@@ -38,7 +38,7 @@ describe("Tesseract language data options", () => {
   it("preserves default Tesseract options for callers without a language data path", async () => {
     const bytes = new Uint8Array([137, 80, 78, 71]);
     const result = await convertToMarkdown("scan.png", bytes);
-    expect(result.markdown).toBe("## OCR Text\n\nLocal OCR");
+    expect(result.markdown).toBe("Local OCR");
     expect(vi.mocked(Tesseract.createWorker).mock.lastCall).toEqual(["eng"]);
     expect(worker.recognize).toHaveBeenLastCalledWith(bytes, {}, {
       text: true,

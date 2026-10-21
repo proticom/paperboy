@@ -38,7 +38,8 @@ Convert a supported file into Markdown.
 Options:
 - `-o, --output <path>`: write to a specific markdown path
 - `--stdout`: print markdown directly to stdout
-- `--no-layout-table`: skip OCR text-position table
+- `--ocr-layout`: include the OCR word-position table for image conversion (off by default)
+- `--no-layout-table`: deprecated, hidden switch; still accepted to disable the table, including when config enables it. It takes precedence if both switches are passed.
 - `--json`: emit JSON metadata
 
 Examples:
@@ -129,15 +130,20 @@ data from the pinned `@tesseract.js-data/eng@1.0.0` package into `dist/lang/`, w
 ships with the CLI. OCR reads this local data without downloading or writing a
 language cache to the current directory.
 
-Image conversion can produce:
-- `## OCR Text`
-- `## Text Positioning` table with:
-  - `Text`
-  - `Confidence`
-  - `Left`
-  - `Top`
-  - `Width`
-  - `Height`
+Image conversion emits text without an OCR heading. It joins wrapped lines into
+paragraphs and replaces consecutive rejected regions with one
+`<!-- image omitted -->` marker. Lines need mean word confidence of at least 60.
+Each line must also contain a token with at least two consecutive letters/digits,
+or a letter-only word with optional trailing punctuation. Page numbers such as `12` and dates such as
+`2026 10 20` are kept. Lines made only of isolated digits or symbols such as `4`,
+`=`, or `~~ \` are rejected. Accepted lines retain all their words. A standalone
+`|` between words containing letters becomes `I`. Other spelling and punctuation
+remain unchanged.
+
+The word-position table is off by default. Pass `--ocr-layout` to append
+`## Text Positioning` with the raw, unfiltered `Text`, `Confidence`, `Left`, `Top`,
+`Width`, and `Height` values (up to 300 words). Saved config can also enable it.
+The hidden `--no-layout-table` switch remains accepted and disables the table.
 
 ## Config
 
@@ -147,7 +153,7 @@ Configuration is stored in `~/.config/paperboy-cli/config.json`. Set `PAPERBOY_C
 {
   "version": 1,
   "defaults": {
-    "includeLayoutTable": true
+    "includeLayoutTable": false
   }
 }
 ```

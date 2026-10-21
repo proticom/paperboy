@@ -5,6 +5,18 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Image OCR emits reflowed paragraphs without the `## OCR Text` heading.
+- `image.includeLayoutTable` defaults to false. The optional table retains raw, unfiltered words for debugging.
+
+### Fixed
+- Filter image OCR by mean line confidence (minimum 60), keeping uncertain words within accepted lines. Require a token with at least two consecutive letters/digits or a letter-only word with optional trailing punctuation; retain page numbers such as `12` and reject lines made only of isolated digits or symbols.
+- Parse missing or malformed Tesseract blocks, paragraphs, lines, and words defensively, with defaults for word fields and partial bounding boxes.
+- Collapse consecutive rejected regions into one `<!-- image omitted -->` marker and split widely spaced captions into paragraphs.
+- Read a standalone `|` between words containing letters as `I`.
+
 ## [0.3.1] - 2026-10-20
 
 ### Changed

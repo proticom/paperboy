@@ -21,9 +21,19 @@ export interface OcrWord {
   bbox: { x0: number; y0: number; x1: number; y1: number };
 }
 
+export interface OcrLine {
+  words: OcrWord[];
+}
+
+export interface OcrParagraph {
+  lines: OcrLine[];
+}
+
 export interface OcrResult {
   text: string;
   words: OcrWord[];
+  /** Enables line filtering and paragraph reflow. Without it, text is preserved verbatim. */
+  paragraphs?: OcrParagraph[];
 }
 
 export type OcrFunction = (
@@ -32,6 +42,7 @@ export type OcrFunction = (
 ) => Promise<OcrResult>;
 
 export interface ImageConversionOptions {
+  /** Include the raw OCR word-position table. Defaults to false. */
   includeLayoutTable?: boolean;
   /** Local directory of gzipped language data. Disables the OCR disk cache. */
   languageDataPath?: string;

@@ -81,11 +81,32 @@ Images are converted with **Tesseract.js** (local OCR). The first run may downlo
 ```javascript
 const result = await convertToMarkdown("scan.png", buffer, {
   image: {
-    // default true: adds a "## Text Positioning" markdown table
+    // default false: opt in to the raw "## Text Positioning" word table
     includeLayoutTable: true,
   },
 });
 ```
+
+OCR text has no heading. Lines with mean word confidence below **60** are omitted
+as a whole. Accepted lines keep every word, including uncertain words supported
+by their neighbors. A line must also contain a token with at least two consecutive
+letters/digits, or a letter-only word with optional trailing punctuation. This
+keeps page numbers such as `12` and dates such as `2026 10 20`, while rejecting
+lines made only of isolated digits or symbols such as `4`, `=`, or `~~ \`.
+Each consecutive omitted region becomes `<!-- image omitted -->`.
+Wrapped lines in a Tesseract paragraph join with spaces; paragraphs and large
+vertical gaps produce blank lines. A standalone `|` between words containing
+letters becomes `I`. Other spelling and punctuation remain unchanged.
+
+`includeLayoutTable` defaults to **false**, including in web converters using
+these options. When enabled, the table lists raw, unfiltered words and confidence
+values, up to 300 rows, for debugging.
+
+Injected `ocr` functions may return optional `paragraphs: { lines: { words:
+OcrWord[] }[] }[]` alongside `text` and `words`. Non-empty `paragraphs` enables
+filtering and reflow. Without that structure (or with an empty array), the
+converter preserves trimmed `text` verbatim because legacy `words` lists can be
+partial. The optional table still uses `words`.
 
 ## Command-line usage
 
