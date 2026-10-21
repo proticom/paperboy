@@ -1066,6 +1066,7 @@ export async function crawlSite(
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const reason = error instanceof ConversionTimeoutError ? message : `conversion failed: ${message}`;
+        if (item.source === "seed") seedSkipReason = reason;
         warnings.push(`Skipping ${item.url} (${reason}).`);
       }
     }

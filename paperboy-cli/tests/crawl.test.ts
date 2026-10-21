@@ -506,6 +506,7 @@ describe("crawlSite", () => {
       expect(performance.now() - started).toBeLessThan(5000);
       expect(result.crawledCount).toBe(4);
       expect(result.skippedCount).toBe(1);
+      expect(result.seedSkipReason).toBeUndefined();
       expect(result.discoveredUrls.map((page) => page.url)).toEqual([
         `${server.baseUrl}/`, `${server.baseUrl}/before`, `${server.baseUrl}/after`, `${server.baseUrl}/last`,
       ]);
@@ -522,6 +523,30 @@ describe("crawlSite", () => {
       expect(records.map((record) => record.metadata.warnings[1])).toEqual([
         "conversion:1", "conversion:2", "conversion:1", "conversion:2",
       ]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it.each([
+    { marker: "HANG", reason: "conversion timed out after 200 ms" },
+    { marker: "ERROR", reason: "conversion failed: synthetic worker error" },
+    { marker: "CRASH", reason: "conversion failed: worker exited with code 7" },
+  ])("reports a $marker conversion failure for the seed", async ({ marker, reason }) => {
+    const server = await startTestServer({
+      "/": { status: 200, contentType: "text/html", body: marker },
+    });
+    try {
+      const result = await crawlSite(server.baseUrl, defaultOptions({
+        conversionTimeoutMs: 200,
+        conversionWorkerUrl: new URL("./fixtures/controlled-convert-worker.mjs", import.meta.url),
+        conversionResourceLimits: { maxOldGenerationSizeMb: 16, maxYoungGenerationSizeMb: 4 },
+      }));
+      expect(result.seedSkipReason).toBe(reason);
+      expect(result.crawledCount).toBe(0);
+      expect(result.skippedCount).toBe(1);
+      expect(result.failedFetchCount).toBe(0);
+      expect(result.warnings).toEqual([`Skipping ${server.baseUrl}/ (${reason}).`]);
     } finally {
       await server.close();
     }
