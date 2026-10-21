@@ -137,13 +137,22 @@ function shouldIncludeUrl(
   return includePatterns.some((pattern) => pattern.test(url));
 }
 
+const NAMED_HTML_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+};
+
 function decodeHtmlEntities(value: string): string {
-  return value
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+  // Single pass, so "&#38;amp;" decodes once to "&amp;" rather than to "&".
+  return value.replace(/&(?:#(\d+)|#x([\da-f]+)|([a-z]+));/gi, (entity, dec?: string, hex?: string, name?: string) => {
+    if (name !== undefined) return NAMED_HTML_ENTITIES[name.toLowerCase()] ?? entity;
+    const code = dec !== undefined ? Number(dec) : Number.parseInt(hex ?? "", 16);
+    if (!Number.isInteger(code) || code < 0 || code > 0x10ffff) return entity;
+    return String.fromCodePoint(code);
+  });
 }
 
 function extractTitle(html: string, fallbackUrl: string): string {
@@ -167,7 +176,7 @@ function extractLinksFromHtml(html: string, baseUrl: string): string[] {
     /<a\b[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>`]+))/gi;
 
   for (const match of html.matchAll(linkPattern)) {
-    const href = (match[1] ?? match[2] ?? match[3] ?? "").trim();
+    const href = decodeHtmlEntities((match[1] ?? match[2] ?? match[3] ?? "").trim());
     if (!href) continue;
     const lower = href.toLowerCase();
     if (
@@ -196,10 +205,7 @@ function parseSitemapLocs(xml: string): string[] {
     const raw = match[1]?.trim();
     if (!raw) continue;
     urls.push(
-      raw
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">"),
+      decodeHtmlEntities(raw),
     );
   }
   return urls;
@@ -357,9 +363,12 @@ function safeFileNameSegment(segment: string): string {
 
 function queryFileNameSuffix(parsed: URL): string {
   if (!parsed.search) return "";
-  const query = safeFileNameSegment(parsed.searchParams.toString().replace(/[=&]/g, "-"));
-  if (query.length <= 80) return `__${query}`;
-  return `__${createHash("sha256").update(parsed.search).digest("hex").slice(0, 12)}`;
+  const normalizedQuery = parsed.searchParams.toString();
+  const hashInput = `${parsed.pathname}?${normalizedQuery}`;
+  const hash = createHash("sha256").update(hashInput).digest("hex").slice(0, 8);
+  const query = safeFileNameSegment(normalizedQuery.replace(/[=&]/g, "-"));
+  if (query.length <= 80) return `__${query}__${hash}`;
+  return `__${hash}`;
 }
 
 function mirrorPathForUrl(baseDir: string, url: string): string {

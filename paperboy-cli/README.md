@@ -71,6 +71,9 @@ Options:
 - `--min-content-words <number>`: skip converted pages with fewer words (default `0`)
 - `--output-mode <mode>`: `single`, `mirror`, or `jsonl` (default `single`)
 - `-o, --output <path>`: output file for `single` and `jsonl`, or a directory for `mirror`
+
+In `mirror` mode, query URLs receive a readable, hashed filename suffix such as
+`q__page-1__a1b2c3d4.md`. URLs without queries keep their existing filenames.
 - `--map`: list discovered URLs only; do not convert pages to Markdown
 - `--json`: print the crawl report as JSON
 - `--rate-limit-ms <number>`: delay between requests in milliseconds (default `500`)

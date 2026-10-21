@@ -336,7 +336,7 @@ describe("crawlSite", () => {
       res.statusCode = 200;
       res.setHeader("content-type", "text/html; charset=utf-8");
       if (url.pathname === "/") {
-        res.end(htmlPage("Home", `<a href="/q?page=1">one</a><a href="/q?page=2">two</a><a href="/utm?utm_source=x">tracking</a><a href="/p?b=2&a=1">p1</a><a href="/p?a=1&b=2">p2</a>`).body);
+        res.end(htmlPage("Home", `<a href="/q?page=1">one</a><a href="/q?page=2">two</a><a href="/utm?utm_source=x&amp;z=1">tracking</a><a href="/p?b=2&a=1">p1</a><a href="/p?b=2&amp;a=1">p2</a><a href="/p?b=2&#38;a=1">p3</a><a href="/p?b=2&#x26;a=1">p4</a><a href="/a&quot;b">quote</a><a href="/edge/&#38;amp;x">edge</a><a href="/big/&#99999999;x">big</a>`).body);
         return;
       }
       if (url.pathname === "/q" || url.pathname === "/p" || url.pathname === "/utm") {
@@ -357,8 +357,14 @@ describe("crawlSite", () => {
       const output = await fs.readFile(outputPath, "utf8");
       expect(requests).toContain("/q?page=1");
       expect(requests).toContain("/q?page=2");
-      expect(requests).toContain("/utm");
+      expect(requests).toContain("/utm?z=1");
+      expect(requests.some((request) => request.includes("utm_source") || /[?&]amp%3B/.test(request))).toBe(false);
+      expect(requests.filter((request) => request.startsWith("/p?")).length).toBe(1);
       expect(requests.filter((request) => request === "/p?a=1&b=2").length).toBe(1);
+      expect(requests).toContain("/a%22b");
+      // Entities decode once (&#38;amp; -> literal "&amp;"); an out-of-range code point stays literal (no throw).
+      expect(requests).toContain("/edge/&amp;x");
+      expect(requests).toContain("/big/&");
       expect(result.discoveredUrls.map((entry) => entry.url)).toContain(`http://127.0.0.1:${port}/q?page=1`);
       expect(result.discoveredUrls.map((entry) => entry.url)).toContain(`http://127.0.0.1:${port}/q?page=2`);
       expect(output).toContain("QUERY PAGE 1");
@@ -380,7 +386,9 @@ describe("crawlSite", () => {
         outputPath: outputDir,
       });
       expect(result.startUrl).toBe(`${server.baseUrl}/q?page=7`);
-      expect(await fs.readFile(path.join(outputDir, "q__page-7.md"), "utf8")).toContain("QUERY PAGE 7");
+      const page7File = (await fs.readdir(outputDir)).find((file) => /^q__page-7__[0-9a-f]{8}\.md$/.test(file));
+      expect(page7File).toMatch(/^q__page-7__[0-9a-f]{8}\.md$/);
+      expect(await fs.readFile(path.join(outputDir, page7File ?? ""), "utf8")).toContain("QUERY PAGE 7");
 
       await crawlSite(`${server.baseUrl}/q?page=1`, {
         ...defaultOptions({ maxDepth: 0, outputMode: "mirror" }),
@@ -390,8 +398,28 @@ describe("crawlSite", () => {
         ...defaultOptions({ maxDepth: 0, outputMode: "mirror" }),
         outputPath: outputDir,
       });
-      expect(await fs.readFile(path.join(outputDir, "q__page-1.md"), "utf8")).toContain("QUERY PAGE 1");
-      expect(await fs.readFile(path.join(outputDir, "q__page-2.md"), "utf8")).toContain("QUERY PAGE 2");
+      const page1File = (await fs.readdir(outputDir)).find((file) => /^q__page-1__[0-9a-f]{8}\.md$/.test(file));
+      const page2File = (await fs.readdir(outputDir)).find((file) => /^q__page-2__[0-9a-f]{8}\.md$/.test(file));
+      expect(await fs.readFile(path.join(outputDir, page1File ?? ""), "utf8")).toContain("QUERY PAGE 1");
+      expect(await fs.readFile(path.join(outputDir, page2File ?? ""), "utf8")).toContain("QUERY PAGE 2");
+
+      for (const url of [
+        `${server.baseUrl}/q?a=1&b=2`,
+        `${server.baseUrl}/q?a=1-b-2`,
+        `${server.baseUrl}/page.html?v=1`,
+        `${server.baseUrl}/page.htm?v=1`,
+        `${server.baseUrl}/q?x=A`,
+        `${server.baseUrl}/q?x=a`,
+      ]) {
+        await crawlSite(url, {
+          ...defaultOptions({ maxDepth: 0, outputMode: "mirror" }),
+          outputPath: outputDir,
+        });
+      }
+      const mirrorFiles = (await fs.readdir(outputDir, { recursive: true })).filter(
+        (entry): entry is string => typeof entry === "string" && entry.endsWith(".md"),
+      );
+      expect(new Set(mirrorFiles.map((file) => file.toLowerCase())).size).toBe(mirrorFiles.length);
 
       await crawlSite(`${server.baseUrl}/plain`, {
         ...defaultOptions({ maxDepth: 0, outputMode: "mirror" }),
