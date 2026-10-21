@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { createHash } from "node:crypto";
 import http from "node:http";
 import https from "node:https";
 import path from "node:path";
@@ -103,7 +104,7 @@ function normalizeUrl(rawUrl: string, base: URL): string | null {
     for (const param of TRACKING_QUERY_PARAMS) {
       url.searchParams.delete(param);
     }
-    url.search = "";
+    url.searchParams.sort();
     if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
       url.pathname = url.pathname.slice(0, -1);
     }
@@ -354,21 +355,33 @@ function safeFileNameSegment(segment: string): string {
   return cleaned || "index";
 }
 
+function queryFileNameSuffix(parsed: URL): string {
+  if (!parsed.search) return "";
+  const query = safeFileNameSegment(parsed.searchParams.toString().replace(/[=&]/g, "-"));
+  if (query.length <= 80) return `__${query}`;
+  return `__${createHash("sha256").update(parsed.search).digest("hex").slice(0, 12)}`;
+}
+
 function mirrorPathForUrl(baseDir: string, url: string): string {
   const parsed = new URL(url);
   const rawSegments = parsed.pathname.split("/").filter(Boolean);
   const segments = rawSegments.map(safeFileNameSegment);
+  const querySuffix = queryFileNameSuffix(parsed);
 
   if (segments.length === 0) {
-    return path.join(baseDir, "index.md");
+    return path.join(baseDir, `index${querySuffix}.md`);
   }
 
   const last = segments[segments.length - 1];
   if (!last.includes(".")) {
-    return path.join(baseDir, ...segments, "index.md");
+    if (querySuffix) {
+      segments[segments.length - 1] = `${last}${querySuffix}.md`;
+      return path.join(baseDir, ...segments);
+    }
+    return path.join(baseDir, ...segments, `index${querySuffix}.md`);
   }
 
-  segments[segments.length - 1] = `${last.replace(/\.[^.]+$/, "")}.md`;
+  segments[segments.length - 1] = `${last.replace(/\.[^.]+$/, "")}${querySuffix}.md`;
   return path.join(baseDir, ...segments);
 }
 

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { crawlSite, type CrawlOptions } from "../src/crawl.ts";
 
-type Route = { status: number; contentType: string; body: string };
+type Route = { status: number; contentType: string; body: string | ((url: URL) => string) };
 
 async function startTestServer(
   routes: Record<string, Route>,
@@ -23,7 +23,7 @@ async function startTestServer(
     }
     res.statusCode = route.status;
     res.setHeader("content-type", route.contentType);
-    res.end(route.body);
+    res.end(typeof route.body === "function" ? route.body(url) : route.body);
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address() as AddressInfo;
@@ -323,6 +323,81 @@ describe("crawlSite", () => {
       expect(
         result.discoveredUrls.some((entry) => entry.url.includes("example.com")),
       ).toBe(false);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("keeps meaningful query parameters, strips tracking parameters, and deduplicates sorted queries", async () => {
+    const requests: string[] = [];
+    const server = http.createServer((req, res) => {
+      const url = new URL(req.url ?? "/", "http://127.0.0.1");
+      requests.push(url.pathname + url.search);
+      res.statusCode = 200;
+      res.setHeader("content-type", "text/html; charset=utf-8");
+      if (url.pathname === "/") {
+        res.end(htmlPage("Home", `<a href="/q?page=1">one</a><a href="/q?page=2">two</a><a href="/utm?utm_source=x">tracking</a><a href="/p?b=2&a=1">p1</a><a href="/p?a=1&b=2">p2</a>`).body);
+        return;
+      }
+      if (url.pathname === "/q" || url.pathname === "/p" || url.pathname === "/utm") {
+        res.end(htmlPage(url.pathname, `<h1>${url.pathname}</h1><p>QUERY PAGE ${url.searchParams.get("page") ?? "null"}</p>`).body);
+        return;
+      }
+      res.statusCode = 404;
+      res.end("not found");
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const outputPath = path.join(tempDir, "crawl.md");
+      const result = await crawlSite(`http://127.0.0.1:${port}`, {
+        ...defaultOptions(),
+        outputPath,
+      });
+      const output = await fs.readFile(outputPath, "utf8");
+      expect(requests).toContain("/q?page=1");
+      expect(requests).toContain("/q?page=2");
+      expect(requests).toContain("/utm");
+      expect(requests.filter((request) => request === "/p?a=1&b=2").length).toBe(1);
+      expect(result.discoveredUrls.map((entry) => entry.url)).toContain(`http://127.0.0.1:${port}/q?page=1`);
+      expect(result.discoveredUrls.map((entry) => entry.url)).toContain(`http://127.0.0.1:${port}/q?page=2`);
+      expect(output).toContain("QUERY PAGE 1");
+      expect(output).toContain("QUERY PAGE 2");
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
+    }
+  });
+
+  it("keeps query seed values at maxDepth zero and separates query mirror files", async () => {
+    const server = await startTestServer({
+      "/q": { status: 200, contentType: "text/html; charset=utf-8", body: (url) => htmlPage("Query", `<p>QUERY PAGE ${url.searchParams.get("page")}</p>`).body },
+      "/plain": leafPage("Plain"),
+    });
+    try {
+      const outputDir = path.join(tempDir, "mirror");
+      const result = await crawlSite(`${server.baseUrl}/q?page=7`, {
+        ...defaultOptions({ maxDepth: 0, outputMode: "mirror" }),
+        outputPath: outputDir,
+      });
+      expect(result.startUrl).toBe(`${server.baseUrl}/q?page=7`);
+      expect(await fs.readFile(path.join(outputDir, "q__page-7.md"), "utf8")).toContain("QUERY PAGE 7");
+
+      await crawlSite(`${server.baseUrl}/q?page=1`, {
+        ...defaultOptions({ maxDepth: 0, outputMode: "mirror" }),
+        outputPath: outputDir,
+      });
+      await crawlSite(`${server.baseUrl}/q?page=2`, {
+        ...defaultOptions({ maxDepth: 0, outputMode: "mirror" }),
+        outputPath: outputDir,
+      });
+      expect(await fs.readFile(path.join(outputDir, "q__page-1.md"), "utf8")).toContain("QUERY PAGE 1");
+      expect(await fs.readFile(path.join(outputDir, "q__page-2.md"), "utf8")).toContain("QUERY PAGE 2");
+
+      await crawlSite(`${server.baseUrl}/plain`, {
+        ...defaultOptions({ maxDepth: 0, outputMode: "mirror" }),
+        outputPath: outputDir,
+      });
+      expect((await fs.stat(path.join(outputDir, "plain", "index.md"))).isFile()).toBe(true);
     } finally {
       await server.close();
     }
