@@ -8,14 +8,30 @@ import { convertToMarkdown, toWordCount } from "@proticom/paperboy-converter";
 type CrawlSource = "seed" | "sitemap" | "link";
 type CrawlOutputMode = "single" | "mirror" | "jsonl";
 
-type FetchResult = {
-  status: number;
-  body: string;
-  contentType: string;
-} & (
-  | { kind: "response"; ok: boolean }
-  | { kind: "encoding-error"; ok: false; encoding: string }
-);
+type FetchResult =
+  | { kind: "response"; ok: boolean; status: number; body: string; contentType: string }
+  | { kind: "failure"; reason: string };
+
+type FetchOptions = Pick<CrawlOptions, "timeoutMs" | "userAgent"> & { maxPageBytes: number };
+type ContentDecoder = (body: Buffer, options: { maxOutputLength: number }) => Buffer;
+
+const DEFAULT_MAX_PAGE_BYTES = 32 * 1024 * 1024;
+const CONTENT_DECODERS = new Map<string, ContentDecoder>([
+  ["gzip", gunzipSync],
+  ["x-gzip", gunzipSync],
+  ["br", brotliDecompressSync],
+  ["deflate", (body, options) => {
+    try {
+      return inflateSync(body, options);
+    } catch (error) {
+      if (error instanceof Error && "code" in error &&
+          (error.code === "Z_DATA_ERROR" || error.code === "Z_BUF_ERROR")) {
+        return inflateRawSync(body, options);
+      }
+      throw error;
+    }
+  }],
+]);
 
 interface QueueItem {
   url: string;
@@ -45,6 +61,7 @@ interface DiscoverRecord {
 export interface CrawlOptions {
   maxPages: number;
   maxDepth: number;
+  maxPageBytes?: number;
   includePatterns?: string[];
   excludePatterns?: string[];
   minContentWords: number;
@@ -220,16 +237,14 @@ function looksLikeSitemap(url: string): boolean {
 
 async function fetchText(
   url: string,
-  timeoutMs: number,
-  userAgent: string,
+  options: FetchOptions,
 ): Promise<FetchResult> {
-  return fetchTextWithRedirects(url, timeoutMs, userAgent, 0);
+  return fetchTextWithRedirects(url, options, 0);
 }
 
 async function fetchTextWithRedirects(
   url: string,
-  timeoutMs: number,
-  userAgent: string,
+  options: FetchOptions,
   redirects: number,
 ): Promise<FetchResult> {
   if (redirects > 5) {
@@ -263,7 +278,7 @@ async function fetchTextWithRedirects(
       {
         method: "GET",
         headers: {
-          "User-Agent": userAgent,
+          "User-Agent": options.userAgent,
           Accept: "text/html,application/xml,text/xml;q=0.9,*/*;q=0.8",
           "Accept-Encoding": "identity",
         },
@@ -271,59 +286,83 @@ async function fetchTextWithRedirects(
       (response) => {
         const status = response.statusCode ?? 0;
         const contentType = String(response.headers["content-type"] ?? "");
+        response.on("error", (error: Error) => {
+          resolve({ kind: "failure", reason: `response could not be read: ${error.message}` });
+        });
         const location = response.headers.location;
         if (status >= 300 && status < 400 && location) {
           response.resume();
           const nextUrl = new URL(location, parsedUrl).toString();
-          resolve(fetchTextWithRedirects(nextUrl, timeoutMs, userAgent, redirects + 1));
+          resolve(fetchTextWithRedirects(nextUrl, options, redirects + 1));
+          return;
+        }
+        if (status < 200 || status >= 300) {
+          response.resume();
+          resolve({ kind: "response", ok: false, status, body: "", contentType });
           return;
         }
 
         const chunks: Buffer[] = [];
+        let receivedBytes = 0;
         response.on("data", (chunk: string | Buffer) => {
-          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-        });
-        response.on("end", () => {
-          const encoding = String(response.headers["content-encoding"] ?? "");
-          let body = Buffer.concat(chunks);
-          try {
-            switch (encoding.trim().toLowerCase()) {
-              case "":
-              case "identity":
-                break;
-              case "gzip":
-              case "x-gzip":
-                body = gunzipSync(body);
-                break;
-              case "deflate":
-                try {
-                  body = inflateSync(body);
-                } catch {
-                  body = inflateRawSync(body);
-                }
-                break;
-              case "br":
-                body = brotliDecompressSync(body);
-                break;
-              default:
-                throw new Error("Unsupported content-encoding");
-            }
-          } catch {
-            resolve({ kind: "encoding-error", ok: false, status, body: "", contentType, encoding });
+          if (receivedBytes > options.maxPageBytes) return;
+          const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          receivedBytes += bytes.byteLength;
+          if (receivedBytes > options.maxPageBytes) {
+            chunks.length = 0;
+            resolve({ kind: "failure", reason: `response larger than ${options.maxPageBytes} bytes` });
+            response.destroy();
+            request.destroy();
             return;
           }
-          resolve({
-            kind: "response",
-            ok: status >= 200 && status < 300,
-            status,
-            body: body.toString("utf8"),
-            contentType,
-          });
+          chunks.push(bytes);
+        });
+        response.on("end", () => {
+          if (receivedBytes > options.maxPageBytes) return;
+          try {
+            const encoding = String(response.headers["content-encoding"] ?? "");
+            const encodings = encoding.split(",").map((token) => token.trim().toLowerCase())
+              .filter((token) => token && token !== "identity");
+            const decoders: ContentDecoder[] = [];
+            const encodingFailure: FetchResult = {
+              kind: "failure", reason: `unsupported or invalid content-encoding: ${encoding}`,
+            };
+            for (const token of encodings) {
+              const decoder = CONTENT_DECODERS.get(token);
+              if (!decoder) {
+                resolve(encodingFailure);
+                return;
+              }
+              decoders.push(decoder);
+            }
+            let body: Buffer = Buffer.concat(chunks);
+            if (body.byteLength > 0) {
+              for (const decode of decoders.reverse()) {
+                try {
+                  body = decode(body, { maxOutputLength: options.maxPageBytes });
+                } catch (error) {
+                  if (error instanceof Error && "code" in error && error.code === "ERR_BUFFER_TOO_LARGE") {
+                    resolve({ kind: "failure", reason: `decoded response larger than ${options.maxPageBytes} bytes` });
+                    return;
+                  }
+                  if (error instanceof Error && "errno" in error && typeof error.errno === "number") {
+                    resolve(encodingFailure);
+                    return;
+                  }
+                  throw error;
+                }
+              }
+            }
+            resolve({ kind: "response", ok: true, status, body: body.toString("utf8"), contentType });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            resolve({ kind: "failure", reason: `response could not be read: ${message}` });
+          }
         });
       },
     );
 
-    request.setTimeout(timeoutMs, () => {
+    request.setTimeout(options.timeoutMs, () => {
       request.destroy(new Error("Request timed out"));
     });
 
@@ -343,9 +382,8 @@ async function fetchTextWithRedirects(
 
 async function discoverSitemapUrls(
   rootUrl: URL,
-  timeoutMs: number,
+  options: FetchOptions,
   maxSitemaps: number,
-  userAgent: string,
   warnings: string[],
 ): Promise<string[]> {
   const rootSitemap = new URL("/sitemap.xml", rootUrl).toString();
@@ -358,9 +396,9 @@ async function discoverSitemapUrls(
     if (!sitemapUrl || seenSitemaps.has(sitemapUrl)) continue;
     seenSitemaps.add(sitemapUrl);
 
-    const fetched = await fetchText(sitemapUrl, timeoutMs, userAgent);
-    if (fetched.kind === "encoding-error") {
-      warnings.push(`Skipping ${sitemapUrl} (unsupported or invalid content-encoding: ${fetched.encoding}).`);
+    const fetched = await fetchText(sitemapUrl, options);
+    if (fetched.kind === "failure") {
+      warnings.push(`Skipping ${sitemapUrl} (${fetched.reason}).`);
       continue;
     }
     if (!fetched.ok) continue;
@@ -516,6 +554,11 @@ export async function crawlSite(
 ): Promise<CrawlResult> {
   const startUrl = new URL(startUrlRaw);
   const warnings: string[] = [];
+  const fetchOptions: FetchOptions = {
+    timeoutMs: options.timeoutMs,
+    userAgent: options.userAgent,
+    maxPageBytes: options.maxPageBytes ?? DEFAULT_MAX_PAGE_BYTES,
+  };
   const includePatterns = compilePatterns(splitPatterns(options.includePatterns));
   const excludePatterns = compilePatterns(splitPatterns(options.excludePatterns));
 
@@ -532,9 +575,8 @@ export async function crawlSite(
 
   const sitemapUrls = await discoverSitemapUrls(
     startUrl,
-    options.timeoutMs,
+    fetchOptions,
     options.maxSitemaps,
-    options.userAgent,
     warnings,
   );
 
@@ -570,9 +612,9 @@ export async function crawlSite(
     }
     fetches += 1;
 
-    const fetched = await fetchText(item.url, options.timeoutMs, options.userAgent);
-    if (fetched.kind === "encoding-error") {
-      warnings.push(`Skipping ${item.url} (unsupported or invalid content-encoding: ${fetched.encoding}).`);
+    const fetched = await fetchText(item.url, fetchOptions);
+    if (fetched.kind === "failure") {
+      warnings.push(`Skipping ${item.url} (${fetched.reason}).`);
       continue;
     }
     if (!fetched.ok) {

@@ -248,6 +248,163 @@ describe("crawlSite", () => {
     }
   });
 
+  it.each([
+    { name: "gzip", contentEncoding: "gzip", encode: gzipSync },
+    { name: "Brotli", contentEncoding: "br", encode: brotliCompressSync },
+    { name: "zlib deflate", contentEncoding: "deflate", encode: deflateSync },
+    { name: "raw deflate", contentEncoding: "deflate", encode: deflateRawSync },
+    { name: "stacked gzip/Brotli", contentEncoding: "gzip, br", encode: (body: Buffer) => brotliCompressSync(gzipSync(body)) },
+    { name: "uncompressed", contentEncoding: undefined, encode: (body: Buffer) => body },
+  ])("bounds $name responses and preserves other pages", async ({ contentEncoding, encode }) => {
+    const maxPageBytes = 64 * 1024;
+    const body = encode(Buffer.alloc(1 << 20, 0x41));
+    const aboutBody = encode(Buffer.from("<p>ABOUT BODY</p>".padEnd(maxPageBytes, " ")));
+    if (contentEncoding) expect(body.byteLength).toBeLessThan(maxPageBytes);
+    const server = await startTestServer({
+      "/": htmlPage("Home", '<p>HOME BODY</p><a href="/bomb">Bomb</a><a href="/about">About</a>'),
+      "/bomb": { status: 200, contentType: "text/html", contentEncoding, body },
+      "/about": { status: 200, contentType: "text/html", contentEncoding, body: aboutBody },
+    });
+    try {
+      const outputPath = path.join(tempDir, "crawl.md");
+      const result = await crawlSite(server.baseUrl, defaultOptions({ maxPageBytes, outputPath }));
+      expect(result.crawledCount).toBe(2);
+      expect(result.discoveredUrls.map((page) => page.url)).toEqual([
+        `${server.baseUrl}/`, `${server.baseUrl}/about`,
+      ]);
+      const reason = contentEncoding ? "decoded response" : "response";
+      expect(result.warnings).toEqual([
+        `Skipping ${server.baseUrl}/bomb (${reason} larger than ${maxPageBytes} bytes).`,
+      ]);
+      const output = await fs.readFile(outputPath, "utf8");
+      expect(output).toContain("HOME BODY");
+      expect(output).toContain("ABOUT BODY");
+      expect(output).not.toContain(`# Page: ${server.baseUrl}/bomb`);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it.each([304, 404])("reports HTTP %i before trying to decode an empty gzip body", async (status) => {
+    const server = await startTestServer({
+      "/": htmlPage("Home", '<p>HOME BODY</p><a href="/bad-status">Bad</a><a href="/about">About</a>'),
+      "/bad-status": { status, contentType: "text/html", contentEncoding: "gzip", body: "" },
+      "/about": leafPage("ABOUT BODY"),
+    });
+    try {
+      const outputPath = path.join(tempDir, "crawl.md");
+      const result = await crawlSite(server.baseUrl, defaultOptions({ outputPath }));
+      expect(result.crawledCount).toBe(2);
+      expect(result.warnings).toEqual([`Skipping ${server.baseUrl}/bad-status (HTTP ${status}).`]);
+      const output = await fs.readFile(outputPath, "utf8");
+      expect(output).toContain("HOME BODY");
+      expect(output).toContain("ABOUT BODY");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it.each([200, 204])("accepts an empty HTTP %i body with a gzip header", async (status) => {
+    const server = await startTestServer({
+      "/": htmlPage("Home", '<p>HOME BODY</p><a href="/empty">Empty</a>'),
+      "/empty": { status, contentType: "text/html", contentEncoding: "gzip", body: "" },
+    });
+    try {
+      const outputPath = path.join(tempDir, "crawl.jsonl");
+      const result = await crawlSite(server.baseUrl, defaultOptions({
+        minContentWords: 0, outputMode: "jsonl", outputPath,
+      }));
+      expect(result.crawledCount).toBe(2);
+      expect(result.warnings).toEqual([]);
+      const records = (await fs.readFile(outputPath, "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+      expect(records.map(({ url, markdown }) => ({ url, markdown }))).toEqual([
+        { url: `${server.baseUrl}/`, markdown: "HOME BODY\n\n[Empty](/empty)" },
+        { url: `${server.baseUrl}/empty`, markdown: "" },
+      ]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it.each(["gzip, br", "identity, GZIP, identity, br"])("decodes %s in reverse order", async (encoding) => {
+    const server = await startTestServer({
+      "/": htmlPage("Home", '<p>HOME BODY</p><a href="/stacked">Stacked</a>'),
+      "/stacked": {
+        status: 200,
+        contentType: "text/html",
+        contentEncoding: encoding,
+        body: brotliCompressSync(gzipSync('<p>STACKED BODY</p><a href="/child">Child</a>')),
+      },
+      "/child": leafPage("STACKED CHILD BODY"),
+    });
+    try {
+      const outputPath = path.join(tempDir, "crawl.md");
+      const result = await crawlSite(server.baseUrl, defaultOptions({ outputPath }));
+      expect(result.crawledCount).toBe(3);
+      expect(result.warnings).toEqual([]);
+      const output = await fs.readFile(outputPath, "utf8");
+      expect(output).toContain("STACKED BODY");
+      expect(output).toContain("STACKED CHILD BODY");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("skips a list containing an unsupported encoding", async () => {
+    const server = await startTestServer({
+      "/": htmlPage("Home", '<p>HOME BODY</p><a href="/unsupported">Unsupported</a><a href="/about">About</a>'),
+      "/unsupported": {
+        status: 200,
+        contentType: "text/html",
+        contentEncoding: "gzip, zstd",
+        body: gzipSync("<p>UNSUPPORTED BODY</p>"),
+      },
+      "/about": leafPage("ABOUT BODY"),
+    });
+    try {
+      const outputPath = path.join(tempDir, "crawl.md");
+      const result = await crawlSite(server.baseUrl, defaultOptions({ outputPath }));
+      expect(result.crawledCount).toBe(2);
+      expect(result.warnings).toEqual([
+        `Skipping ${server.baseUrl}/unsupported (unsupported or invalid content-encoding: gzip, zstd).`,
+      ]);
+      const output = await fs.readFile(outputPath, "utf8");
+      expect(output).toContain("ABOUT BODY");
+      expect(output).not.toContain("UNSUPPORTED BODY");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("keeps other pages when UTF-8 decoding unexpectedly throws", async () => {
+    const body = Buffer.from("<p>SYNTHETIC READ FAILURE</p>");
+    const server = await startTestServer({
+      "/": htmlPage("Home", '<p>HOME BODY</p><a href="/broken">Broken</a><a href="/about">About</a>'),
+      "/broken": { status: 200, contentType: "text/html", body },
+      "/about": leafPage("ABOUT BODY"),
+    });
+    const originalToString = Buffer.prototype.toString;
+    const decode = vi.spyOn(Buffer.prototype, "toString").mockImplementation(function (encoding, start, end) {
+      if (encoding === "utf8" && this.equals(body)) throw new Error("synthetic UTF-8 failure");
+      return originalToString.call(this, encoding, start, end);
+    });
+    try {
+      const outputPath = path.join(tempDir, "crawl.md");
+      const result = await crawlSite(server.baseUrl, defaultOptions({ outputPath }));
+      expect(result.crawledCount).toBe(2);
+      expect(result.warnings).toEqual([
+        `Skipping ${server.baseUrl}/broken (response could not be read: synthetic UTF-8 failure).`,
+      ]);
+      const output = await fs.readFile(outputPath, "utf8");
+      expect(output).toContain("HOME BODY");
+      expect(output).toContain("ABOUT BODY");
+      expect(output).not.toContain(`# Page: ${server.baseUrl}/broken`);
+    } finally {
+      decode.mockRestore();
+      await server.close();
+    }
+  });
+
   it("respects the maxPages cap", async () => {
     const server = await startTestServer({
       "/": htmlPage(
