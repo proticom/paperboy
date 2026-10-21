@@ -194,6 +194,7 @@ async function annotateMarkdownWithOcr(markdown, payload) {
   const documentClone = parseHtmlToDocument(payload.html, payload.url);
   const images = [...documentClone.querySelectorAll("img")];
   if (!images.length) {
+    setStatus("No images found to OCR on this page.", "idle");
     return { markdown, count: 0 };
   }
 
@@ -249,6 +250,7 @@ async function annotateMarkdownWithOcr(markdown, payload) {
     }
   }
 
+  if (count === 0) setStatus(`No readable text in ${images.length} image(s).`, "idle");
   return { markdown: annotated, count };
 }
 
@@ -466,8 +468,6 @@ dom.ocrButton.addEventListener("click", () => {
             state.lastPayload.capturedAt,
           );
           setStatus(`Annotated ${count} image(s) with OCR.`, "success");
-        } else {
-          setStatus("No images found to OCR on this page.", "idle");
         }
       } catch (err) {
         renderError(err instanceof Error ? err : new Error(String(err)));

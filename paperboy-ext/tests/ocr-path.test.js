@@ -27,10 +27,11 @@ test("parseHtmlToDocument is exported and parses with the global DOMParser", asy
   }
 });
 
-async function annotate(ocrData) {
+async function annotate(ocrData, { noImage = false, fetchOk = true, toggle = false, region = false } = {}) {
   const { document } = parseHTML(read("sidepanel.html"));
   let pageRequest = null;
   const recognizeCalls = [];
+  let onMessage;
   const context = vm.createContext({
     console,
     document,
@@ -41,20 +42,21 @@ async function annotate(ocrData) {
     TextDecoder,
     Uint8Array,
     fetch: async () => ({
-      ok: true,
+      ok: fetchOk,
+      status: fetchOk ? 200 : 503,
       blob: async () => new Blob(["ocr-bytes"]),
     }),
     chrome: {
       runtime: {
         lastError: null,
         getURL: (file) => `chrome-extension://test/${file}`,
-        onMessage: { addListener() {} },
+        onMessage: { addListener(listener) { onMessage = listener; } },
         sendMessage: (message, callback) => {
           pageRequest = message;
           callback({
             ok: true,
             data: {
-              html: "<html><head><title>Scan page</title></head><body><article><h1>Scan page</h1><p>Visible text for readability.</p><img src=\"https://example.org/ocr.png\" alt=\"Scan\"></article></body></html>",
+              html: noImage ? "<html><body><p>Visible text for readability.</p></body></html>" : "<html><head><title>Scan page</title></head><body><article><h1>Scan page</h1><p>Visible text for readability.</p><img src=\"https://example.org/ocr.png\" alt=\"Scan\"></article></body></html>",
               url: "https://example.org/article",
               title: "Scan page",
               capturedAt: "2026-10-18T12:00:00.000Z",
@@ -64,7 +66,7 @@ async function annotate(ocrData) {
       },
       storage: {
         local: {
-          get: async () => ({ "paperboy:prefs": { ocrEnabled: true } }),
+          get: async () => ({ "paperboy:prefs": { ocrEnabled: !toggle } }),
           set: async () => {},
         },
       },
@@ -81,7 +83,7 @@ async function annotate(ocrData) {
       parse() {
         return {
           title: "Scan page",
-          content: "<p>Visible text for readability.</p><img src=\"https://example.org/ocr.png\" alt=\"Scan\">",
+          content: noImage ? "<p>Visible text for readability.</p>" : "<p>Visible text for readability.</p><img src=\"https://example.org/ocr.png\" alt=\"Scan\">",
           textContent: "Visible text for readability.",
           length: 32,
         };
@@ -94,9 +96,22 @@ async function annotate(ocrData) {
   await new Promise((resolve) => setImmediate(resolve));
   await new Promise((resolve) => setImmediate(resolve));
 
+  if (toggle) {
+    document.getElementById("ocr-btn").click();
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  if (region) {
+    onMessage({ type: "paperboy:region-picked", data: {
+      html: '<html><body><p>Visible text for readability.</p><img src="https://example.org/ocr.png" alt="Scan"></body></html>',
+      url: "https://example.org/article", capturedAt: "2026-10-18T12:00:00.000Z",
+    } });
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+  }
   const output = document.getElementById("markdown-output").textContent;
   const status = document.getElementById("meta-text").textContent;
-  return { output, status, pageRequest, recognizeCalls };
+  return { output, status, state: document.getElementById("meta-text").dataset.state, pageRequest, recognizeCalls };
 }
 
 test("OCR annotation uses the shared cleanup and requests structured blocks", async () => {
@@ -123,7 +138,7 @@ test("OCR annotation filters junk and collapses its markers through the built bu
     text: "Raw junk must not appear",
     blocks: [{ paragraphs: [
       { lines: [ocrLine("Caption stays.", 96)] },
-      { lines: [ocrLine("r~ SNE", 18), ocrLine("~~ =", 93)] },
+      { lines: [ocrLine("r~ SNE", 18), ocrLine("~~ =", 30)] },
       { lines: [ocrLine("Final caption.", 96)] },
     ] }],
   });
@@ -132,11 +147,27 @@ test("OCR annotation filters junk and collapses its markers through the built bu
 });
 
 test("OCR annotation skips images whose cleaned text contains only omission markers", async () => {
-  const { output } = await annotate({
+  const { output, status, state } = await annotate({
     text: "Photo junk",
     blocks: [{ paragraphs: [{ lines: [ocrLine("r~ SNE", 18)] }] }],
   });
+  assert.equal(status, "No readable text in 1 image(s).");
+  assert.equal(state, "idle");
   assert.equal(output.includes("> OCR:"), false);
   assert.equal(output.includes("image omitted"), false);
   assert.match(output, /!\[[^\]]*Scan[^\]]*\]\([^)]*ocr\.png[^)]*\)/);
 });
+
+
+for (const [label, options, expected] of [
+  ["failed fetch", { fetchOk: false }, "No readable text in 1 image(s)."],
+  ["no images", { noImage: true }, "No images found to OCR on this page."],
+  ["OCR toggle", { toggle: true }, "No readable text in 1 image(s)."],
+  ["picked region", { region: true }, "No readable text in 1 image(s)."],
+]) {
+  test(`OCR finishes with an idle status after ${label}`, async () => {
+    const { status, state } = await annotate({ text: "" }, options);
+    assert.equal(status, expected);
+    assert.equal(state, "idle");
+  });
+}

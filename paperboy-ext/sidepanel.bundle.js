@@ -6762,9 +6762,15 @@ ${content}
   function objectArray(value) {
     return Array.isArray(value) ? value.filter(isRecord) : [];
   }
+  function lineBounds(value) {
+    if (!isRecord(value) || typeof value.x0 !== "number" || typeof value.y0 !== "number" || typeof value.x1 !== "number" || typeof value.y1 !== "number")
+      return void 0;
+    return { x0: value.x0, y0: value.y0, x1: value.x1, y1: value.y1 };
+  }
   function collectParagraphsFromTesseractBlocks(blocks) {
     return objectArray(blocks).flatMap((block2) => objectArray(block2.paragraphs).map((paragraph2) => ({
       lines: objectArray(paragraph2.lines).map((line) => ({
+        bbox: lineBounds(line.bbox),
         words: objectArray(line.words).map((word) => {
           const bbox = isRecord(word.bbox) ? word.bbox : {};
           const x0 = typeof bbox.x0 === "number" ? bbox.x0 : 0;
@@ -6785,6 +6791,7 @@ ${content}
   }
   var MIN_LINE_CONFIDENCE = 60;
   var MIN_WORD_CONFIDENCE = 30;
+  var MIN_RESCUE_CONFIDENCE = 40;
   var MIN_READABLE_FRACTION = 0.6;
   var WRAP_EDGE_FRACTION = 0.85;
   var IMAGE_OMITTED = "<!-- image omitted -->";
@@ -6792,22 +6799,23 @@ ${content}
     if (word.confidence < MIN_WORD_CONFIDENCE)
       return false;
     const text2 = word.text.trim();
+    const alphanumeric = /^[\p{P}\p{Sc}]*[\p{L}\p{N}][\p{L}\p{N}\-_.@/:$%#+]*[\p{P}\p{Sc}]*$/u.test(text2);
+    const alphabetic = /^[\p{P}]*\p{L}{2,}(?:['’\-]\p{L}+)*[\p{P}]*$/u.test(text2);
     if (/^[\p{Sc}]?\d{2,}(?:[.,:]\d+)*%?$|^[\p{Sc}]?\d+[.,:]\d+%?$|^\d+%$/u.test(text2))
       return true;
-    if (word.confidence >= MIN_LINE_CONFIDENCE && /^(?:a|I)[.,!?;:]?$/.test(text2))
-      return true;
-    if (!/^[\p{P}]*\p{L}{2,}(?:['’\-]\p{L}+)*[\p{P}]*$/u.test(text2))
-      return false;
-    const letters = text2.replace(/[^\p{L}]/gu, "");
-    return word.confidence >= MIN_LINE_CONFIDENCE || letters.length >= 3 && /^\p{Ll}+$|^\p{Lu}\p{Ll}+$/u.test(letters);
+    if (word.confidence >= MIN_LINE_CONFIDENCE)
+      return alphanumeric || alphabetic;
+    return (alphanumeric || alphabetic) && text2.replace(/[^\p{L}\p{N}]/gu, "").length >= 3;
   }
-  function analyzeLine(words) {
+  function analyzeLine(line) {
+    const words = line.words;
     const tokens = words.map((word) => word.text.trim());
     const text2 = tokens.join(" ");
     const mean = words.reduce((sum, word) => sum + word.confidence, 0) / words.length;
-    const readable = words.filter(isReadableWord).length;
     const content = hasListPrefix(text2) ? words.slice(1) : words;
-    const readableFraction = content.filter(isReadableWord).length / Math.max(1, content.length);
+    const confidence = content.reduce((sum, word) => sum + word.confidence, 0);
+    const readableConfidence = content.filter(isReadableWord).reduce((sum, word) => sum + word.confidence, 0);
+    const readableFraction = readableConfidence / Math.max(1, confidence);
     const code2 = /[{}()]|=>|[;=]\s*$/.test(text2);
     const codeStatement = code2 && words[0].confidence >= MIN_LINE_CONFIDENCE && /^(?:const|let|var|function|return|for|if|while|class|import|export)\b/.test(text2);
     const charWidth = words.reduce((sum, word) => sum + word.bbox.x1 - word.bbox.x0, 0) / tokens.reduce((sum, token) => sum + token.length, 0);
@@ -6821,9 +6829,11 @@ ${content}
         y1: Math.max(...words.map((word) => word.bbox.y1))
       },
       charWidth,
-      keep: mean >= MIN_LINE_CONFIDENCE && readable > 0 || readableFraction >= MIN_READABLE_FRACTION || codeStatement,
+      top: line.bbox?.y0 ?? Math.min(...words.map((word) => word.bbox.y0)),
+      keep: mean >= MIN_LINE_CONFIDENCE || mean >= MIN_RESCUE_CONFIDENCE && readableFraction >= MIN_READABLE_FRACTION || codeStatement,
       code: code2,
-      columns: words.some((word, index) => index > 0 && word.bbox.x0 - words[index - 1].bbox.x1 > charWidth * 4)
+      columns: words.some((word, index) => index > 0 && word.bbox.x0 - words[index - 1].bbox.x1 > charWidth * 4),
+      literal: text2.startsWith("|") || text2.endsWith("|") || tokens.filter((token) => token === "|").length >= 2 || words.length === 1 && /[\p{N}@_/$%#+]/u.test(text2)
     };
   }
   function hasListPrefix(text2) {
@@ -6857,8 +6867,14 @@ ${content}
   function reachesEdge(line, bounds) {
     return line.bounds.x1 - bounds.left >= (bounds.right - bounds.left) * WRAP_EDGE_FRACTION;
   }
-  function isProseWrap(previous, next2, bounds) {
-    return previous.keep && next2.keep && !previous.code && !next2.code && !previous.columns && !next2.columns && !hasListPrefix(previous.text) && !hasListPrefix(next2.text) && !previous.text.endsWith(":") && reachesEdge(previous, bounds) && aligned(previous, next2) && (/^\p{Ll}/u.test(next2.text) || !/[.!?:]$/.test(previous.text));
+  function fontChange(previous, next2) {
+    return Math.max(previous.charWidth, next2.charWidth) > Math.min(previous.charWidth, next2.charWidth) * 1.25;
+  }
+  function wrapBoundary(previous, next2, bounds) {
+    const canWrap = previous.keep && next2.keep && !previous.code && !next2.code && !previous.columns && !next2.columns && !previous.literal && !next2.literal && !hasListPrefix(previous.text) && !hasListPrefix(next2.text) && !previous.text.endsWith(":") && reachesEdge(previous, bounds) && aligned(previous, next2) && (/^\p{Ll}/u.test(next2.text) || !/[.!?:]$/.test(previous.text));
+    if (!canWrap)
+      return "line";
+    return fontChange(previous, next2) ? "paragraph" : "space";
   }
   function lineText(line) {
     if (line.code)
@@ -6875,7 +6891,7 @@ ${content}
     }
     const sections = [];
     let hasText = false;
-    const paragraphs = result.paragraphs.map((paragraph2) => paragraph2.lines.map((line) => line.words.filter((word) => word.text.trim())).filter((words) => words.length > 0).map(analyzeLine));
+    const paragraphs = result.paragraphs.map((paragraph2) => paragraph2.lines.map((line) => ({ ...line, words: line.words.filter((word) => word.text.trim()) })).filter((line) => line.words.length > 0).map(analyzeLine));
     keepCodeFragments(paragraphs.flat());
     for (const lines of paragraphs) {
       const kept = lines.filter((line) => line.keep);
@@ -6883,7 +6899,10 @@ ${content}
         left: Math.min(...kept.map((line) => line.bounds.x0)),
         right: Math.max(...kept.map((line) => line.bounds.x1))
       };
-      const hasWraps = lines.some((line, index) => index > 0 && isProseWrap(lines[index - 1], line, bounds));
+      const hasWraps = lines.some((line, index) => index > 0 && wrapBoundary(lines[index - 1], line, bounds) === "space");
+      const pitches = kept.slice(1).map((line, index) => line.top - kept[index].top).filter((pitch) => pitch > 0).sort((a, b) => a - b);
+      const middle = Math.floor(pitches.length / 2);
+      const normalPitch = pitches.length ? (pitches[middle] + pitches[Math.floor((pitches.length - 1) / 2)]) / 2 : 0;
       let text2 = "";
       let previous;
       const flush = () => {
@@ -6900,12 +6919,18 @@ ${content}
           continue;
         }
         if (previous) {
-          const largeGap = line.bounds.y0 - previous.bounds.y1 > Math.max(line.bounds.y1 - line.bounds.y0, previous.bounds.y1 - previous.bounds.y0);
+          const largeGap = line.bounds.y0 - previous.bounds.y1 > Math.max(line.bounds.y1 - line.bounds.y0, previous.bounds.y1 - previous.bounds.y0) || normalPitch > 0 && line.top - previous.top > normalPitch * 1.5;
+          const boundary = wrapBoundary(previous, line, bounds);
           const paragraphEnd = hasWraps && !previous.code && !line.code && !previous.columns && !line.columns && !hasListPrefix(previous.text) && !hasListPrefix(line.text) && aligned(previous, line) && !reachesEdge(previous, bounds) && /^\p{Lu}/u.test(line.text) && (/[.!?]$/.test(previous.text) || previous.charWidth > line.charWidth * 1.25);
-          if (largeGap || paragraphEnd)
+          if (largeGap || boundary === "paragraph" || paragraphEnd)
             flush();
-          else
-            text2 += isProseWrap(previous, line, bounds) ? " " : "\n";
+          else if (boundary === "space") {
+            if (/\p{L}-$/u.test(previous.text) && /^\p{Ll}/u.test(line.text)) {
+              text2 = text2.replace(/(\p{L})-$/u, "$1");
+            } else
+              text2 += " ";
+          } else
+            text2 += "\n";
         }
         text2 += lineText(line);
         previous = line;
@@ -7201,6 +7226,7 @@ ${content}
     const documentClone = parseHtmlToDocument(payload.html, payload.url);
     const images = [...documentClone.querySelectorAll("img")];
     if (!images.length) {
+      setStatus("No images found to OCR on this page.", "idle");
       return { markdown, count: 0 };
     }
     const worker = await getTesseractWorker();
@@ -7250,6 +7276,7 @@ ${escapeBlockquote(`OCR: ${text2}`)}
         console.warn("OCR failed for", src, err);
       }
     }
+    if (count === 0) setStatus(`No readable text in ${images.length} image(s).`, "idle");
     return { markdown: annotated, count };
   }
   function renderError(error2) {
@@ -7426,8 +7453,6 @@ ${escapeBlockquote(`OCR: ${text2}`)}
               state.lastPayload.capturedAt
             );
             setStatus(`Annotated ${count} image(s) with OCR.`, "success");
-          } else {
-            setStatus("No images found to OCR on this page.", "idle");
           }
         } catch (err) {
           renderError(err instanceof Error ? err : new Error(String(err)));
