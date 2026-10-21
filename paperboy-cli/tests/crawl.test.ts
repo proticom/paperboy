@@ -3,6 +3,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { Worker } from "node:worker_threads";
 import { brotliCompressSync, deflateRawSync, deflateSync, gzipSync } from "node:zlib";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as converter from "@proticom/paperboy-converter";
@@ -217,33 +218,125 @@ describe("crawlSite", () => {
     }
   });
 
-  it("skips a conversion failure without counting it or losing earlier pages", async () => {
+  it.each([
+    { marker: "HANG", reason: "conversion timed out after 200 ms" },
+    { marker: "CRASH", reason: "conversion failed: worker exited with code 7" },
+    { marker: "ERROR", reason: "conversion failed: synthetic worker error" },
+    { marker: "FAIL", reason: "conversion failed: synthetic conversion failure" },
+    { marker: "OOM", reason: "conversion failed: Worker terminated due to reaching memory limit: JS heap out of memory" },
+  ])("keeps pages around a $marker conversion and replaces the worker", async ({ marker, reason }) => {
     const server = await startTestServer({
-      "/": htmlPage("Home", '<p>HOME BODY</p><a href="/broken">Broken</a><a href="/about">About</a>'),
-      "/broken": { status: 200, contentType: "text/html", body: "CONVERSION FAILURE" },
-      "/about": leafPage("ABOUT BODY"),
+      "/": htmlPage("Home", '<p>HOME BODY</p><a href="/before">Before</a><a href="/broken">Broken</a><a href="/after">After</a><a href="/last">Last</a>'),
+      "/before": leafPage("BEFORE BODY"),
+      "/broken": { status: 200, contentType: "text/html", body: marker },
+      "/after": leafPage("AFTER BODY"),
+      "/last": leafPage("LAST BODY"),
     });
-    const originalConvert = converter.convertToMarkdown;
-    const convert = vi.spyOn(converter, "convertToMarkdown").mockImplementation(async (filename, data, options) => {
-      if (data === "CONVERSION FAILURE") throw new Error("synthetic conversion failure");
-      return originalConvert(filename, data, options);
+    try {
+      const outputPath = path.join(tempDir, "crawl.jsonl");
+      const started = performance.now();
+      const result = await crawlSite(server.baseUrl, defaultOptions({
+        maxPages: 4,
+        outputPath,
+        outputMode: "jsonl",
+        conversionTimeoutMs: marker === "OOM" ? 2000 : 200,
+        conversionWorkerUrl: new URL("./fixtures/controlled-convert-worker.mjs", import.meta.url),
+        conversionResourceLimits: { maxOldGenerationSizeMb: 16, maxYoungGenerationSizeMb: 4 },
+      }));
+      expect(performance.now() - started).toBeLessThan(5000);
+      expect(result.crawledCount).toBe(4);
+      expect(result.skippedCount).toBe(1);
+      expect(result.discoveredUrls.map((page) => page.url)).toEqual([
+        `${server.baseUrl}/`, `${server.baseUrl}/before`, `${server.baseUrl}/after`, `${server.baseUrl}/last`,
+      ]);
+      expect(result.warnings).toEqual([`Skipping ${server.baseUrl}/broken (${reason}).`]);
+      const records = (await fs.readFile(outputPath, "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+      expect(records.map((record) => record.url)).toEqual(result.discoveredUrls.map((page) => page.url));
+      for (const [index, body] of ["HOME BODY", "BEFORE BODY", "AFTER BODY", "LAST BODY"].entries()) {
+        expect(records[index].markdown).toContain(body);
+      }
+      const workerIds = records.map((record) => record.metadata.warnings[0]);
+      expect(workerIds[0]).toBe(workerIds[1]);
+      expect(workerIds[2]).toBe(workerIds[3]);
+      expect(workerIds[2]).not.toBe(workerIds[0]);
+      expect(records.map((record) => record.metadata.warnings[1])).toEqual([
+        "conversion:1", "conversion:2", "conversion:1", "conversion:2",
+      ]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("uses the default 8 MiB cap for raw and gzip responses, accepting exactly the cap", async () => {
+    const cap = 8 * 1024 * 1024;
+    const prefix = "<p>CAP BODY</p><!--";
+    const exact = prefix + "x".repeat(cap - prefix.length - 3) + "-->";
+    const overflow = exact + " ";
+    const server = await startTestServer({
+      "/": htmlPage("Home", '<p>HOME BODY</p><a href="/raw">Raw</a><a href="/gzip">Gzip</a><a href="/exact">Exact</a>'),
+      "/raw": { status: 200, contentType: "text/html", body: overflow },
+      "/gzip": { status: 200, contentType: "text/html", contentEncoding: "gzip", body: gzipSync(overflow) },
+      "/exact": { status: 200, contentType: "text/html", body: exact },
     });
     try {
       const outputPath = path.join(tempDir, "crawl.md");
-      const result = await crawlSite(server.baseUrl, defaultOptions({ maxPages: 2, outputPath }));
+      const result = await crawlSite(server.baseUrl, defaultOptions({ outputPath }));
       expect(result.crawledCount).toBe(2);
+      expect(result.skippedCount).toBe(0);
       expect(result.discoveredUrls.map((page) => page.url)).toEqual([
-        `${server.baseUrl}/`, `${server.baseUrl}/about`,
+        `${server.baseUrl}/`, `${server.baseUrl}/exact`,
       ]);
       expect(result.warnings).toEqual([
-        `Skipping ${server.baseUrl}/broken (conversion failed: synthetic conversion failure).`,
+        `Skipping ${server.baseUrl}/raw (response larger than 8388608 bytes).`,
+        `Skipping ${server.baseUrl}/gzip (decoded response larger than 8388608 bytes).`,
       ]);
-      const output = await fs.readFile(outputPath, "utf8");
-      expect(output).toContain("HOME BODY");
-      expect(output).toContain("ABOUT BODY");
-      expect(output).not.toContain(`# Page: ${server.baseUrl}/broken`);
+      expect(await fs.readFile(outputPath, "utf8")).toContain("CAP BODY");
     } finally {
-      convert.mockRestore();
+      await server.close();
+    }
+  });
+
+  it("writes byte-identical mirror files to inline conversion for multiple pages", async () => {
+    const routes = { "/": homeWithAboutContact, "/about": leafPage("About"), "/contact": leafPage("Contact") };
+    const server = await startTestServer(routes);
+    try {
+      const result = await crawlSite(server.baseUrl, defaultOptions({ outputMode: "mirror", outputPath: tempDir }));
+      expect(result.crawledCount).toBe(3);
+      expect(result.skippedCount).toBe(0);
+      expect(result.warnings).toEqual([]);
+      for (const [route, page] of Object.entries(routes)) {
+        const title = route === "/" ? "Home" : route === "/about" ? "About" : "Contact";
+        const conversion = await converter.convertToMarkdown(`${title}.html`, page.body);
+        const expected = [
+          "---", `title: "${title}"`, `url: "${server.baseUrl}${route}"`,
+          `depth: ${route === "/" ? 0 : 1}`, `wordCount: ${converter.toWordCount(conversion.markdown)}`,
+          "---", "", conversion.markdown, "",
+        ].join("\n");
+        expect(await fs.readFile(path.join(tempDir, route, "index.md"), "utf8")).toBe(expected);
+      }
+    } finally {
+      await server.close();
+    }
+  });
+
+  it.each([false, true])("terminates its worker after output (write failure: %s)", async (failWrite) => {
+    const server = await startTestServer({ "/": leafPage("Home") });
+    const terminate = vi.spyOn(Worker.prototype, "terminate");
+    try {
+      const blockedPath = path.join(tempDir, "blocked");
+      await fs.writeFile(blockedPath, "file blocks directory creation");
+      const crawl = crawlSite(server.baseUrl, defaultOptions({
+        outputPath: failWrite ? path.join(blockedPath, "crawl.md") : path.join(tempDir, "crawl.md"),
+      }));
+      if (failWrite) {
+        await expect(crawl).rejects.toMatchObject({ code: "EEXIST" });
+      } else {
+        expect((await crawl).crawledCount).toBe(1);
+      }
+      expect(terminate).toHaveBeenCalledTimes(1);
+      expect(terminate.mock.contexts[0].threadId).toBe(-1);
+    } finally {
+      terminate.mockRestore();
       await server.close();
     }
   });
@@ -528,14 +621,24 @@ describe("crawlSite", () => {
       "/about": leafPage("About"),
       "/contact": leafPage("Contact"),
     });
+    const workerListeners = vi.spyOn(Worker.prototype, "on");
     try {
       const mapPath = path.join(tempDir, "urls.txt");
       const result = await crawlSite(server.baseUrl, {
-        ...defaultOptions({ mapOnly: true }),
+        ...defaultOptions({
+          mapOnly: true,
+          conversionWorkerUrl: new URL("https://127.0.0.1/unused-worker.js"),
+        }),
         outputPath: mapPath,
       });
 
       expect(result.mode).toBe("map");
+      expect(workerListeners).not.toHaveBeenCalled();
+      expect(result.skippedCount).toBe(0);
+      expect(result.warnings).toEqual([]);
+      expect(result.discoveredUrls.map((page) => page.url)).toEqual([
+        `${server.baseUrl}/`, `${server.baseUrl}/about`, `${server.baseUrl}/contact`,
+      ]);
       expect(result.crawledCount).toBe(0);
       expect(result.discoveredCount).toBeGreaterThanOrEqual(1);
       const mapBody = await fs.readFile(mapPath, "utf8");
@@ -543,6 +646,7 @@ describe("crawlSite", () => {
       expect(mapBody).not.toContain("# Page:");
       await expect(fs.stat(path.join(tempDir, "crawl.md"))).rejects.toThrow();
     } finally {
+      workerListeners.mockRestore();
       await server.close();
     }
   });

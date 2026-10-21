@@ -63,6 +63,8 @@ paperboy-cli convert "./table.xlsx" --json
 
 Crawl one page or a site on the same origin, convert HTML pages to Markdown, and follow links up to the depth limit. It also reads `sitemap.xml` (and nested sitemaps, up to the sitemap limit) and queues those URLs.
 
+Responses are limited to 8 MiB in both raw and decoded form. Each page conversion has a 30-second limit and a 512 MB worker old-generation heap limit. Pages that time out or fail conversion are skipped and counted in the JSON report as `skippedCount`.
+
 Options:
 - `--max-pages <number>`: maximum pages to process (default `300`)
 - `--max-depth <number>`: maximum depth from seed URLs (default `4`)

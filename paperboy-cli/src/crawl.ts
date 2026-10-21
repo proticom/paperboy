@@ -2,8 +2,11 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import https from "node:https";
 import path from "node:path";
+import { Worker, type ResourceLimits } from "node:worker_threads";
 import { brotliDecompressSync, gunzipSync, inflateRawSync, inflateSync } from "node:zlib";
-import { convertToMarkdown, toWordCount } from "@proticom/paperboy-converter";
+import { toWordCount, type ConvertResult } from "@proticom/paperboy-converter";
+
+import type { ConversionRequest, ConversionResponse } from "./convert-worker.js";
 
 type CrawlSource = "seed" | "sitemap" | "link";
 type CrawlOutputMode = "single" | "mirror" | "jsonl";
@@ -15,7 +18,10 @@ type FetchResult =
 type FetchOptions = Pick<CrawlOptions, "timeoutMs" | "userAgent"> & { maxPageBytes: number };
 type ContentDecoder = (body: Buffer, options: { maxOutputLength: number }) => Buffer;
 
-const DEFAULT_MAX_PAGE_BYTES = 32 * 1024 * 1024;
+const DEFAULT_MAX_PAGE_BYTES = 8 * 1024 * 1024;
+const DEFAULT_CONVERSION_TIMEOUT_MS = 30_000;
+const CONVERSION_MAX_OLD_GENERATION_SIZE_MB = 512;
+const CONVERSION_MAX_YOUNG_GENERATION_SIZE_MB = 64;
 const CONTENT_DECODERS = new Map<string, ContentDecoder>([
   ["gzip", gunzipSync],
   ["x-gzip", gunzipSync],
@@ -62,6 +68,9 @@ export interface CrawlOptions {
   maxPages: number;
   maxDepth: number;
   maxPageBytes?: number;
+  conversionTimeoutMs?: number;
+  conversionWorkerUrl?: URL;
+  conversionResourceLimits?: ResourceLimits;
   includePatterns?: string[];
   excludePatterns?: string[];
   minContentWords: number;
@@ -81,6 +90,7 @@ export interface CrawlResult {
   outputPath: string | null;
   discoveredCount: number;
   crawledCount: number;
+  skippedCount: number;
   failedFetchCount: number;
   /** Set for a seed skipped before it can produce saved output. Robots checks use this too. */
   seedSkipReason?: string;
@@ -92,6 +102,92 @@ export interface CrawlResult {
     title: string;
     status: number;
   }>;
+}
+
+class ConversionTimeoutError extends Error {
+  constructor(timeoutMs: number) {
+    super(`conversion timed out after ${timeoutMs} ms`);
+  }
+}
+
+class PageConverter {
+  private worker: Worker | undefined;
+  private nextId = 0;
+
+  constructor(
+    private readonly options: Pick<
+      CrawlOptions,
+      "conversionTimeoutMs" | "conversionWorkerUrl" | "conversionResourceLimits"
+    >,
+  ) {}
+
+  async close(): Promise<void> {
+    const worker = this.worker;
+    this.worker = undefined;
+    if (worker) await worker.terminate();
+  }
+
+  async convert(filename: string, body: string): Promise<ConvertResult> {
+    const timeoutMs = this.options.conversionTimeoutMs ?? DEFAULT_CONVERSION_TIMEOUT_MS;
+    if (!this.worker) {
+      // Source imports in Vitest use the worker emitted by the preceding build.
+      const workerUrl = this.options.conversionWorkerUrl ?? new URL(
+        import.meta.url.endsWith(".ts") ? "../dist/convert-worker.js" : "./convert-worker.js",
+        import.meta.url,
+      );
+      const worker = new Worker(workerUrl, {
+        resourceLimits: {
+          maxOldGenerationSizeMb: CONVERSION_MAX_OLD_GENERATION_SIZE_MB,
+          maxYoungGenerationSizeMb: CONVERSION_MAX_YOUNG_GENERATION_SIZE_MB,
+          ...this.options.conversionResourceLimits,
+        },
+      });
+      this.worker = worker;
+      const clearWorker = () => {
+        if (this.worker === worker) this.worker = undefined;
+      };
+      worker.on("error", clearWorker);
+      worker.on("exit", clearWorker);
+    }
+    const worker = this.worker;
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const cleanup = () => {
+        settled = true;
+        clearTimeout(timer);
+        worker.off("message", onMessage);
+        worker.off("error", onError);
+        worker.off("exit", onExit);
+      };
+      const fail = (error: Error) => {
+        if (settled) return;
+        cleanup();
+        if (this.worker === worker) this.worker = undefined;
+        void worker.terminate().then(() => reject(error), reject);
+      };
+      const onMessage = (message: ConversionResponse) => {
+        if (message.id !== id || settled) return;
+        if ("error" in message) {
+          fail(new Error(message.error));
+        } else {
+          cleanup();
+          resolve(message.result);
+        }
+      };
+      const onError = (error: Error) => { fail(error); };
+      const onExit = (code: number) => { fail(new Error(`worker exited with code ${code}`)); };
+      const timer = setTimeout(() => { fail(new ConversionTimeoutError(timeoutMs)); }, timeoutMs);
+      worker.on("message", onMessage);
+      worker.once("error", onError);
+      worker.once("exit", onExit);
+      try {
+        worker.postMessage({ id, filename, body } satisfies ConversionRequest);
+      } catch (error) {
+        fail(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  }
 }
 
 const TRACKING_QUERY_PARAMS = [
@@ -597,148 +693,161 @@ export async function crawlSite(
     enqueued.add(normalizedStart);
   }
 
-  let processedCount = 0;
-  let fetches = 0;
-  let failedFetchCount = 0;
-  let seedSkipReason: string | undefined;
+  const converter = new PageConverter(options);
+  let skippedCount = 0;
 
-  while (queue.length > 0 && processedCount < options.maxPages) {
-    const item = queue.shift();
-    if (!item) break;
-    if (visited.has(item.url)) continue;
-    visited.add(item.url);
+  try {
+    let processedCount = 0;
+    let fetches = 0;
+    let failedFetchCount = 0;
+    let seedSkipReason: string | undefined;
 
-    if (item.depth > options.maxDepth) continue;
-    if (!isInternalUrl(item.url, startUrl)) continue;
-    if (!shouldIncludeUrl(item.url, includePatterns, excludePatterns)) continue;
+    while (queue.length > 0 && processedCount < options.maxPages) {
+      const item = queue.shift();
+      if (!item) break;
+      if (visited.has(item.url)) continue;
+      visited.add(item.url);
 
-    if (fetches > 0) {
-      await sleep(options.rateLimitMs);
-    }
-    fetches += 1;
+      if (item.depth > options.maxDepth) continue;
+      if (!isInternalUrl(item.url, startUrl)) continue;
+      if (!shouldIncludeUrl(item.url, includePatterns, excludePatterns)) continue;
 
-    const fetched = await fetchText(item.url, fetchOptions);
-    if (fetched.kind === "failure") {
-      warnings.push(`Skipping ${item.url} (${fetched.reason}).`);
-      continue;
-    }
-    if (!fetched.ok) {
-      failedFetchCount += 1;
-      if (item.source === "seed") seedSkipReason = "request failed";
-      warnings.push(`Skipping ${item.url} (HTTP ${fetched.status || "error"}).`);
-      continue;
-    }
-    if (!/html|xml/i.test(fetched.contentType)) {
-      if (item.source === "seed") {
-        seedSkipReason = `non-HTML content type: ${fetched.contentType}`;
+      if (fetches > 0) {
+        await sleep(options.rateLimitMs);
       }
-      warnings.push(`Skipping ${item.url} (non-HTML content type: ${fetched.contentType}).`);
-      continue;
-    }
+      fetches += 1;
 
-    try {
-      const title = extractTitle(fetched.body, item.url);
-      const conversion = options.mapOnly
-        ? null
-        : await convertToMarkdown(`${title || "page"}.html`, fetched.body);
-      const links = item.depth >= options.maxDepth
-        ? []
-        : extractLinksFromHtml(fetched.body, item.url);
-
-      discovered.push({
-        url: item.url,
-        depth: item.depth,
-        source: item.source,
-        title,
-        status: fetched.status,
-      });
-      processedCount += 1;
-
-      if (conversion) {
-        const wordCount = toWordCount(conversion.markdown);
-        if (wordCount >= options.minContentWords) {
-          records.push({
-            url: item.url,
-            title,
-            markdown: conversion.markdown,
-            depth: item.depth,
-            source: item.source,
-            wordCount,
-            warnings: conversion.warnings,
-            fetchedAt: new Date().toISOString(),
-          });
-        } else {
-          warnings.push(
-            `Skipping ${item.url} (content too short: ${wordCount} words, min ${options.minContentWords}).`,
-          );
+      const fetched = await fetchText(item.url, fetchOptions);
+      if (fetched.kind === "failure") {
+        warnings.push(`Skipping ${item.url} (${fetched.reason}).`);
+        continue;
+      }
+      if (!fetched.ok) {
+        failedFetchCount += 1;
+        if (item.source === "seed") seedSkipReason = "request failed";
+        warnings.push(`Skipping ${item.url} (HTTP ${fetched.status || "error"}).`);
+        continue;
+      }
+      if (!/html|xml/i.test(fetched.contentType)) {
+        if (item.source === "seed") {
+          seedSkipReason = `non-HTML content type: ${fetched.contentType}`;
         }
+        warnings.push(`Skipping ${item.url} (non-HTML content type: ${fetched.contentType}).`);
+        continue;
       }
 
-      for (const link of links) {
-        const normalized = normalizeUrl(link, startUrl);
-        if (!normalized) continue;
-        if (!isInternalUrl(normalized, startUrl)) continue;
-        if (!shouldIncludeUrl(normalized, includePatterns, excludePatterns)) continue;
-        if (enqueued.has(normalized) || visited.has(normalized)) continue;
-        queue.push({
-          url: normalized,
-          depth: item.depth + 1,
-          source: "link",
+      try {
+        const title = extractTitle(fetched.body, item.url);
+        const conversion = options.mapOnly
+          ? null
+          : await converter.convert(`${title || "page"}.html`, fetched.body).catch((error: unknown) => {
+            skippedCount += 1;
+            throw error;
+          });
+        const links = item.depth >= options.maxDepth
+          ? []
+          : extractLinksFromHtml(fetched.body, item.url);
+
+        discovered.push({
+          url: item.url,
+          depth: item.depth,
+          source: item.source,
+          title,
+          status: fetched.status,
         });
-        enqueued.add(normalized);
+        processedCount += 1;
+
+        if (conversion) {
+          const wordCount = toWordCount(conversion.markdown);
+          if (wordCount >= options.minContentWords) {
+            records.push({
+              url: item.url,
+              title,
+              markdown: conversion.markdown,
+              depth: item.depth,
+              source: item.source,
+              wordCount,
+              warnings: conversion.warnings,
+              fetchedAt: new Date().toISOString(),
+            });
+          } else {
+            warnings.push(
+              `Skipping ${item.url} (content too short: ${wordCount} words, min ${options.minContentWords}).`,
+            );
+          }
+        }
+
+        for (const link of links) {
+          const normalized = normalizeUrl(link, startUrl);
+          if (!normalized) continue;
+          if (!isInternalUrl(normalized, startUrl)) continue;
+          if (!shouldIncludeUrl(normalized, includePatterns, excludePatterns)) continue;
+          if (enqueued.has(normalized) || visited.has(normalized)) continue;
+          queue.push({
+            url: normalized,
+            depth: item.depth + 1,
+            source: "link",
+          });
+          enqueued.add(normalized);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const reason = error instanceof ConversionTimeoutError ? message : `conversion failed: ${message}`;
+        warnings.push(`Skipping ${item.url} (${reason}).`);
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      warnings.push(`Skipping ${item.url} (conversion failed: ${message}).`);
     }
-  }
 
-  let outputPath: string | null = null;
+    let outputPath: string | null = null;
 
-  if (options.mapOnly) {
-    if (options.outputPath) {
-      outputPath = path.resolve(process.cwd(), options.outputPath);
-      const payload = options.json
-        ? JSON.stringify(discovered, null, 2)
-        : `${discovered.map((entry) => entry.url).join("\n")}\n`;
-      await fs.mkdir(path.dirname(outputPath), { recursive: true });
-      await fs.writeFile(outputPath, payload, "utf8");
+    if (options.mapOnly) {
+      if (options.outputPath) {
+        outputPath = path.resolve(process.cwd(), options.outputPath);
+        const payload = options.json
+          ? JSON.stringify(discovered, null, 2)
+          : `${discovered.map((entry) => entry.url).join("\n")}\n`;
+        await fs.mkdir(path.dirname(outputPath), { recursive: true });
+        await fs.writeFile(outputPath, payload, "utf8");
+      }
+      return {
+        mode: "map",
+        startUrl: normalizedStart,
+        outputPath,
+        discoveredCount: discovered.length,
+        crawledCount: 0,
+        skippedCount,
+        failedFetchCount,
+        seedSkipReason,
+        warnings,
+        discoveredUrls: discovered,
+      };
     }
+
+    const resolvedOutputPath = options.outputPath
+      ? path.resolve(process.cwd(), options.outputPath)
+      : defaultOutputPath(startUrl, options.outputMode);
+    outputPath = resolvedOutputPath;
+
+    if (options.outputMode === "single") {
+      await writeSingleOutput(resolvedOutputPath, startUrl, records);
+    } else if (options.outputMode === "mirror") {
+      await writeMirrorOutput(resolvedOutputPath, records);
+    } else {
+      await writeJsonlOutput(resolvedOutputPath, records);
+    }
+
     return {
-      mode: "map",
+      mode: options.outputMode,
       startUrl: normalizedStart,
       outputPath,
       discoveredCount: discovered.length,
-      crawledCount: 0,
+      crawledCount: records.length,
+      skippedCount,
       failedFetchCount,
       seedSkipReason,
       warnings,
       discoveredUrls: discovered,
     };
+  } finally {
+    await converter.close();
   }
-
-  const resolvedOutputPath = options.outputPath
-    ? path.resolve(process.cwd(), options.outputPath)
-    : defaultOutputPath(startUrl, options.outputMode);
-  outputPath = resolvedOutputPath;
-
-  if (options.outputMode === "single") {
-    await writeSingleOutput(resolvedOutputPath, startUrl, records);
-  } else if (options.outputMode === "mirror") {
-    await writeMirrorOutput(resolvedOutputPath, records);
-  } else {
-    await writeJsonlOutput(resolvedOutputPath, records);
-  }
-
-  return {
-    mode: options.outputMode,
-    startUrl: normalizedStart,
-    outputPath,
-    discoveredCount: discovered.length,
-    crawledCount: records.length,
-    failedFetchCount,
-    seedSkipReason,
-    warnings,
-    discoveredUrls: discovered,
-  };
 }
