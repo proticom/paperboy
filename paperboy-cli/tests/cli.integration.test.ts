@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const cliPath = path.join(process.cwd(), "dist", "cli.js");
 const blockNetwork = fileURLToPath(new URL("./fixtures/block-network.cjs", import.meta.url));
+const robotsUnavailable = fileURLToPath(new URL("./fixtures/robots-unavailable.cjs", import.meta.url));
 
 function runCli(args: string[], configDir: string) {
   return spawnSync(process.execPath, [cliPath, ...args], {
@@ -87,6 +88,106 @@ describe("cli integration", () => {
 
   afterEach(async () => {
     await fs.rm(tempDir, { recursive: true, force: true });
+  });
+
+  it.each([
+    { flags: [], scenario: "page", status: "503", reason: "HTTP 503" },
+    { flags: ["--json"], scenario: "page", status: "429", reason: "HTTP 429" },
+    { flags: ["--map"], scenario: "page", status: "error", reason: "ECONNRESET" },
+    { flags: ["--map", "--json"], scenario: "page", status: "503", reason: "HTTP 503" },
+    { flags: [], scenario: "seed", status: "503", reason: "HTTP 503" },
+    { flags: ["--json"], scenario: "seed", status: "error", reason: "ECONNRESET" },
+    { flags: ["--map"], scenario: "seed", status: "429", reason: "HTTP 429" },
+    { flags: ["--map", "--json"], scenario: "seed", status: "503", reason: "HTTP 503" },
+  ])("reports cross-origin robots failures without changing page exit codes ($scenario, $flags)", async ({ flags, scenario, status, reason }) => {
+    const requestLog = path.join(tempDir, "requests.log");
+    const outputPath = path.join(tempDir, "crawl.md");
+    const origin = "http://127.0.0.1:12345";
+    const targetOrigin = "http://localhost:23456";
+    const result = spawnSync(process.execPath, [
+      "--require", robotsUnavailable, cliPath, "crawl", origin, "--rate-limit-ms", "0", "--min-content-words", "1", "-o", outputPath, ...flags,
+    ], {
+      cwd: tempDir,
+      env: {
+        ...process.env,
+        PAPERBOY_CLI_CONFIG_DIR: configDir,
+        PAPERBOY_TEST_ROBOTS_SCENARIO: scenario,
+        PAPERBOY_TEST_ROBOTS_STATUS: status,
+        PAPERBOY_TEST_REQUEST_LOG: requestLog,
+      },
+      encoding: "utf8", timeout: 10000,
+    });
+    const fatal = scenario === "seed";
+    const unavailable = status === "error"
+      ? { origin: targetOrigin, kind: "error", error: "ECONNRESET" }
+      : { origin: targetOrigin, kind: "http", status: Number(status) };
+    expect(result.status, result.stderr).toBe(fatal ? 1 : 0);
+    const errorLine = fatal
+      ? `Error: robots.txt for ${targetOrigin} is unavailable (${reason}); per RFC 9309 the site is treated as fully disallowed.\n`
+      : `Error: robots.txt for ${targetOrigin} is unavailable (${reason}); per RFC 9309 pages on that host were treated as disallowed.\n`;
+    if (fatal || flags.includes("--json")) {
+      expect(result.stderr).toBe(errorLine);
+    } else {
+      // #41 prints the warnings block on stderr in human mode; the robots error is still printed exactly once.
+      expect(result.stderr.startsWith(errorLine)).toBe(true);
+      expect(result.stderr.match(/^Error: /gm)).toHaveLength(1);
+      expect(result.stderr).toContain(`\nWarnings:\n- Skipping ${origin}/offhost2 (redirect to ${targetOrigin}/`);
+      expect(result.stderr).toContain(`- Skipping ${origin}/offhost3 (redirect to ${targetOrigin}/`);
+    }
+    const requests = (await fs.readFile(requestLog, "utf8")).trim().split("\n");
+    expect(requests).toEqual([
+      `${origin}/robots.txt`, `${origin}/sitemap.xml`, `${origin}/`,
+      ...(fatal ? [] : [`${origin}/offhost2`]),
+      `${targetOrigin}/robots.txt`,
+      ...(fatal ? [] : [`${origin}/next`, `${origin}/offhost3`]),
+    ]);
+    if (fatal) expect(await fs.readdir(tempDir)).toEqual(["config", "requests.log"]);
+    else expect(await fs.readFile(outputPath, "utf8")).toContain(flags.includes("--json") && flags.includes("--map") ? `"url": "${origin}/next"` : `${origin}/next`);
+    if (flags.includes("--json")) {
+      const report = JSON.parse(result.stdout);
+      expect(report.robotsUnavailableOrigins).toEqual([unavailable]);
+      expect(report.robotsUnavailable).toEqual(fatal ? unavailable : null);
+      expect(report.discoveredUrls.map((page: { url: string }) => page.url)).toEqual(fatal ? [] : [`${origin}/`, `${origin}/next`]);
+      expect(report.outputPath).toBe(fatal ? null : outputPath);
+    }
+  });
+
+  it.each([
+    { flags: [], status: "503", reason: "HTTP 503" },
+    { flags: ["--json"], status: "503", reason: "HTTP 503" },
+    { flags: ["--map"], status: "429", reason: "HTTP 429" },
+    { flags: ["--map", "--json"], status: "error", reason: "ECONNRESET" },
+  ])("reports unavailable robots on stderr and exits 1 ($status, $flags)", async ({ flags, status, reason }) => {
+    const requestLog = path.join(tempDir, "requests.log");
+    const outputPath = path.join(tempDir, "crawl.md");
+    const origin = "http://127.0.0.1:12345";
+    const result = spawnSync(process.execPath, [
+      "--require", robotsUnavailable, cliPath, "crawl", origin, "-o", outputPath, ...flags,
+    ], {
+      cwd: tempDir,
+      env: {
+        ...process.env,
+        PAPERBOY_CLI_CONFIG_DIR: configDir,
+        PAPERBOY_TEST_ROBOTS_STATUS: status,
+        PAPERBOY_TEST_REQUEST_LOG: requestLog,
+      },
+      encoding: "utf8",
+      timeout: 10000,
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toBe(`Error: robots.txt for ${origin} is unavailable (${reason}); per RFC 9309 the site is treated as fully disallowed.\n`);
+    expect(await fs.readFile(requestLog, "utf8")).toBe("/robots.txt\n");
+    expect(await fs.readdir(tempDir)).toEqual(["config", "requests.log"]);
+    if (flags.includes("--json")) {
+      const report = JSON.parse(result.stdout);
+      expect(report.robotsUnavailable).toEqual(status === "error"
+        ? { origin, kind: "error", error: "ECONNRESET" }
+        : { origin, kind: "http", status: Number(status) });
+      expect(report.crawledCount).toBe(0);
+      expect(report.discoveredUrls).toEqual([]);
+    } else {
+      expect(result.stdout).toContain(flags.includes("--map") ? "Discovered 0 URLs." : "Crawled 0 pages");
+    }
   });
 
   it("rejects unknown config sub-commands", () => {

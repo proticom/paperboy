@@ -17,14 +17,15 @@ type Route = {
   body: string | Buffer | ((url: URL) => string);
   location?: string;
 };
+type RecordedRequest = { pathname: string; at: number; userAgent: string | undefined };
 
 async function startTestServer(
   routes: Record<string, Route>,
-): Promise<{ baseUrl: string; requests: string[]; close: () => Promise<void> }> {
-  const requests: string[] = [];
+): Promise<{ baseUrl: string; requests: RecordedRequest[]; close: () => Promise<void> }> {
+  const requests: RecordedRequest[] = [];
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
-    requests.push(url.pathname);
+    requests.push({ pathname: url.pathname, at: performance.now(), userAgent: req.headers["user-agent"] });
     const route = routes[url.pathname];
     if (!route) {
       res.statusCode = 404;
@@ -186,6 +187,173 @@ describe("crawlSite", () => {
 
   afterEach(async () => {
     await fs.rm(tempDir, { recursive: true, force: true });
+  });
+
+  it("checks another origin's robots before following a page redirect", async () => {
+    const target = await startTestServer({
+      "/robots.txt": { status: 200, contentType: "text/plain", body: "User-agent: *\nDisallow: /" },
+      "/wild/y": leafPage("Private target"),
+    });
+    try {
+      const seed = await startTestServer({
+        "/robots.txt": { status: 200, contentType: "text/plain", body: "User-agent: *\nAllow: /wild/y" },
+        "/": htmlPage("Home", '<h1>Home page</h1><a href="/offhost2">Other origin</a>'),
+        "/offhost2": { status: 302, contentType: "text/html", body: "", location: `${target.baseUrl}/wild/y` },
+      });
+      try {
+        const outputPath = path.join(tempDir, "mirror");
+        const result = await crawlSite(seed.baseUrl, defaultOptions({ outputMode: "mirror", outputPath }));
+        expect(seed.requests.map(({ pathname }) => pathname)).toEqual(["/robots.txt", "/sitemap.xml", "/", "/offhost2"]);
+        expect(target.requests.map(({ pathname }) => pathname)).toEqual(["/robots.txt"]);
+        expect(target.requests.map(({ userAgent }) => userAgent)).toEqual(["paperboy-cli-test/0.0.0"]);
+        expect(result.discoveredUrls.map(({ url }) => url)).toEqual([`${seed.baseUrl}/`]);
+        expect(result.crawledCount).toBe(1);
+        expect(result.warnings).toEqual([`Skipping ${seed.baseUrl}/offhost2 (redirect to ${target.baseUrl}/wild/y disallowed by robots.txt).`]);
+        expect(await fs.readdir(outputPath)).toEqual(["index.md"]);
+      } finally {
+        await seed.close();
+      }
+    } finally {
+      await target.close();
+    }
+  });
+
+  it.each([false, true])("obeys robots for sitemap URLs and links (mapOnly=%s)", async (mapOnly) => {
+    const server = await startTestServer({
+      "/robots.txt": {
+        status: 200,
+        contentType: "application/octet-stream",
+        body: "User-agent: *\nDisallow: /private\n",
+      },
+      "/sitemap.xml": {
+        status: 200,
+        contentType: "application/xml",
+        body: "<urlset><url><loc>/private/secret</loc></url><url><loc>/private/sitemap.xml</loc></url><url><loc>/public</loc></url></urlset>",
+      },
+      "/": htmlPage("Home", '<h1>Home</h1><p>Public home content.</p><a href="/private/secret">Secret</a><a href="/private/secret">Secret again</a>'),
+      "/public": leafPage("Public"),
+      "/private/secret": leafPage("Secret"),
+      "/private/sitemap.xml": { status: 200, contentType: "application/xml", body: "<urlset/>" },
+    });
+    try {
+      const outputPath = path.join(tempDir, mapOnly ? "map.txt" : "mirror");
+      const result = await crawlSite(server.baseUrl, defaultOptions({
+        mapOnly, outputMode: "mirror", outputPath, maxDepth: 1,
+      }));
+
+      expect(server.requests.map((request) => request.pathname)).toEqual([
+        "/robots.txt", "/sitemap.xml", "/", "/public",
+      ]);
+      expect(server.requests.map((request) => request.userAgent)).toEqual(Array(4).fill("paperboy-cli-test/0.0.0"));
+      expect(result.discoveredUrls.map((entry) => entry.url)).toEqual([
+        `${server.baseUrl}/`, `${server.baseUrl}/public`,
+      ]);
+      expect(result.crawledCount).toBe(mapOnly ? 0 : 2);
+      expect(result.warnings).toEqual([
+        `Skipping ${server.baseUrl}/private/secret (disallowed by robots.txt).`,
+        `Skipping ${server.baseUrl}/private/sitemap.xml (disallowed by robots.txt).`,
+      ]);
+      if (mapOnly) {
+        expect(await fs.readFile(outputPath, "utf8")).toBe(`${server.baseUrl}/\n${server.baseUrl}/public\n`);
+      } else {
+        expect(await fs.readFile(path.join(outputPath, "public/index.md"), "utf8")).toContain("# Public");
+        expect(await fs.readdir(outputPath)).toEqual(["index.md", "public"]);
+      }
+    } finally {
+      await server.close();
+    }
+  });
+
+  it.each([403, 404])("crawls without restrictions for robots HTTP %s", async (status) => {
+    const server = await startTestServer({
+      "/robots.txt": { status, contentType: "text/plain", body: "User-agent: *\nDisallow: /" },
+      "/": htmlPage("Home", '<h1>Home</h1><a href="/private/secret">Secret</a>'),
+      "/private/secret": leafPage("Secret"),
+    });
+    try {
+      const result = await crawlSite(server.baseUrl, defaultOptions({ outputPath: path.join(tempDir, "crawl.md") }));
+      expect(server.requests.map((request) => request.pathname)).toEqual([
+        "/robots.txt", "/sitemap.xml", "/", "/private/secret",
+      ]);
+      expect(result.crawledCount).toBe(2);
+      expect(result.discoveredUrls.map((entry) => entry.url)).toEqual([
+        `${server.baseUrl}/`, `${server.baseUrl}/private/secret`,
+      ]);
+      expect(result.warnings).toEqual([]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it.each([429, 503])("stops without sitemap or page requests for unavailable robots HTTP %s", async (status) => {
+    const server = await startTestServer({
+      "/robots.txt": { status, contentType: "text/plain", body: "Unavailable" },
+      "/": leafPage("Home"),
+    });
+    try {
+      const result = await crawlSite(server.baseUrl, defaultOptions({ outputPath: path.join(tempDir, "crawl.md") }));
+      expect(server.requests.map((request) => request.pathname)).toEqual(["/robots.txt"]);
+      expect(result.robotsUnavailable).toEqual({ origin: server.baseUrl, kind: "http", status });
+      expect(result.crawledCount).toBe(0);
+      expect(result.discoveredUrls).toEqual([]);
+      expect(await fs.readdir(tempDir)).toEqual([]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("skips a disallowed seed without crashing", async () => {
+    const server = await startTestServer({
+      "/robots.txt": { status: 200, contentType: "text/plain", body: "User-agent: *\nDisallow: /private" },
+      "/private/secret": leafPage("Secret"),
+    });
+    try {
+      const result = await crawlSite(`${server.baseUrl}/private/secret`, defaultOptions({ outputPath: path.join(tempDir, "mirror"), outputMode: "mirror" }));
+      expect(server.requests.map((request) => request.pathname)).toEqual(["/robots.txt", "/sitemap.xml"]);
+      expect(result.crawledCount).toBe(0);
+      expect(result.discoveredUrls).toEqual([]);
+      expect(await fs.readdir(path.join(tempDir, "mirror"))).toEqual([]);
+      expect(result.warnings).toEqual([`Skipping ${server.baseUrl}/private/secret (disallowed by robots.txt).`]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it.each([
+    { crawlDelay: 0.2, rateLimitMs: 0 },
+    { crawlDelay: 0.01, rateLimitMs: 200 },
+  ])("spaces page requests by the greater delay ($crawlDelay seconds, $rateLimitMs ms)", async ({ crawlDelay, rateLimitMs }) => {
+    const server = await startTestServer({
+      "/robots.txt": { status: 200, contentType: "text/plain", body: `User-agent: *\nCrawl-delay: ${crawlDelay}` },
+      "/": homeWithAboutContact,
+      "/about": leafPage("About"),
+      "/contact": leafPage("Contact"),
+    });
+    try {
+      const result = await crawlSite(server.baseUrl, defaultOptions({ rateLimitMs, outputPath: path.join(tempDir, "crawl.md") }));
+      expect(result.crawledCount).toBe(3);
+      expect(server.requests.filter((request) => request.pathname === "/robots.txt")).toHaveLength(1);
+      const pages = server.requests.filter((request) => ["/", "/about", "/contact"].includes(request.pathname));
+      expect(pages.map((request) => request.pathname)).toEqual(["/", "/about", "/contact"]);
+      expect(pages[1].at - pages[0].at).toBeGreaterThanOrEqual(180);
+      expect(pages[2].at - pages[1].at).toBeGreaterThanOrEqual(180);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("warns once when robots Crawl-delay exceeds 30 seconds", async () => {
+    const server = await startTestServer({
+      "/robots.txt": { status: 200, contentType: "text/plain", body: "User-agent: *\nCrawl-delay: 31.5" },
+      "/": leafPage("Home"),
+    });
+    try {
+      const result = await crawlSite(server.baseUrl, defaultOptions({ outputPath: path.join(tempDir, "crawl.md") }));
+      expect(result.crawledCount).toBe(1);
+      expect(result.warnings).toEqual(["robots.txt Crawl-delay 31.5s capped at 30s."]);
+    } finally {
+      await server.close();
+    }
   });
 
   it("crawls the seed page and follows internal links", async () => {
@@ -782,7 +950,7 @@ describe("crawlSite", () => {
     }
   });
 
-  it("counts a connection-refused page fetch", async () => {
+  it("stops on a connection-refused robots.txt without counting a page fetch", async () => {
     const server = await startTestServer({ "/": leafPage("Temporary") });
     const closedUrl = server.baseUrl;
     await server.close();
@@ -794,7 +962,9 @@ describe("crawlSite", () => {
     });
 
     expect(result.crawledCount).toBe(0);
-    expect(result.failedFetchCount).toBe(1);
+    // With robots.txt support the refused connection is seen on robots.txt first (RFC 9309: unreachable means complete disallow).
+    expect(result.robotsUnavailable).toMatchObject({ origin: new URL(closedUrl).origin, kind: "error" });
+    expect(result.failedFetchCount).toBe(0);
   });
 
   it("discovers URLs via /sitemap.xml", async () => {
@@ -1165,8 +1335,8 @@ describe("crawlSite", () => {
         `${server.baseUrl}/docs/a.html`,
         `${server.baseUrl}/docs/b.html`,
       ]);
-      expect(server.requests).not.toContain("/a.html");
-      expect(server.requests).not.toContain("/b.html");
+      expect(server.requests.map(({ pathname }) => pathname)).not.toContain("/a.html");
+      expect(server.requests.map(({ pathname }) => pathname)).not.toContain("/b.html");
       expect(result.warnings).not.toContain(
         `Skipping ${server.baseUrl}/a.html (HTTP 404).`,
       );
@@ -1198,8 +1368,8 @@ describe("crawlSite", () => {
         `${server.baseUrl}/docs/a.html`,
         `${server.baseUrl}/docs/b.html`,
       ]);
-      expect(server.requests).not.toContain("/a.html");
-      expect(server.requests).not.toContain("/b.html");
+      expect(server.requests.map(({ pathname }) => pathname)).not.toContain("/a.html");
+      expect(server.requests.map(({ pathname }) => pathname)).not.toContain("/b.html");
     } finally {
       await server.close();
     }
