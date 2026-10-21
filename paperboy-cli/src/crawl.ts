@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { createHash } from "node:crypto";
 import http from "node:http";
 import https from "node:https";
 import path from "node:path";
@@ -234,7 +235,7 @@ function normalizeUrl(
     for (const param of TRACKING_QUERY_PARAMS) {
       url.searchParams.delete(param);
     }
-    url.search = "";
+    url.searchParams.sort();
     if (
       !preserveTrailingSlash &&
       url.pathname.length > 1 &&
@@ -271,13 +272,22 @@ function shouldIncludeUrl(
   return includePatterns.some((pattern) => pattern.test(url));
 }
 
+const NAMED_HTML_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+};
+
 function decodeHtmlEntities(value: string): string {
-  return value
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+  // Single pass, so "&#38;amp;" decodes once to "&amp;" rather than to "&".
+  return value.replace(/&(?:#(\d+)|#x([\da-f]+)|([a-z]+));/gi, (entity, dec?: string, hex?: string, name?: string) => {
+    if (name !== undefined) return NAMED_HTML_ENTITIES[name.toLowerCase()] ?? entity;
+    const code = dec !== undefined ? Number(dec) : Number.parseInt(hex ?? "", 16);
+    if (!Number.isInteger(code) || code < 0 || code > 0x10ffff) return entity;
+    return String.fromCodePoint(code);
+  });
 }
 
 function extractTitle(html: string, fallbackUrl: string): string {
@@ -301,7 +311,7 @@ function extractLinksFromHtml(html: string, baseUrl: string): string[] {
     /<a\b[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>`]+))/gi;
 
   for (const match of html.matchAll(linkPattern)) {
-    const href = (match[1] ?? match[2] ?? match[3] ?? "").trim();
+    const href = decodeHtmlEntities((match[1] ?? match[2] ?? match[3] ?? "").trim());
     if (!href) continue;
     const lower = href.toLowerCase();
     if (
@@ -330,10 +340,7 @@ function parseSitemapLocs(xml: string): string[] {
     const raw = match[1]?.trim();
     if (!raw) continue;
     urls.push(
-      raw
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">"),
+      decodeHtmlEntities(raw),
     );
   }
   return urls;
@@ -549,21 +556,36 @@ function safeFileNameSegment(segment: string): string {
   return cleaned || "index";
 }
 
+function queryFileNameSuffix(parsed: URL): string {
+  if (!parsed.search) return "";
+  const normalizedQuery = parsed.searchParams.toString();
+  const hashInput = `${parsed.pathname}?${normalizedQuery}`;
+  const hash = createHash("sha256").update(hashInput).digest("hex").slice(0, 8);
+  const query = safeFileNameSegment(normalizedQuery.replace(/[=&]/g, "-"));
+  if (query.length <= 80) return `__${query}__${hash}`;
+  return `__${hash}`;
+}
+
 function mirrorPathForUrl(baseDir: string, url: string): string {
   const parsed = new URL(url);
   const rawSegments = parsed.pathname.split("/").filter(Boolean);
   const segments = rawSegments.map(safeFileNameSegment);
+  const querySuffix = queryFileNameSuffix(parsed);
 
   if (segments.length === 0) {
-    return path.join(baseDir, "index.md");
+    return path.join(baseDir, `index${querySuffix}.md`);
   }
 
   const last = segments[segments.length - 1];
   if (!last.includes(".")) {
-    return path.join(baseDir, ...segments, "index.md");
+    if (querySuffix) {
+      segments[segments.length - 1] = `${last}${querySuffix}.md`;
+      return path.join(baseDir, ...segments);
+    }
+    return path.join(baseDir, ...segments, `index${querySuffix}.md`);
   }
 
-  segments[segments.length - 1] = `${last.replace(/\.[^.]+$/, "")}.md`;
+  segments[segments.length - 1] = `${last.replace(/\.[^.]+$/, "")}${querySuffix}.md`;
   return path.join(baseDir, ...segments);
 }
 
