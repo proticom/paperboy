@@ -121,6 +121,22 @@ function splitColumns(items: readonly PdfTextItem[], strips: readonly Strip[]): 
   return columns;
 }
 
+function columnBands(items: readonly PdfTextItem[], gutter: number, bodySize: number): PdfTextItem[][] {
+  const bands: PdfTextItem[][] = [];
+  let previous: Row | undefined;
+  let previousSpanning: boolean | undefined;
+  for (const row of rowsOf(items)) {
+    const spanning = row.items.some((item) => item.x < gutter && item.x + item.width > gutter);
+    const sectionStart = previous && previous.bottom - row.y > bodySize * 1.5
+      && row.items.every((item) => item.x + item.width <= gutter);
+    if (spanning !== previousSpanning || sectionStart) bands.push([]);
+    bands[bands.length - 1].push(...row.items);
+    previous = row;
+    previousSpanning = spanning;
+  }
+  return bands;
+}
+
 export function segmentPage(items: readonly PdfTextItem[], bodySize: number): {
   region: PageRegion; confident: boolean; reasons: readonly string[];
 } {
@@ -138,6 +154,8 @@ export function segmentPage(items: readonly PdfTextItem[], bodySize: number): {
       const columns = splitColumns(part, strips);
       // A page-height gutter survives paragraph gaps and keeps each column's blocks together.
       if (columns.every((column) => proseSupport(column, bodySize))) {
+        const bands = columnBands(part, strips[0].x, bodySize);
+        if (bands.length > 1) return { kind: "bands", children: bands.map((band) => visit(band, depth + 1)) };
         return { kind: "columns", children: columns.map((column) => visit(column, depth + 1)) };
       }
     }
@@ -147,14 +165,7 @@ export function segmentPage(items: readonly PdfTextItem[], bodySize: number): {
       const crosses = (item: PdfTextItem) => item.x < crossed.x && item.x + item.width > crossed.x;
       const beside = part.filter((item) => !crosses(item));
       if (splitColumns(beside, [crossed]).every((column) => proseSupport(column, bodySize))) {
-        const bands: PdfTextItem[][] = [];
-        let previous: boolean | undefined;
-        for (const row of rowsOf(part)) {
-          const spanning = row.items.some(crosses);
-          if (spanning !== previous) bands.push([]);
-          bands[bands.length - 1].push(...row.items);
-          previous = spanning;
-        }
+        const bands = columnBands(part, crossed.x, bodySize);
         if (bands.length > 1) return { kind: "bands", children: bands.map((band) => visit(band, depth + 1)) };
       }
     }

@@ -602,6 +602,47 @@ describe("PDF fixture conversion", () => {
     expect(result.warnings).toEqual([]);
   });
 
+  it("keeps infographic columns, stats, steps, and closing paragraph in reading order", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "paperboy-infographic-fixture-"));
+    const script = fileURLToPath(new URL("./fixtures/make-token-style-pdf.mjs", import.meta.url));
+    const bytes = new Uint8Array(readFileSync(new URL("./fixtures/pdf-token-style-brief.pdf", import.meta.url)));
+    try {
+      execFileSync(process.execPath, [script, directory]);
+      expect(new Uint8Array(readFileSync(join(directory, "pdf-token-style-brief.pdf")))).toEqual(bytes);
+      execFileSync(process.execPath, [script, directory]);
+      expect(new Uint8Array(readFileSync(join(directory, "pdf-token-style-brief.pdf")))).toEqual(bytes);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+    const { markdown } = await convertToMarkdown("pdf-token-style-brief.pdf", bytes);
+    const anchors = [
+      "Smaller prompts", "A plain request", "Three habits", "Trimmed chat history",
+      "Each one is small", "Cap the reply length", "41%", "27%", "22%", "10%",
+      "Log the prompt size", "Compare size and quality", "Start with the two cheapest",
+    ];
+    const positions = anchors.map((anchor) => markdown.indexOf(anchor));
+    for (const position of positions) expect(position).toBeGreaterThanOrEqual(0);
+    const inversions = positions.reduce((count, position, index) =>
+      count + positions.slice(index + 1).filter((next) => position > next).length, 0);
+    expect(inversions).toBe(0);
+
+    const rightStart = markdown.indexOf("Each one is small and easy to check.");
+    for (const text of [
+      "Three habits the team uses today.", "Short system notes", "Cached shared context", "Trimmed chat history",
+    ]) {
+      expect(markdown.indexOf(text)).toBeGreaterThanOrEqual(0);
+      expect(markdown.indexOf(text)).toBeLessThan(rightStart);
+    }
+    expect(markdown).toContain([
+      "Each one is small and easy to check.", "", "- Send diffs, not files", "- Name only the tools in use",
+      "- Summarise old turns", "- Reuse stable prefixes", "- Cap the reply length",
+    ].join("\n"));
+    expect(markdown.match(/\b\d+%/g)).toEqual(["41%", "27%", "22%", "10%"]);
+    expect(markdown.split("\n\n").at(-1)).toBe(
+      "Start with the two cheapest practices this week, then repeat the measurement and keep only the changes that hold quality steady.",
+    );
+  });
+
   it.each(fixtures)("converts $name with readable blocks in order", async ({ name, markdown }) => {
     const bytes = new Uint8Array(readFileSync(new URL(`./fixtures/${name}`, import.meta.url)));
     const result = await convertToMarkdown(name, bytes);
