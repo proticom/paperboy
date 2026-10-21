@@ -1,7 +1,9 @@
 import fs from "node:fs/promises";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -18,6 +20,60 @@ function runCli(args: string[], configDir: string) {
     },
     encoding: "utf8",
   });
+}
+
+function runCliAsync(args: string[], configDir: string): Promise<{
+  status: number | null;
+  stdout: string;
+  stderr: string;
+}> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [cliPath, ...args], {
+      cwd: process.cwd(),
+      env: { ...process.env, PAPERBOY_CLI_CONFIG_DIR: configDir },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
+    child.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+    child.on("error", reject);
+    child.on("close", (status) => resolve({ status, stdout, stderr }));
+  });
+}
+
+async function startCrawlServer(): Promise<{
+  baseUrl: string;
+  close: () => Promise<void>;
+}> {
+  const server = http.createServer((req, res) => {
+    if (req.url === "/json") {
+      res.statusCode = 200;
+      res.setHeader("content-type", "application/json");
+      res.end("{}");
+      return;
+    }
+    if (req.url === "/missing") {
+      res.statusCode = 404;
+      res.end("missing");
+      return;
+    }
+    if (req.url === "/error") {
+      res.statusCode = 500;
+      res.end("error");
+      return;
+    }
+    res.setHeader("content-type", "text/html; charset=utf-8");
+    res.end("<html><head><title>Home</title></head><body><p>Healthy page content.</p><a href=\"/missing\">Missing</a></body></html>");
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  return {
+    baseUrl: `http://127.0.0.1:${port}`,
+    close: () => new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+    }),
+  };
 }
 
 let tempDir = "";
@@ -66,9 +122,18 @@ describe("cli integration", () => {
       ? { origin: targetOrigin, kind: "error", error: "ECONNRESET" }
       : { origin: targetOrigin, kind: "http", status: Number(status) };
     expect(result.status, result.stderr).toBe(fatal ? 1 : 0);
-    expect(result.stderr).toBe(fatal
+    const errorLine = fatal
       ? `Error: robots.txt for ${targetOrigin} is unavailable (${reason}); per RFC 9309 the site is treated as fully disallowed.\n`
-      : `Error: robots.txt for ${targetOrigin} is unavailable (${reason}); per RFC 9309 pages on that host were treated as disallowed.\n`);
+      : `Error: robots.txt for ${targetOrigin} is unavailable (${reason}); per RFC 9309 pages on that host were treated as disallowed.\n`;
+    if (fatal || flags.includes("--json")) {
+      expect(result.stderr).toBe(errorLine);
+    } else {
+      // #41 prints the warnings block on stderr in human mode; the robots error is still printed exactly once.
+      expect(result.stderr.startsWith(errorLine)).toBe(true);
+      expect(result.stderr.match(/^Error: /gm)).toHaveLength(1);
+      expect(result.stderr).toContain(`\nWarnings:\n- Skipping ${origin}/offhost2 (redirect to ${targetOrigin}/`);
+      expect(result.stderr).toContain(`- Skipping ${origin}/offhost3 (redirect to ${targetOrigin}/`);
+    }
     const requests = (await fs.readFile(requestLog, "utf8")).trim().split("\n");
     expect(requests).toEqual([
       `${origin}/robots.txt`, `${origin}/sitemap.xml`, `${origin}/`,
@@ -131,6 +196,37 @@ describe("cli integration", () => {
     expect(result.stderr).toContain("unknown command 'foo'");
   });
 
+  it.each(["2abc", "1.9", "1e3"])('rejects invalid --max-pages value "%s" before crawling', (value) => {
+    const result = runCli(["crawl", "http://127.0.0.1:1", "--max-pages", value], configDir);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`max-pages must be a positive integer. Got: '${value}'.`);
+  });
+
+  it("still rejects zero max pages", () => {
+    const result = runCli(["crawl", "http://127.0.0.1:1", "--max-pages", "0"], configDir);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("max-pages must be a positive integer. Got: '0'.");
+  });
+
+  it.each([
+    ["--max-pages", "positive integer"],
+    ["--max-depth", "zero or a positive integer"],
+    ["--min-content-words", "zero or a positive integer"],
+    ["--rate-limit-ms", "zero or a positive integer"],
+    ["--timeout-ms", "positive integer"],
+    ["--max-sitemaps", "positive integer"],
+  ])("rejects %s above the 32-bit timeout limit", (option, message) => {
+    const result = runCli(["crawl", "http://127.0.0.1:1", option, "2147483648"], configDir);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`${option.slice(2)} must be at most 2147483647. Got: '2147483648'.`);
+    expect(result.stderr).not.toContain(`must be ${message}`);
+  });
+
+  it("accepts zero max depth and reaches the network path", () => {
+    const result = runCli(["crawl", "http://127.0.0.1:1", "--max-depth", "0"], configDir);
+    expect(result.stderr).not.toContain("max-depth must be zero or a positive integer.");
+  });
+
   it("prints config JSON", () => {
     const result = runCli(["config", "show"], configDir);
     expect(result.status).toBe(0);
@@ -162,6 +258,15 @@ describe("cli integration", () => {
     const outputPath = path.join(tempDir, "dispatch.md");
     const markdown = await fs.readFile(outputPath, "utf8");
     expect(markdown).toBe("Local\nEdition");
+  });
+
+  it("converts empty HTML and writes an empty markdown file", async () => {
+    const inputPath = path.join(tempDir, "empty.html");
+    await fs.writeFile(inputPath, "", "utf8");
+
+    const result = runCli(["convert", inputPath], configDir);
+    expect(result.status, result.stderr).toBe(0);
+    expect(await fs.readFile(path.join(tempDir, "empty.md"), "utf8")).toBe("");
   });
 
   it("creates missing parent directories for -o output", async () => {
@@ -250,5 +355,99 @@ describe("cli integration", () => {
     expect(parsed.outputPath).toBeNull();
     expect(parsed.markdown).toBe("Hello world");
     expect(parsed.warnings).toEqual([]);
+  });
+
+  it("returns an error for a 404 seed and keeps warnings off stdout", async () => {
+    const server = await startCrawlServer();
+    try {
+      const result = await runCliAsync([
+        "crawl", `${server.baseUrl}/missing`, "--max-depth", "0", "-o", path.join(tempDir, "404.md"),
+        "--rate-limit-ms", "0", "--timeout-ms", "3000",
+      ], configDir);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("Error: no pages were crawled from");
+      expect(result.stderr).toContain("(HTTP 404)");
+      expect(result.stdout).not.toContain("Warnings:");
+    } finally { await server.close(); }
+  });
+
+  it("returns an error for a 500 seed", async () => {
+    const server = await startCrawlServer();
+    try {
+      const result = await runCliAsync([
+        "crawl", `${server.baseUrl}/error`, "--max-depth", "0", "-o", path.join(tempDir, "500.md"),
+        "--rate-limit-ms", "0", "--timeout-ms", "3000",
+      ], configDir);
+      expect(result.status).toBe(1);
+    } finally { await server.close(); }
+  });
+
+  it("returns an error when the seed is non-HTML", async () => {
+    const server = await startCrawlServer();
+    try {
+      const textResult = await runCliAsync([
+        "crawl", `${server.baseUrl}/json`, "--max-depth", "0", "-o", path.join(tempDir, "json.md"),
+        "--rate-limit-ms", "0", "--timeout-ms", "3000",
+      ], configDir);
+      expect(textResult.status).toBe(1);
+      expect(textResult.stderr).toContain("Error: no pages were crawled from");
+      expect(textResult.stderr).toContain("the seed was skipped (non-HTML content type: application/json)");
+
+      const jsonResult = await runCliAsync([
+        "crawl", `${server.baseUrl}/json`, "--max-depth", "0", "--json", "-o", path.join(tempDir, "json.jsonl"),
+        "--rate-limit-ms", "0", "--timeout-ms", "3000",
+      ], configDir);
+      expect(jsonResult.status).toBe(1);
+      expect(JSON.parse(jsonResult.stdout).seedSkipReason).toContain("non-HTML content type");
+      expect(jsonResult.stdout).not.toContain("Error:");
+    } finally { await server.close(); }
+  });
+
+  it("returns an error for a closed port", async () => {
+    const server = await startCrawlServer();
+    const closedUrl = server.baseUrl;
+    await server.close();
+    const result = await runCliAsync([
+      "crawl", closedUrl, "--max-depth", "0", "-o", path.join(tempDir, "closed.md"),
+      "--rate-limit-ms", "0", "--timeout-ms", "3000",
+    ], configDir);
+    expect(result.status).toBe(1);
+  });
+
+  it("keeps a healthy crawl successful and sends link warnings to stderr", async () => {
+    const server = await startCrawlServer();
+    try {
+      const result = await runCliAsync([
+        "crawl", server.baseUrl, "--max-depth", "1", "-o", path.join(tempDir, "healthy.md"),
+        "--rate-limit-ms", "0", "--timeout-ms", "3000",
+      ], configDir);
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("Crawled 1 pages");
+      expect(result.stderr).toContain("(HTTP 404)");
+    } finally { await server.close(); }
+  });
+
+  it("keeps an include-pattern crawl with no pages successful", async () => {
+    const server = await startCrawlServer();
+    try {
+      const result = await runCliAsync([
+        "crawl", server.baseUrl, "--include-patterns", "zzz", "-o", path.join(tempDir, "filtered.md"),
+        "--rate-limit-ms", "0", "--timeout-ms", "3000",
+      ], configDir);
+      expect(result.status).toBe(0);
+    } finally { await server.close(); }
+  });
+
+  it("reports failed fetches in JSON without an extra error line", async () => {
+    const server = await startCrawlServer();
+    try {
+      const result = await runCliAsync([
+        "crawl", `${server.baseUrl}/missing`, "--max-depth", "0", "--json", "-o", path.join(tempDir, "404.jsonl"),
+        "--rate-limit-ms", "0", "--timeout-ms", "3000",
+      ], configDir);
+      expect(result.status).toBe(1);
+      expect(JSON.parse(result.stdout).failedFetchCount).toBeGreaterThanOrEqual(1);
+      expect(result.stdout).not.toContain("Error:");
+    } finally { await server.close(); }
   });
 });

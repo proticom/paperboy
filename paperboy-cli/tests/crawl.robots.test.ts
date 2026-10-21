@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHttpFixture, type HttpRoute } from "./helpers/http-fixture.ts";
-import { crawlSite, fetchText, type CrawlOptions } from "../src/crawl.ts";
+import { crawlSite, fetchRobotsTxt, type CrawlOptions } from "../src/crawl.ts";
 
 const transport = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock("node:http", () => ({ default: transport }));
@@ -339,8 +339,8 @@ describe("crawl robots enforcement without sockets", () => {
 
   it("returns exactly the byte limit from a chunk that crosses it", async () => {
     const fixture = install({ "/robots.txt": { kind: "response", status: 200, body: [Buffer.from("abc"), Buffer.from("defgh")] } });
-    const result = await fetchText(`${origin}/robots.txt`, 100, "paperboy/test", { maxBytes: 5 });
-    expect(result).toEqual({ ok: true, status: 200, body: "abcde", contentType: "text/html" });
+    const result = await fetchRobotsTxt(`${origin}/robots.txt`, { timeoutMs: 100, userAgent: "paperboy/test" }, 5);
+    expect(result).toEqual({ kind: "response", ok: true, status: 200, body: "abcde", contentType: "text/html", finalUrl: `${origin}/robots.txt` });
     expect(fixture.responses[0].destroyed).toBe(true);
   });
 
@@ -354,11 +354,12 @@ describe("crawl robots enforcement without sockets", () => {
       "/robots.txt": response(`User-agent: *\nCrawl-delay: ${delaySeconds}`),
       "/": page('<a href="/next">Next</a>'), "/next": page("Next"),
     });
-    const pending = crawlSite(origin, { ...options, rateLimitMs });
+    // mapOnly keeps #45's conversion-worker timeout timer out of the fake clock; only the page delay is pending.
+    const pending = crawlSite(origin, { ...options, rateLimitMs, mapOnly: true });
     await vi.waitFor(() => expect(vi.getTimerCount()).toBe(1));
     await vi.runAllTimersAsync();
     const result = await pending;
-    expect(result.crawledCount).toBe(2);
+    expect(result.discoveredCount).toBe(2);
     expect(fixture.requests.map(({ url }) => url)).toEqual([`${origin}/robots.txt`, `${origin}/sitemap.xml`, `${origin}/`, `${origin}/next`]);
     expect(fixture.requests[3].at - fixture.requests[2].at).toBeGreaterThanOrEqual(expectedMs);
     expect(fixture.requests[3].at - fixture.requests[2].at).toBeLessThan(expectedMs + 100);
