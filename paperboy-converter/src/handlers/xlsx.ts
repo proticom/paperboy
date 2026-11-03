@@ -1,7 +1,11 @@
 import * as XLSX from "xlsx";
+import * as cpexcel from "xlsx/dist/cpexcel.full.mjs";
 
 import { rowsToMarkdownTable, stripFileExtension, toArrayBuffer, toBytes } from "../helpers.js";
 import type { ConvertInputData, ConvertOptions, ConvertResult } from "../types.js";
+
+// The ESM build ships without codepage tables, and legacy BIFF text decodes wrongly without them.
+XLSX.set_cptable(cpexcel);
 
 export async function convertXlsx(
   filename: string,
